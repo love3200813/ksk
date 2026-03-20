@@ -206,6 +206,15 @@ h2 { color:#2C2C2C; margin-top:0; }
           <div class="cash-total">$<span id="posTotal">0</span></div>
         </div>
         <div id="posBasketList" style="min-height:30px; color:#888; margin-top:15px; font-size:15px; font-weight:bold;">清單目前是空的</div>
+        
+        <div style="margin-top:15px; padding-top:15px; border-top:1px dashed #EAE8E3;">
+          <label style="font-weight:900; font-size:16px; color:#222;">現場付款方式：</label>
+          <select id="posPayMethod" style="margin-top:8px; width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:16px; font-weight:bold;">
+            <option value="現金">💵 收取現金</option>
+            <option value="LINEPAY(掃立牌)">📱 LINE Pay (客人掃實體立牌)</option>
+          </select>
+        </div>
+        <div class="cash-actions">
         <div class="cash-actions">
           <button class="subbtn" style="background:#EAE8E3; color:#555;" onclick="addToPosBasket()">＋加入清單</button>
           <button id="cashSubmitBtn" class="subbtn subbtn-send" onclick="submitCashOrder()" disabled>確認送出現場單</button>
@@ -493,6 +502,16 @@ function renderBasketList() {
 
 async function submitCashOrder(){
   if(posBasket.length === 0){ alert("請先加入餐點"); return; }
+  
+  // 抓取店員選擇的付款方式
+  const payMethod = document.getElementById("posPayMethod").value;
+  
+  // 【防呆機制】如果是客人掃立牌，跳出視窗強迫店員確認畫面
+  if (payMethod === "LINEPAY(掃立牌)") {
+    const confirmPay = confirm("⚠️ 請確認客人手機已顯示「付款成功」畫面！\n\n確認已收款後，再按下確定送出訂單。");
+    if (!confirmPay) return; // 店員按取消就不送單
+  }
+
   const btn = document.getElementById("cashSubmitBtn");
   btn.disabled = true; btn.innerText = "送單中...";
   
@@ -500,7 +519,7 @@ async function submitCashOrder(){
     items: posBasket.map(i => i.desc).join(","), 
     total: posBasket.reduce((sum, i) => sum + i.price, 0),
     pickupTime: "現場取餐",
-    payMethod: "現金",
+    payMethod: payMethod, // <--- 這裡會帶入選好的付款方式
     customerName: "現場代客",
     customerPhone: "",
     customerLineUserId: ""
