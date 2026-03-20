@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記-嘉義區 POS v27.0 視覺修改與雙聯印單版</title>
+<title>加山記-嘉義區 POS v27.5 歷史訂單修改版</title>
 <style>
 /* =======================================================
    全新日式無印奶油風 CSS (僅修改色彩、陰影、圓角，不影響架構)
@@ -160,7 +160,7 @@ h2 { color:#2C2C2C; margin-top:0; }
         <button onclick="executeSearch()" style="background:#8e44ad; color:#fff; border:none; padding:0 24px; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">搜尋</button>
       </div>
       
-      <div id="searchResults" style="margin-top:20px; max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+      <div id="searchResults" style="margin-top:20px; max-height:500px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
     </div>
 
     <div id="cashPanel" class="cash-panel">
@@ -622,7 +622,6 @@ function renderOrders(list){
       reserveHint = reserveWaiting ? `<div class="meta">預約單：尚未到出單時間，將於取餐前 15 分鐘自動出單</div>` : `<div class="meta">預約單：已進入可出單時段</div>`;
     }
     
-    // 將完整的 order 物件編碼傳遞給修改函數
     const encodedOrder = encodeURIComponent(JSON.stringify(o));
     
     return `
@@ -656,7 +655,6 @@ function renderOrders(list){
    修改訂單與作廢 (精準異動明細紀錄)
    ========================= */
 
-// 解析現有訂單內容到 editSel
 function parseOrderContentToSel(contentStr) {
     let sel = {};
     const items = contentStr.split(/[,|]/).map(i => i.trim()).filter(i=>i);
@@ -674,7 +672,6 @@ function parseOrderContentToSel(contentStr) {
     return sel;
 }
 
-// 開啟修改視窗
 function openEditModal(encodedOrder) {
     const operator = verifyPin("修改訂單內容");
     if (!operator) return;
@@ -682,7 +679,6 @@ function openEditModal(encodedOrder) {
     currentEditOrder = JSON.parse(decodeURIComponent(encodedOrder));
     currentEditOperator = operator;
     
-    // 解析原本點的餐點
     editSel = parseOrderContentToSel(currentEditOrder.content);
     
     document.getElementById("editOrderSeq").innerText = currentEditOrder.seq;
@@ -709,12 +705,10 @@ function updateEditTotal() {
     document.getElementById("editTotalPrice").innerText = total;
 }
 
-// 送出修改訂單 (包含精準異動計算與雙重印單)
 async function submitEditOrder() {
     const btn = document.getElementById("saveEditBtn");
     btn.disabled = true; btn.innerText = "儲存中...";
 
-    // 1. 自動計算異動明細 (增減了什麼)
     const oldSel = parseOrderContentToSel(currentEditOrder.content);
     let added = [];
     let removed = [];
@@ -735,7 +729,6 @@ async function submitEditOrder() {
     if(removed.length) diffParts.push(`－減少: ${removed.join(", ")}`);
     const diffLog = diffParts.join(" ｜ ") || "純粹存檔無異動";
 
-    // 2. 組裝新的內容字串
     const keys = Object.keys(editSel);
     if(keys.length === 0) {
         alert("訂單不能為空，若要取消請使用作廢功能！");
@@ -751,7 +744,6 @@ async function submitEditOrder() {
     });
     const newContentStr = newContentArr.join(",");
 
-    // 3. 送出給後台並呼叫印單
     try {
         setMsg("正在儲存修改...");
         const url = `${GAS_API}?action=updateOrderDetails&row=${currentEditOrder.row}&content=${encodeURIComponent(newContentStr)}&total=${newTotal}&operator=${encodeURIComponent(currentEditOperator)}&diffLog=${encodeURIComponent(diffLog)}&t=${Date.now()}`;
@@ -759,11 +751,9 @@ async function submitEditOrder() {
         const json = await res.json();
         
         if(json.success) {
-            // 更新本機變數以便印單使用
             currentEditOrder.content = newContentStr;
             currentEditOrder.total = newTotal;
             
-            // 🔥 呼叫專屬修改單列印 (包含客人聯 與 廚房聯)
             await printEditReceipts(currentEditOrder, currentEditOperator, diffLog);
             
             alert(`✅ 修改成功！(授權人：${currentEditOperator})\n\n異動明細：\n${diffLog}`);
@@ -779,7 +769,6 @@ async function submitEditOrder() {
     }
 }
 
-// 處理作廢訂單
 async function handleCancelOrder(encodedOrder) {
     const operator = verifyPin("作廢訂單");
     if (!operator) return;
@@ -803,7 +792,6 @@ async function handleCancelOrder(encodedOrder) {
             return;
         }
 
-        // 印出作廢單 (單張即可)
         await printSpecialReceipt(o, "作廢單", operator);
         
         alert(`🗑️ 訂單已作廢！(授權人：${operator})`);
@@ -815,7 +803,6 @@ async function handleCancelOrder(encodedOrder) {
     }
 }
 
-// 原有狀態更新 (完成、通知)
 async function setStatus(row, status){
   const rowKey = String(row); 
   if(status === "已完成") {
@@ -865,7 +852,6 @@ async function autoPrint(list){
       await executeDualPrint(o);
       printedOrders.add(o.id);
       
-      // 自動印單完畢，把狀態改為製作中
       const url = `${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}&operator=系統&t=${Date.now()}`;
       await fetch(url);
       setMsg(`${o.seq} 已送出列印`);
@@ -897,25 +883,19 @@ async function executeDualPrint(o) {
     }
 }
 
-// -----------------------------------------
-// 🔥 專為「修改單」設計的雙重列印功能 🔥
-// -----------------------------------------
 async function printEditReceipts(o, operator, diffLog) {
     if (printerDevice && endpointOut) {
         try {
-            // 1. 印出【修改單-客人聯】(有顯示新總額)
             const custReceipt = buildEditCustomerCanvas(o, operator);
             await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
             await new Promise(r => setTimeout(r, 1500));
             
-            // 2. 印出【修改單-廚房聯】(放大顯示異動明細)
             const kitReceipt = buildEditKitchenCanvas(o, operator, diffLog);
             await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
         } catch(e) { console.error("USB 修改單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
-            // 如果有藍牙標籤機，重新印一次修改後的貼紙
             await printOrderToBLE(o, "修改單");
         } catch(e) { console.error("BLE 修改單列印錯誤", e); }
     }
@@ -977,7 +957,6 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
     ctx.fillText("授權人：" + operator, 10, y); y += 40;
     ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
     
-    // ⚠️ 放大印出異動明細給廚房看
     ctx.font = "bold 30px sans-serif";
     y = drawWrappedText(ctx, "⚠️異動：" + diffLog, 10, y, 360, 40); y += 10;
 
@@ -995,10 +974,6 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
     return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
-
-// -----------------------------------------
-// 一般作廢單列印功能 (只印一張即可)
-// -----------------------------------------
 async function printSpecialReceipt(o, title, operator) {
     if (printerDevice && endpointOut) {
         try {
@@ -1013,7 +988,6 @@ async function printSpecialReceipt(o, title, operator) {
     }
 }
 
-// 產生一般作廢單的畫布
 function buildSpecialReceiptCanvas(o, title, operator){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
   const width = 384; const lineHeight = 42; 
@@ -1047,7 +1021,6 @@ function buildSpecialReceiptCanvas(o, title, operator){
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
   return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
-
 
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -1317,6 +1290,9 @@ function toggleSearchPanel() {
   }
 }
 
+// -----------------------------------------
+// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 🔥
+// -----------------------------------------
 async function executeSearch() {
   const keyword = document.getElementById("searchInput").value.trim();
   const resultsDiv = document.getElementById("searchResults");
@@ -1330,16 +1306,24 @@ async function executeSearch() {
       resultsDiv.innerHTML = "<div style='color:#e74c3c; font-weight:bold; text-align:center; padding:20px;'>找不到符合「" + keyword + "」的訂單</div>";
       return;
     }
-    resultsDiv.innerHTML = data.map(o => `
-      <div style="background:#fafafa; border:1px solid #EAE8E3; border-radius:12px; padding:15px; display:flex; justify-content:space-between; align-items:center;">
+    
+    // 這裡我幫你把「修改」和「作廢」也加進去了
+    resultsDiv.innerHTML = data.map(o => {
+      const encodedOrder = encodeURIComponent(JSON.stringify(o));
+      return `
+      <div style="background:#fafafa; border:1px solid #EAE8E3; border-radius:12px; padding:15px; display:flex; flex-direction:column; gap:12px;">
         <div>
           <div style="font-size:18px; font-weight:900; color:#2c2c2c;">${o.seq || ""} <span style="font-size:13px; color:#888; background:#eee; padding:2px 8px; border-radius:10px; font-weight:normal;">${o.status || ""}</span></div>
           <div style="font-size:14px; color:#555; margin-top:5px; font-weight:bold;">${o.customerName || "無名"} / ${o.customerPhone || "無電話"} / 取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}</div>
           <div style="font-size:15px; color:#D35400; margin-top:5px; font-weight:bold;">${String(o.content || "").replaceAll(",", " + ")} ｜ $${o.total || 0}</div>
         </div>
-        <button class="sbtn reprint" style="min-width:70px;" onclick='manualPrint(${JSON.stringify(encodeURIComponent(JSON.stringify(o)))})'>補印</button>
+        <div style="display:flex; gap:8px;">
+          <button class="sbtn reprint" style="flex:1;" onclick='manualPrint("${encodedOrder}")'>補印</button>
+          <button class="sbtn edit" style="flex:1;" onclick='openEditModal("${encodedOrder}")'>修改</button>
+          <button class="sbtn cancel" style="flex:1;" onclick='handleCancelOrder("${encodedOrder}")'>作廢</button>
+        </div>
       </div>
-    `).join("");
+    `}).join("");
   } catch(err) {
     resultsDiv.innerHTML = `<div style='color:red; font-weight:bold;'>搜尋失敗：${err.message}</div>`;
   }
