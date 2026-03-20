@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加山記點餐</title>
+<style>
+:root{
+  --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b;
+  --muted:#7a7a7a; --primary:#111111; --success:#1f8f55; --danger:#d9534f;
+  --warning:#d98b00; --info:#2563eb; --shadow:0 10px 24px rgba(0,0,0,.06); --radius:18px;
+}
+*{box-sizing:border-box;}
+html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--text); }
+.page{ display:none; max-width:1100px; margin:0 auto; min-height:100vh; padding:18px 16px 40px; }
+.active{ display:block; }
+.topbar{ position:sticky; top:0; z-index:100; background:rgba(245,245,242,.92); backdrop-filter:blur(10px); padding-bottom:12px; }
+.topbar-inner{ display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:14px 16px; box-shadow:var(--shadow); }
+.brand-title{ font-size:26px; font-weight:900; }
+.top-chip{ background:#f3f3f3; border-radius:999px; padding:8px 12px; font-size:13px; color:#555; }
+.btn{ border:none; border-radius:14px; padding:14px 16px; font-size:16px; font-weight:900; cursor:pointer; transition:.18s; }
+.btn-primary{ background:var(--primary); color:#fff; }
+.btn-secondary{ background:#f1f1f1; color:#222; }
+.btn-block{ width:100%; }
+.mode-switch{ display:flex; gap:12px; margin:18px 0 16px; }
+.mode-btn{ flex:1; border:none; border-radius:16px; padding:15px; background:#ececec; font-weight:900; cursor:pointer; }
+.mode-btn.active{ background:#111; color:#fff; }
+.combo-step{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:var(--shadow); margin-bottom:16px; }
+.step-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+.menu-card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; cursor:pointer; transition:.18s; }
+.menu-card.active{ border-color:#111; background:#f9f9f9; box-shadow: inset 0 0 0 1px #111; }
+.menu-img { width:100%; height:130px; object-fit:cover; border-radius:12px; margin-bottom:10px; background:#f0f0f0; }
+.step-lock{ opacity:.4; pointer-events:none; }
+.step-chip{ border-radius:999px; padding:7px 12px; font-size:13px; font-weight:900; background:#f2f2f2; color:#555; }
+.step-chip.ok{ background:#ecfdf3; color:#15803d; }
+.cart-item-box { 
+  background: #fff; 
+  border: 1px solid var(--line); 
+  border-radius: 12px; 
+  padding: 12px 40px 12px 12px; /* 右邊加大到 40px，避免文字撞到 X */
+  margin-bottom: 10px; 
+  position: relative; 
+  border-left: 5px solid #111; 
+  word-break: break-all; /* 強制長文字換行，避免衝出去 */
+}
+.del-btn { position: absolute; top: 10px; right: 10px; color: var(--danger); cursor: pointer; font-weight: bold; }
+.inline-summary{ margin-top:18px; background:#fff; border:2px solid var(--primary); border-radius:20px; padding:18px; box-shadow:var(--shadow); }
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
+.modal.show{ display:flex; }
+.modal-card{ width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; }
+.toast{ position:fixed; left:50%; top:20px; transform:translateX(-50%); background:#111; color:#fff; padding:12px 16px; border-radius:14px; z-index:500; display:none; }
+input, select { width:100%; border:1px solid var(--line); border-radius:14px; padding:14px; font-size:16px; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<div id="orderPage" class="page active">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <div class="brand-title">🍲 加山記 Kashan Kee stew</div>
+        <div style="font-size:13px; color:var(--muted);">加入購物車後可點下一份，最後統一結帳</div>
+      </div>
+      <div class="top-actions">
+        <div class="top-chip">目前總計｜$<b id="cartTotalTop">0</b></div>
+        <button class="btn btn-secondary" onclick="openQueryModal()">查詢訂單</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mode-switch">
+    <button id="modeComboBtn" class="mode-btn" onclick="setOrderMode('combo')" style="display:none;">超值套餐</button>
+    <button id="modeSingleBtn" class="mode-btn active" onclick="setOrderMode('single')">輕鬆單點</button>
+  </div>
+
+  <div id="comboModeWrap" style="display:none;">
+   
+  <div id="comboStep1" class="combo-step">
+    <div class="step-head">
+      <div class="brand-title" style="font-size:20px;">1. 選擇主餐</div>
+      <span id="stepMainChip" class="step-chip">請選擇</span>
+    </div>
+    <div id="mainGrid" class="grid"></div>
+  </div>
+
+  <div id="comboOptionsWrap" class="combo-step step-lock" style="display:none;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--line);">
+      <button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選主餐</button>
+      <div style="font-weight: 900; color: var(--danger); font-size: 18px;" id="selectedMainDisplay"></div>
+    </div>
+    
+    <div class="brand-title" style="font-size:20px; margin-bottom:15px;">2. 套餐配項</div>
+    
+    <div style="margin-bottom:15px;">
+      <label style="font-weight:900; display:block; margin-bottom:5px;">主餐加料 (選填)</label>
+      <select id="comboAddonSelect" onchange="syncComboSelection()"></select>
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label style="font-weight:900; display:block; margin-bottom:5px;">選擇飲料</label>
+      <select id="comboDrinkSelect" onchange="syncComboSelection()"></select>
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label style="font-weight:900; display:block; margin-bottom:5px;">選擇副餐</label>
+      <select id="comboSideSelect" onchange="syncComboSelection()"></select>
+    </div>
+    
+    <div style="padding:10px; background:#fffceb; border-radius:12px; border:1px solid #ffeeba; text-align:right;">
+      <span style="font-weight:bold; color:#856404;">套餐小計：$</span>
+      <span id="currentComboPrice" style="font-size:24px; font-weight:900; color:var(--danger);">0</span>
+    </div>
+  </div>
+</div>
+
+  <div id="singleModeWrap" style="display:block;">
+    <div id="singleMenuWrap"></div>
+  </div>
+
+  <div class="inline-summary" style="border-color: #111; background: #fff;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <div class="brand-title" style="font-size:20px;">🍱 當前餐點小計</div>
+    <div style="font-size:26px; font-weight:900; color:var(--danger);">$<span id="currentComboPriceDisplay">0</span></div>
+  </div>
+  <button class="btn btn-secondary btn-block" style="background:#111; color:#fff;" onclick="addToBasket()">＋加入購物車 (點完請按此)</button>
+</div>
+
+<div id="cartSection" style="margin-top:20px; display:none;">
+  <div class="brand-title" style="font-size:20px; margin-bottom:10px;">🛒 已加入清單</div>
+  <div id="basketItemsList"></div>
+  <div style="height: 100px;"></div> 
+</div>
+  
+<div id="stickyCheckoutBar" style="position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,0.96); backdrop-filter:blur(10px); border-top:2px solid #111; padding:15px 20px; display:none; z-index:999; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);">
+  <div style="max-width:1100px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <div style="font-size:14px; color:#666; font-weight:bold;">共 <span id="cartQty">0</span> 份餐點</div>
+      <div style="font-size:24px; font-weight:900; color:var(--danger);">$<span id="cartTotalBottom">0</span></div>
+    </div>
+    <button id="goCheckoutBtn" class="btn btn-primary" style="padding:12px 40px; font-size:18px;" onclick="showCheckout()">確認結帳 ➔</button>
+  </div>
+</div>
+
+  <div id="checkoutPanel" class="combo-step" style="display:none; margin-top:20px; background:#fdfdfd; border:2px solid var(--info);">
+    <h2 class="brand-title" style="margin-bottom:15px;">步驟 2：確認資料</h2>
+    <div id="checkoutItemsDisplay" style="margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; border:1px solid var(--line);"></div>
+    
+    <label style="font-weight:900;">取餐方式</label>
+    <select id="pickupMode" onchange="handlePickupModeChange()">
+      <option value="onsite">現場取餐（盡快）</option>
+      <option value="reserve">預約取餐</option>
+    </select>
+
+    <div id="reserveFields" style="display:none;">
+      <label style="font-weight:900;">預約日期</label>
+      <select id="pickupDate" onchange="updatePickupTimeOptions()"></select>
+      <label style="font-weight:900;">預約時間</label>
+      <select id="pickupTime"></select>
+    </div>
+
+    <label style="font-weight:900;">付款方式</label>
+    <select id="payMethod">
+      <option value="LINEPAY">LINE Pay</option>
+      <option value="現金">現場付款</option>
+    </select>
+
+    <label style="font-weight:900;">聯絡姓名</label>
+    <input type="text" id="customerName" placeholder="請輸入姓名">
+    <label style="font-weight:900;">聯絡電話</label>
+    <input type="tel" id="customerPhone" placeholder="請輸入電話">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:15px;">
+      <button class="btn btn-secondary" onclick="hideCheckout()">返回點餐</button>
+      <button id="submitBtn" class="btn btn-primary" onclick="submitOrder()">確認送出訂單</button>
+    </div>
+  </div>
+</div>
+
+<div id="successPage" class="page">
+    <div class="combo-step" style="text-align:center;">
+        <h2 class="brand-title">✅ 訂單成立:請稍後等待取餐號碼顯示</h2>
+        <div id="successDetail" style="margin:20px 0; line-height:2; font-size:18px;"></div>
+        <button class="btn btn-primary" onclick="location.reload()">再點一筆/返回首頁查詢訂單狀態</button>
+    </div>
+</div>
+
+<div id="queryModal" class="modal">
+  <div class="modal-card">
+    <div class="step-head">
+      <div class="brand-title">🔍 查詢訂單</div>
+      <button class="btn" style="padding:5px 10px; width:auto;" onclick="closeQueryModal()">✕</button>
+    </div>
+    <input type="text" id="queryInput" placeholder="請輸入取餐號 (例如：#001或#P001)">
+    <div style="font-size:13px; color:#888; margin-bottom:15px; margin-top:-5px;">
+      💡 範例：請輸入取餐號 <b>#001或#P001</b> 或是訂單編號 <b>RW123456789</b>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="queryOrder()">送出查詢</button>
+    <div id="queryResult" style="margin-top:15px;"></div>
+  </div>
+</div>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
+const BUSINESS_OPEN = { h:17, m:0 };
+const BUSINESS_CLOSE = { h:23, m:0 };
+const MIN_RESERVE_MINUTES = 60;
+
+/* --- 動態菜單變數 --- */
+let COMBO_MAINS = [];
+let COMBO_DRINKS = [];
+let COMBO_SIDES = [];
+let COMBO_ADDONS = [];
+let customerLineId = "";
+
+async function initializeLiff() {
+  try {
+    await liff.init({ liffId: "2009537238-tAvQM97u" }); 
+   
+    const profile = await liff.getProfile();
+    customerLineId = profile.userId; // 這裡拿到 Uxxxxxxxx
+    
+    // 自動填入姓名（貼心功能）
+    if(document.getElementById("customerName")) {
+      document.getElementById("customerName").value = profile.displayName;
+    }
+  } catch (err) {
+    console.error("LIFF 初始化失敗:", err);
+  }
+}
+
+async function fetchMenuData() {
+  try {
+    const res = await fetch(GAS_API + "?action=getMenu&t=" + Date.now());
+    const menuData = await res.json();
+    COMBO_MAINS = menuData.mains;
+    COMBO_DRINKS = menuData.drinks;
+    COMBO_SIDES = menuData.sides;
+    COMBO_ADDONS = menuData.addons;
+    renderComboUI();
+    renderSingleUI();
+  } catch(err) { alert("菜單載入失敗：" + err.message); }
+}
+
+/* --- 狀態變數 --- */
+let basket = [];
+let orderMode = "single"; // 預設改為單點
+let curCombo = { main: null, drink: null, side: null, addons: [] };
+let singleSelection = {}; 
+
+function showToast(m) {
+  const t = document.getElementById("toast");
+  t.innerText = m; t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 2500);
+}
+
+function setOrderMode(m) {
+  orderMode = m;
+  document.getElementById("modeComboBtn").classList.toggle("active", m==='combo');
+  document.getElementById("modeSingleBtn").classList.toggle("active", m==='single');
+  document.getElementById("comboModeWrap").style.display = m==='combo'?'block':'none';
+  document.getElementById("singleModeWrap").style.display = m==='single'?'block':'none';
+}
+
+/* --- 下拉選單版：套餐渲染邏輯 --- */
+function renderComboUI() {
+  // 渲染主餐卡片
+  document.getElementById("mainGrid").innerHTML = COMBO_MAINS.map(m => `
+    <div class="menu-card ${curCombo.main?.code===m.code?'active':''}" onclick="selectMain('${m.code}')">
+      ${m.img ? `<img src="${m.img}" class="menu-img">` : ''}
+      <b>${m.code}. ${m.n}</b><br><small>套餐價 $${m.comboPrice}</small>
+    </div>
+  `).join("");
+
+  // 填充加料選單
+  const addonSelect = document.getElementById("comboAddonSelect");
+  addonSelect.innerHTML = '<option value="">(不加料)</option>' + 
+    COMBO_ADDONS.map(a => `<option value="${a.n}">+ $${a.p} ${a.n}</option>`).join("");
+
+  // 填充飲料選單
+  const drinkSelect = document.getElementById("comboDrinkSelect");
+  drinkSelect.innerHTML = COMBO_DRINKS.map(d => 
+    `<option value="${d.n}">${d.n} ${d.extra > 0 ? '(+ $'+d.extra+')' : '(內含)'}</option>`).join("");
+
+  // 填充副餐選單
+  const sideSelect = document.getElementById("comboSideSelect");
+  sideSelect.innerHTML = COMBO_SIDES.map(s => 
+    `<option value="${s.n}">${s.n} ${s.extra > 0 ? '(+ $'+s.extra+')' : '(內含)'}</option>`).join("");
+}
+
+// 點擊主餐
+function selectMain(c) {
+  curCombo.main = COMBO_MAINS.find(x => x.code === c);
+  document.getElementById("comboOptionsWrap").classList.remove("step-lock");
+  document.getElementById("stepMainChip").innerText = "已選";
+  document.getElementById("stepMainChip").className = "step-chip ok";
+  
+  // 【修改點 4：新增跳轉邏輯 (隱藏主餐、顯示配餐)】
+  document.getElementById("comboStep1").style.display = "none";
+  document.getElementById("comboOptionsWrap").style.display = "block";
+  document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
+  window.scrollTo({top: 0, behavior: 'smooth'});
+
+  renderComboUI(); // 更新卡片選中狀態
+  syncComboSelection(); // 同步一次選單數值與價格
+}
+
+// 同步下拉選單並計算「單份小計」
+function syncComboSelection() {
+  if (!curCombo.main) return;
+  
+  const selectedAddonN = document.getElementById("comboAddonSelect").value;
+  const selectedDrinkN = document.getElementById("comboDrinkSelect").value;
+  const selectedSideN = document.getElementById("comboSideSelect").value;
+
+  const addonObj = COMBO_ADDONS.find(a => a.n === selectedAddonN) || { n: "", p: 0 };
+  const drinkObj = COMBO_DRINKS.find(d => d.n === selectedDrinkN) || { n: "未知", extra: 0 };
+  const sideObj = COMBO_SIDES.find(s => s.n === selectedSideN) || { n: "未知", extra: 0 };
+
+  curCombo.drink = drinkObj;
+  curCombo.side = sideObj;
+  curCombo.addons = selectedAddonN ? [addonObj] : [];
+
+  const total = curCombo.main.comboPrice + drinkObj.extra + sideObj.extra + addonObj.p;
+  // 更新兩個地方的小計顯示
+  document.getElementById("currentComboPrice").innerText = total;
+  document.getElementById("currentComboPriceDisplay").innerText = total;
+}
+
+function resetCombo() {
+  curCombo = { main: null, drink: null, side: null, addons: [] };
+  document.getElementById("stepMainChip").innerText = "請選擇";
+  document.getElementById("stepMainChip").className = "step-chip";
+  document.getElementById("comboOptionsWrap").classList.add("step-lock");
+
+  // 【修改點 5：新增返回邏輯 (恢復主餐、隱藏配餐)】
+  document.getElementById("comboStep1").style.display = "block";
+  document.getElementById("comboOptionsWrap").style.display = "none";
+  document.getElementById("selectedMainDisplay").innerText = "";
+
+  document.getElementById("currentComboPrice").innerText = "0";
+  document.getElementById("currentComboPriceDisplay").innerText = "0";
+  document.getElementById("comboAddonSelect").selectedIndex = 0;
+  document.getElementById("comboDrinkSelect").selectedIndex = 0;
+  document.getElementById("comboSideSelect").selectedIndex = 0;
+  renderComboUI();
+}
+
+function renderSingleUI() {
+  const categories = [
+    { name: "主食單點", list: COMBO_MAINS.map(m=>({n:m.n, p:m.singlePrice, img:m.img})) },
+    { name: "燉品單點", list: COMBO_DRINKS.map(d=>({n:d.n, p:d.p, img:d.img})) },
+    { name: "小菜單點", list: COMBO_SIDES.map(s=>({n:s.n, p:s.p, img:s.img})) }
+  ];
+  document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
+    <div class="combo-step">
+      <div class="brand-title" style="font-size:18px; margin-bottom:10px;">${cat.name}</div>
+      <div class="grid">
+        ${cat.list.map(i => `
+          <div class="menu-card">
+            ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
+            <b>${i.n}</b><br>$${i.p}
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
+              <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+function changeSingle(n, d, p) {
+  if(!singleSelection[n]) singleSelection[n] = { q:0, p:p };
+  singleSelection[n].q += d;
+  if(singleSelection[n].q <= 0) delete singleSelection[n];
+  document.getElementById(`single-qty-${n}`).innerText = singleSelection[n]?.q || 0;
+  
+  // 單點模式下，即時更新「當前餐點小計」
+  let singleSum = 0;
+  Object.keys(singleSelection).forEach(k => { singleSum += singleSelection[k].q * singleSelection[k].p; });
+  document.getElementById("currentComboPriceDisplay").innerText = singleSum;
+}
+
+/* --- 購物車與底部結帳條更新 --- */
+function addToBasket() {
+  if (orderMode === "combo") {
+    if(!curCombo.main) return alert("請先選擇主餐！");
+    const addonP = curCombo.addons.reduce((s,a)=>s+a.p, 0);
+    const total = curCombo.main.comboPrice + curCombo.drink.extra + curCombo.side.extra + addonP;
+    const desc = `超值套餐:${curCombo.main.n}(配:${curCombo.drink.n}/${curCombo.side.n}${curCombo.addons.length?',加:'+curCombo.addons.map(a=>a.n).join('|'):''})`;
+    basket.push({ desc, price: total });
+    resetCombo();
+  } else {
+    const keys = Object.keys(singleSelection);
+    if(keys.length===0) return alert("請先選擇品項！");
+    keys.forEach(k => {
+      basket.push({ desc: `輕鬆單點:${k} x ${singleSelection[k].q}`, price: singleSelection[k].p * singleSelection[k].q });
+    });
+    singleSelection = {};
+    renderSingleUI();
+    document.getElementById("currentComboPriceDisplay").innerText = "0";
+  }
+  showToast("已加入購物車");
+  updateBasketUI();
+}
+
+function updateBasketUI() {
+  const list = document.getElementById("basketItemsList");
+  const cartQty = document.getElementById("cartQty");
+  const cartTotalBottom = document.getElementById("cartTotalBottom");
+  const stickyBar = document.getElementById("stickyCheckoutBar");
+  const cartSection = document.getElementById("cartSection");
+  const totalTop = document.getElementById("cartTotalTop");
+
+  if(basket.length === 0){
+    cartSection.style.display = "none";
+    stickyBar.style.display = "none";
+    totalTop.innerText = "0";
+    return;
+  }
+
+  let sum = 0;
+  list.innerHTML = basket.map((item, i) => {
+    sum += item.price;
+    return `
+      <div class="cart-item-box">
+        <span class="del-btn" onclick="removeItem(${i})">✕</span>
+        <b>${item.desc}</b><br>$${item.price}
+      </div>
+    `;
+  }).join("");
+
+  cartQty.innerText = basket.length;
+  cartTotalBottom.innerText = sum;
+  totalTop.innerText = sum;
+  cartSection.style.display = "block";
+  stickyBar.style.display = "block";
+}
+
+function removeItem(i) { basket.splice(i,1); updateBasketUI(); }
+
+/* --- 結帳與送單邏輯 (維持原樣) --- */
+function handlePickupModeChange() {
+  const mode = document.getElementById("pickupMode").value;
+  const payS = document.getElementById("payMethod");
+  const resF = document.getElementById("reserveFields");
+  if(mode==='onsite') {
+    resF.style.display='none';
+    payS.innerHTML = `<option value="LINEPAY">LINE Pay</option><option value="現金">現場付款</option>`;
+  } else {
+    resF.style.display='block';
+    payS.innerHTML = `<option value="LINEPAY">LINE Pay (預約單僅限線上支付)</option>`;
+    initDateOptions();
+  }
+}
+
+function initDateOptions() {
+  const s = document.getElementById("pickupDate");
+  const now = getTaipeiNow();
+  s.innerHTML = [0,1,2].map(i => {
+    const d = new Date(now.getTime() + i*24*60*60*1000);
+    const label = i===0?'今天':(i===1?'明天':'後天');
+    const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    return `<option value="${val}">${label} (${val})</option>`;
+  }).join("");
+  updatePickupTimeOptions();
+}
+
+function updatePickupTimeOptions() {
+  const dateStr = document.getElementById("pickupDate").value;
+  const s = document.getElementById("pickupTime");
+  const now = getTaipeiNow();
+  const minT = new Date(now.getTime() + MIN_RESERVE_MINUTES*60000);
+  let options = [];
+  let cur = new Date(dateStr + "T17:00:00");
+  const end = new Date(dateStr + "T23:00:00");
+  while(cur <= end) {
+    if(cur >= minT) options.push(pad(cur.getHours())+":"+pad(cur.getMinutes()));
+    cur = new Date(cur.getTime() + 30*60000);
+  }
+  s.innerHTML = options.length ? options.map(t=>`<option value="${t}">${t}</option>`).join("") : `<option value="">無可用時段</option>`;
+}
+
+function getTaipeiNow() { return new Date(new Date().toLocaleString("en-US", {timeZone:"Asia/Taipei"})); }
+function pad(n) { return String(n).padStart(2,'0'); }
+
+  function showCheckout() {
+  // 1. 隱藏所有點餐區塊（菜單、小計、購物車、底部懸浮列）
+  document.querySelector(".mode-switch").style.display = "none";
+  document.getElementById("comboModeWrap").style.display = "none";
+  document.getElementById("singleModeWrap").style.display = "none";
+  document.querySelector(".inline-summary").style.display = "none";
+  document.getElementById("cartSection").style.display = "none";
+  document.getElementById("stickyCheckoutBar").style.display = "none";
+
+  // 2. 顯示結帳區塊並更新最終明細
+  document.getElementById("checkoutPanel").style.display = "block";
+  document.getElementById("checkoutItemsDisplay").innerHTML = basket.map(i=>`• ${i.desc} ($${i.price})`).join("<br>");
+  
+  // 3. 畫面自動滾動到最上方，讓客人專心填寫資料
+  window.scrollTo({top: 0, behavior:'smooth'});
+}
+
+function hideCheckout() { 
+  // 1. 隱藏結帳區塊
+  document.getElementById("checkoutPanel").style.display = "none"; 
+  
+  // 2. 把菜單與小計區塊叫回來
+  document.querySelector(".mode-switch").style.display = "flex";
+  document.querySelector(".inline-summary").style.display = "block";
+  
+  // 3. 呼叫原本的功能：恢復客人停留在「套餐」還是「單點」的畫面
+  setOrderMode(orderMode);
+  
+  // 4. 呼叫原本的功能：重新整理購物車清單與底部懸浮列
+  updateBasketUI();
+  
+  // 5. 畫面滾動到最上方，方便客人繼續點餐
+  window.scrollTo({top: 0, behavior:'smooth'});
+}
+
+async function submitOrder() {
+  const name = document.getElementById("customerName").value.trim();
+  const phone = document.getElementById("customerPhone").value.trim();
+  const payMethod = document.getElementById("payMethod").value;
+  if (payMethod === "LINEPAY" && (!name || !phone)) return alert("請填寫聯絡姓名與電話！");
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true; btn.innerText = "送出中...";
+  const mode = document.getElementById("pickupMode").value;
+  let pickup = "現場取餐";
+  if(mode==='reserve') {
+    const t = document.getElementById("pickupTime").value;
+    if(!t) {
+      btn.disabled = false; btn.innerText = "確認送出訂單";
+      return alert("請選擇預約時間！");
+    }
+    pickup = document.getElementById("pickupDate").value + " " + t;
+  }
+
+  const orderData = {
+    items: basket.map(i=>i.desc).join(" | "),
+    total: basket.reduce((s,i)=>s+i.price, 0),
+    pickupTime: pickup,
+    payMethod: payMethod,
+    customerName: name, 
+    customerPhone: phone,
+    lineUserId: customerLineId
+  };
+
+  try {
+    const res = await fetch(GAS_API + "?action=submitOrder&orderData=" + JSON.stringify(orderData));
+    const json = await res.json();
+    
+    // 【新增】如果後台回傳錯誤，立刻跳出警告並恢復按鈕
+    if (json.error) {
+      alert("後台錯誤：" + json.message);
+      btn.disabled = false; btn.innerText = "確認送出訂單";
+      return;
+    }
+
+    if(json.payUrl) {
+      location.href = json.payUrl;
+    } else if(json.status === "success") {
+      document.getElementById("orderPage").style.display='none';
+      document.getElementById("successPage").style.display='block';
+      document.getElementById("successDetail").innerHTML = `取餐號：<b style="font-size:32px; color:var(--danger);">${json.seq}</b><br>ID：${json.orderId}`;
+    }
+  } catch(e) { 
+    alert("系統連線錯誤：" + e.message); 
+    btn.disabled = false; btn.innerText = "確認送出訂單";
+  }
+}
+
+function openQueryModal() { document.getElementById("queryModal").classList.add("show"); }
+function closeQueryModal() { document.getElementById("queryModal").classList.remove("show"); }
+
+async function queryOrder() {
+  let id = document.getElementById("queryInput").value.trim();
+  const resDiv = document.getElementById("queryResult");
+  if (!id) return alert("請輸入號碼");
+  if (/^\d+$/.test(id)) id = "#" + id.padStart(3, "0");
+  resDiv.innerHTML = "查詢中...";
+  try {
+    const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + encodeURIComponent(id) + "&t=" + Date.now());
+    const json = await res.json();
+    if(!json) {
+      resDiv.innerHTML = "查無此訂單";
+    } else {
+      resDiv.innerHTML = `<div style="padding:15px; background:#f9f9f9; border-radius:12px; border-left: 5px solid var(--info);">
+        <b>取餐號：${json.seqId}</b><br>狀態：${json.status}<br>內容：${json.items}</div>`;
+    }
+  } catch(e) { resDiv.innerHTML = "查詢失敗"; }
+}
+
+async function checkLinePayReturn() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const status = urlParams.get('status');
+  const orderId = urlParams.get('orderId');
+  
+  if (status === 'success' && orderId) {
+    document.getElementById("orderPage").style.display = 'none';
+    document.getElementById("successPage").style.display = 'block';
+    
+    // 1. 先顯示正在查詢，讓客人安心
+    const detailDiv = document.getElementById("successDetail");
+    detailDiv.innerHTML = `付款已完成！<br><span style="color:#888; font-size:16px;">正在為您讀取取餐號碼，請稍候...</span>`;
+
+    try {
+      // 2. 向後台查詢這筆訂單 (加上 t=Date.now() 強制不快取，確保抓到最新資料)
+      const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + orderId + "&t=" + Date.now());
+      const json = await res.json();
+      
+      if (json && json.seqId) {
+        // 成功抓到取餐號
+        detailDiv.innerHTML = `LINE Pay 付款成功！<br>取餐號：<b style="font-size:36px; color:var(--danger);">${json.seqId}</b><br><span style="font-size:14px; color:#666;">訂單ID：${orderId}</span>`;
+      } else {
+        // 如果剛好遇到 Google 試算表延遲沒查到，至少顯示訂單 ID 當憑證
+        detailDiv.innerHTML = `LINE Pay 付款成功！<br><span style="color:var(--warning); font-size:20px;">資料同步中，請直接截圖此畫面</span><br>您的訂單編號：<b>${orderId}</b><br><span style="font-size:16px;">請將此編號出示給店員即可取餐。</span>`;
+      }
+    } catch (e) {
+      // 如果客人手機網路突然斷線，也要把訂單 ID 秀出來保護客人
+      detailDiv.innerHTML = `LINE Pay 付款成功！<br><span style="color:var(--warning); font-size:20px;">網路連線較慢，請直接截圖此畫面</span><br>您的訂單編號：<b>${orderId}</b><br><span style="font-size:16px;">請將此編號出示給店員即可取餐。</span>`;
+    }
+
+    // 3. 清除網址列的付款參數，避免客人重新整理網頁又跑一次查詢
+    window.history.replaceState(null, null, window.location.pathname);
+  }
+}
+
+initializeLiff();
+fetchMenuData();
+checkLinePayReturn();
+</script>
+</body>
+</html>
