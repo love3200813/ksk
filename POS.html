@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記-嘉義區 POS v26.5 視覺修改授權版</title>
+<title>加山記-嘉義區 POS v27.0 視覺修改與雙聯印單版</title>
 <style>
 /* =======================================================
    全新日式無印奶油風 CSS (僅修改色彩、陰影、圓角，不影響架構)
@@ -653,7 +653,7 @@ function renderOrders(list){
 }
 
 /* =========================
-   修改訂單與作廢 (授權與印單)
+   修改訂單與作廢 (精準異動明細紀錄)
    ========================= */
 
 // 解析現有訂單內容到 editSel
@@ -687,10 +687,9 @@ function openEditModal(encodedOrder) {
     
     document.getElementById("editOrderSeq").innerText = currentEditOrder.seq;
     document.getElementById("editModal").classList.add("show");
-    renderPosUI(); // 渲染選單並顯示數量
+    renderPosUI(); 
 }
 
-// 關閉修改視窗
 function closeEditModal() {
     document.getElementById("editModal").classList.remove("show");
     editSel = {};
@@ -698,26 +697,45 @@ function closeEditModal() {
     currentEditOperator = null;
 }
 
-// 修改視窗內的加減按鈕
 function changeEditSingle(n, d, p) {
     if(!editSel[n]) editSel[n] = { q:0, p:p }; 
     editSel[n].q += d; if(editSel[n].q <= 0) delete editSel[n]; 
-    renderPosUI(); // 重新渲染數量
+    renderPosUI(); 
 }
 
-// 更新修改視窗內的總計
 function updateEditTotal() {
     let total = 0;
     Object.keys(editSel).forEach(k => { total += editSel[k].q * editSel[k].p; });
     document.getElementById("editTotalPrice").innerText = total;
 }
 
-// 送出修改訂單
+// 送出修改訂單 (包含精準異動計算與雙重印單)
 async function submitEditOrder() {
     const btn = document.getElementById("saveEditBtn");
     btn.disabled = true; btn.innerText = "儲存中...";
 
-    // 組裝新的內容字串
+    // 1. 自動計算異動明細 (增減了什麼)
+    const oldSel = parseOrderContentToSel(currentEditOrder.content);
+    let added = [];
+    let removed = [];
+    
+    Object.keys(editSel).forEach(k => {
+        let oldQ = oldSel[k] ? oldSel[k].q : 0;
+        let newQ = editSel[k].q;
+        if (newQ > oldQ) added.push(`${k} x${newQ - oldQ}`);
+    });
+    Object.keys(oldSel).forEach(k => {
+        let oldQ = oldSel[k].q;
+        let newQ = editSel[k] ? editSel[k].q : 0;
+        if (oldQ > newQ) removed.push(`${k} x${oldQ - newQ}`);
+    });
+    
+    let diffParts = [];
+    if(added.length) diffParts.push(`＋增加: ${added.join(", ")}`);
+    if(removed.length) diffParts.push(`－減少: ${removed.join(", ")}`);
+    const diffLog = diffParts.join(" ｜ ") || "純粹存檔無異動";
+
+    // 2. 組裝新的內容字串
     const keys = Object.keys(editSel);
     if(keys.length === 0) {
         alert("訂單不能為空，若要取消請使用作廢功能！");
@@ -733,21 +751,22 @@ async function submitEditOrder() {
     });
     const newContentStr = newContentArr.join(",");
 
+    // 3. 送出給後台並呼叫印單
     try {
         setMsg("正在儲存修改...");
-        const url = `${GAS_API}?action=updateOrderDetails&row=${currentEditOrder.row}&content=${encodeURIComponent(newContentStr)}&total=${newTotal}&operator=${encodeURIComponent(currentEditOperator)}&t=${Date.now()}`;
+        const url = `${GAS_API}?action=updateOrderDetails&row=${currentEditOrder.row}&content=${encodeURIComponent(newContentStr)}&total=${newTotal}&operator=${encodeURIComponent(currentEditOperator)}&diffLog=${encodeURIComponent(diffLog)}&t=${Date.now()}`;
         const res = await fetch(url);
         const json = await res.json();
         
         if(json.success) {
-            // 更新本機的 currentEditOrder 以便印單使用最新資料
+            // 更新本機變數以便印單使用
             currentEditOrder.content = newContentStr;
             currentEditOrder.total = newTotal;
             
-            // 印出修改單
-            await printSpecialReceipt(currentEditOrder, "修改單", currentEditOperator);
+            // 🔥 呼叫專屬修改單列印 (包含客人聯 與 廚房聯)
+            await printEditReceipts(currentEditOrder, currentEditOperator, diffLog);
             
-            alert(`✅ 修改成功！(授權人：${currentEditOperator})`);
+            alert(`✅ 修改成功！(授權人：${currentEditOperator})\n\n異動明細：\n${diffLog}`);
             closeEditModal();
             fetchOrders(true);
         } else {
@@ -773,7 +792,6 @@ async function handleCancelOrder(encodedOrder) {
     if(card) card.style.display = "none";
 
     try {
-        // 呼叫 GAS 更新狀態，並傳遞 operator 以寫入註記
         const url = `${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('已作廢')}&operator=${encodeURIComponent(operator)}&t=${Date.now()}`;
         const res = await fetch(url);
         const data = await res.json();
@@ -785,7 +803,7 @@ async function handleCancelOrder(encodedOrder) {
             return;
         }
 
-        // 印出作廢單
+        // 印出作廢單 (單張即可)
         await printSpecialReceipt(o, "作廢單", operator);
         
         alert(`🗑️ 訂單已作廢！(授權人：${operator})`);
@@ -879,7 +897,108 @@ async function executeDualPrint(o) {
     }
 }
 
-// 專門印製修改單與作廢單
+// -----------------------------------------
+// 🔥 專為「修改單」設計的雙重列印功能 🔥
+// -----------------------------------------
+async function printEditReceipts(o, operator, diffLog) {
+    if (printerDevice && endpointOut) {
+        try {
+            // 1. 印出【修改單-客人聯】(有顯示新總額)
+            const custReceipt = buildEditCustomerCanvas(o, operator);
+            await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
+            await new Promise(r => setTimeout(r, 1500));
+            
+            // 2. 印出【修改單-廚房聯】(放大顯示異動明細)
+            const kitReceipt = buildEditKitchenCanvas(o, operator, diffLog);
+            await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
+        } catch(e) { console.error("USB 修改單列印錯誤", e); }
+    }
+    if (blePrintCharacteristic) {
+        try {
+            // 如果有藍牙標籤機，重新印一次修改後的貼紙
+            await printOrderToBLE(o, "修改單");
+        } catch(e) { console.error("BLE 修改單列印錯誤", e); }
+    }
+}
+
+function buildEditCustomerCanvas(o, operator) {
+    const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
+    const width = 384; const lineHeight = 40; 
+    const tempCanvas = document.createElement("canvas");
+    const ctx = tempCanvas.getContext("2d");
+    tempCanvas.width = width; tempCanvas.height = 8000; 
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
+    ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+    
+    let y = 10;
+    ctx.fillRect(10, y, width - 20, 50);
+    ctx.fillStyle = "#FFFFFF"; ctx.font = "bold 36px sans-serif"; 
+    ctx.fillText(`【修改單-客人聯】`, 30, y + 5); 
+    ctx.fillStyle = "#000000"; y += 70;
+
+    ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 60;
+    
+    ctx.font = "28px sans-serif";
+    ctx.fillText("授權人：" + operator, 10, y); y += 40;
+    ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
+    ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38;
+    
+    ctx.font = "bold 30px sans-serif"; 
+    for(const item of items){ y = drawWrappedText(ctx, "・ " + item, 10, y, 360, lineHeight); y += 5; }
+    
+    ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38;
+    ctx.font = "bold 42px sans-serif"; ctx.fillText("修改後總計 $" + String(o.total || 0), 10, y); y += 60;
+    
+    const bottomPadding = 96; 
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
+    finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
+    return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+}
+
+function buildEditKitchenCanvas(o, operator, diffLog) {
+    const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
+    const width = 384; const lineHeight = 42; 
+    const tempCanvas = document.createElement("canvas");
+    const ctx = tempCanvas.getContext("2d");
+    tempCanvas.width = width; tempCanvas.height = 8000; 
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
+    ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+    
+    let y = 10;
+    ctx.fillRect(10, y, width - 20, 50);
+    ctx.fillStyle = "#FFFFFF"; ctx.font = "bold 36px sans-serif"; 
+    ctx.fillText(`【修改單-廚房聯】`, 30, y + 5); 
+    ctx.fillStyle = "#000000"; y += 70;
+
+    ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
+    
+    ctx.font = "28px sans-serif";
+    ctx.fillText("授權人：" + operator, 10, y); y += 40;
+    ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
+    
+    // ⚠️ 放大印出異動明細給廚房看
+    ctx.font = "bold 30px sans-serif";
+    y = drawWrappedText(ctx, "⚠️異動：" + diffLog, 10, y, 360, 40); y += 10;
+
+    ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+    
+    ctx.font = "bold 34px sans-serif"; 
+    for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
+    
+    ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+    const bottomPadding = 96; 
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
+    finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
+    return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+}
+
+
+// -----------------------------------------
+// 一般作廢單列印功能 (只印一張即可)
+// -----------------------------------------
 async function printSpecialReceipt(o, title, operator) {
     if (printerDevice && endpointOut) {
         try {
@@ -894,6 +1013,42 @@ async function printSpecialReceipt(o, title, operator) {
     }
 }
 
+// 產生一般作廢單的畫布
+function buildSpecialReceiptCanvas(o, title, operator){
+  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
+  const width = 384; const lineHeight = 42; 
+  const tempCanvas = document.createElement("canvas");
+  const ctx = tempCanvas.getContext("2d");
+  tempCanvas.width = width; tempCanvas.height = 8000; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  
+  let y = 10;
+  ctx.fillRect(10, y, width - 20, 60);
+  ctx.fillStyle = "#FFFFFF"; ctx.font = "bold 46px sans-serif"; 
+  ctx.fillText(`【${title}】`, 100, y + 5); 
+  ctx.fillStyle = "#000000"; y += 80;
+
+  ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
+  
+  ctx.font = "28px sans-serif";
+  ctx.fillText("授權人：" + operator, 10, y); y += 40;
+  ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+  
+  ctx.font = "bold 34px sans-serif"; 
+  for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
+  
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  const bottomPadding = 96; 
+  const finalCanvas = document.createElement("canvas");
+  finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
+  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
+  return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+}
+
+
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
   for (let i = 0; i < chars.length; i++) {
@@ -906,7 +1061,6 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   ctx.fillText(line, x, currentY); return currentY + lineHeight;
 }
 
-// 藍芽單標籤畫布 (支援加上特殊標題)
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
     const width = 320; const height = 240; 
     const canvas = document.createElement("canvas");
@@ -1050,42 +1204,6 @@ function buildKitchenReceiptCanvas(o){
   
   ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
   y = drawWrappedText(ctx, "備註：" + String(o.pay || ""), 10, y, 360, 38); y += 10; 
-
-  const bottomPadding = 96; 
-  const finalCanvas = document.createElement("canvas");
-  finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
-  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
-  return { canvas: finalCanvas, finalHeight: y + bottomPadding };
-}
-
-// 產生修改單/作廢單的畫布
-function buildSpecialReceiptCanvas(o, title, operator){
-  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
-  const width = 384; const lineHeight = 42; 
-  const tempCanvas = document.createElement("canvas");
-  const ctx = tempCanvas.getContext("2d");
-  tempCanvas.width = width; tempCanvas.height = 8000; 
-  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
-  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  
-  let y = 10;
-  // 標題放大反黑
-  ctx.fillRect(10, y, width - 20, 60);
-  ctx.fillStyle = "#FFFFFF"; ctx.font = "bold 46px sans-serif"; 
-  ctx.fillText(`【${title}】`, 100, y + 5); 
-  ctx.fillStyle = "#000000"; y += 80;
-
-  ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
-  
-  ctx.font = "28px sans-serif";
-  ctx.fillText("授權人：" + operator, 10, y); y += 40;
-  ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
-  
-  ctx.font = "bold 34px sans-serif"; 
-  for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
-  
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
 
   const bottomPadding = 96; 
   const finalCanvas = document.createElement("canvas");
