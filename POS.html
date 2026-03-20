@@ -1293,6 +1293,9 @@ function toggleSearchPanel() {
 // -----------------------------------------
 // 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 🔥
 // -----------------------------------------
+// -----------------------------------------
+// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 (加上下單時間) 🔥
+// -----------------------------------------
 async function executeSearch() {
   const keyword = document.getElementById("searchInput").value.trim();
   const resultsDiv = document.getElementById("searchResults");
@@ -1307,14 +1310,16 @@ async function executeSearch() {
       return;
     }
     
-    // 這裡我幫你把「修改」和「作廢」也加進去了
     resultsDiv.innerHTML = data.map(o => {
       const encodedOrder = encodeURIComponent(JSON.stringify(o));
       return `
       <div style="background:#fafafa; border:1px solid #EAE8E3; border-radius:12px; padding:15px; display:flex; flex-direction:column; gap:12px;">
         <div>
-          <div style="font-size:18px; font-weight:900; color:#2c2c2c;">${o.seq || ""} <span style="font-size:13px; color:#888; background:#eee; padding:2px 8px; border-radius:10px; font-weight:normal;">${o.status || ""}</span></div>
-          <div style="font-size:14px; color:#555; margin-top:5px; font-weight:bold;">${o.customerName || "無名"} / ${o.customerPhone || "無電話"} / 取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}</div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="font-size:18px; font-weight:900; color:#2c2c2c;">${o.seq || ""} <span style="font-size:13px; color:#888; background:#eee; padding:2px 8px; border-radius:10px; font-weight:normal;">${o.status || ""}</span></div>
+            <div style="font-size:13px; color:#888; font-weight:bold;">🕒 ${o.createdAt || ""}</div>
+          </div>
+          <div style="font-size:14px; color:#555; margin-top:8px; font-weight:bold;">${o.customerName || "無名"} / ${o.customerPhone || "無電話"} / 取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}</div>
           <div style="font-size:15px; color:#D35400; margin-top:5px; font-weight:bold;">${String(o.content || "").replaceAll(",", " + ")} ｜ $${o.total || 0}</div>
         </div>
         <div style="display:flex; gap:8px;">
