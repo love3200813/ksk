@@ -130,7 +130,7 @@ h2 { color:#2C2C2C; margin-top:0; }
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤貼紙)</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (長明細)</button>
     
-    <button class="btn" style="background:#27ae60;color:#fff;" onclick="connectRawBT()">🌐 建立 RawBT 連線 (安卓平板)</button>
+    <button class="btn" style="background:#27ae60;color:#fff;" onclick="enableRawBT()">🌐 啟用 RawBT 穿透列印 (安卓專用)</button>
     
     <button class="btn btn-info" onclick="fetchOrders()">🔄 重新整理訂單</button>
     <button class="btn btn-info" style="background:#8e44ad;" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
@@ -141,7 +141,7 @@ h2 { color:#2C2C2C; margin-top:0; }
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
     <div id="usbStatus" class="usb-status">USB：尚未連線</div>
     
-    <div id="networkStatus" class="usb-status" style="color:#27ae60;">RawBT：尚未連線</div>
+    <div id="networkStatus" class="usb-status" style="color:#27ae60;">RawBT：尚未啟用</div>
 
     <div class="shift-box" id="shiftBox">
       <div class="shift-title">班次狀態</div>
@@ -288,11 +288,8 @@ async function fetchMenuData() {
 let printerDevice = null;
 let endpointOut = null;
 
-// 【修改：專屬 RawBT 的 WebSocket 變數與檢查函數】
-let rawbtSocket = null; 
-function isRawBTConnected() {
-    return rawbtSocket && rawbtSocket.readyState === WebSocket.OPEN;
-}
+// 【修改：RawBT 穿透模式全域變數】
+let isRawBTMode = false;
 
 let bleDevice = null;
 let blePrintCharacteristic = null;
@@ -425,7 +422,7 @@ async function handleCloseShift(){
     const ok = confirm(`確認交班？\n\n班次：${summary.shiftName}\n開班人員：${summary.operator}\n本班訂單數：${summary.totalOrders}\n已完成：${summary.completedCount}\n未完成：${unfinishedCount}\n現金：$${summary.cashTotal}\nLINEPAY：$${summary.linepayTotal}\n總營業額：$${summary.grandTotal}`);
     if(!ok) return;
     
-    if(printerDevice || isRawBTConnected()) {
+    if(printerDevice || isRawBTMode) {
         await printShiftReceipt({ closeOperator, summary });
     }
     
@@ -561,38 +558,33 @@ async function submitCashOrder(){
 }
 
 /* =========================
-   網路 (RawBT)、藍牙與 USB 連線
+   網路 (RawBT Intent)、藍牙與 USB 連線
    ========================= */
 
-// 【修改：專為安卓平板打造的 RawBT WebSocket 連線】
-function connectRawBT() {
-    try {
-        setMsg("正在尋找 RawBT 服務...");
-        document.getElementById("networkStatus").innerText = "RawBT：連線中...";
-        
-        // RawBT 預設的 WebSocket 通訊埠是 40213
-        rawbtSocket = new WebSocket("ws://127.0.0.1:40213/");
-        rawbtSocket.binaryType = "arraybuffer"; // 設定接收與傳送二進位資料
-        
-        rawbtSocket.onopen = function() {
-            document.getElementById("networkStatus").innerText = "RawBT：已連線";
-            setMsg("RawBT 連線成功！系統會自動印出待列印訂單");
-            fetchOrders();
-        };
-        
-        rawbtSocket.onerror = function(e) {
-            alert("連線失敗！\n\n請確認您的安卓平板：\n1. 已安裝 RawBT APP。\n2. 在 RawBT 設定中開啟了「WebSocket 伺服器 (Local WebServer)」功能。");
-            document.getElementById("networkStatus").innerText = "RawBT：連線失敗";
-            setMsg("RawBT 連線失敗");
-        };
-        
-        rawbtSocket.onclose = function() {
-            document.getElementById("networkStatus").innerText = "RawBT：已斷線";
-        };
-    } catch (err) {
-        alert("網路連線失敗：" + err.message);
-    }
+// 【修改：啟動 RawBT 穿透模式】
+// 這個方法不需要事先連線，只要點擊開啟模式，列印時就會透過 Intent 呼叫 APP
+function enableRawBT() {
+    isRawBTMode = true;
+    document.getElementById("networkStatus").innerText = "RawBT：已啟用 (穿透模式)";
+    setMsg("RawBT 穿透列印已啟用！");
+    // 啟用後自動去抓取訂單來印
+    fetchOrders();
 }
+
+// 將二進位轉為 Base64 字串
+function uint8ToBase64(u8Arr) {
+    let CHUNK_SIZE = 0x8000;
+    let index = 0;
+    let length = u8Arr.length;
+    let result = '';
+    while (index < length) {
+        let slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
+        result += String.fromCharCode.apply(null, slice);
+        index += CHUNK_SIZE;
+    }
+    return btoa(result);
+}
+
 
 async function connectBLE() {
     try {
@@ -900,7 +892,7 @@ async function setStatus(row, status){
    列印相關邏輯
    ========================= */
 async function autoPrint(list){
-  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTConnected()) return;
+  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTMode) return;
 
   for(const o of list){
     if(o.status !== "待列印") continue;
@@ -935,10 +927,10 @@ async function manualPrint(encoded){
 }
 
 async function executeDualPrint(o) {
-    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTConnected()) {
-        throw new Error("請先建立藍牙(標籤)、USB 或 RawBT 連線");
+    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTMode) {
+        throw new Error("請先建立藍牙(標籤)、USB 或啟用 RawBT 模式");
     }
-    if ((printerDevice && endpointOut) || isRawBTConnected()) {
+    if ((printerDevice && endpointOut) || isRawBTMode) {
         printOrderLabel(o).catch(e => console.error("收據列印錯誤", e));
     }
     if (blePrintCharacteristic) {
@@ -947,7 +939,7 @@ async function executeDualPrint(o) {
 }
 
 async function printEditReceipts(o, operator, diffLog) {
-    if ((printerDevice && endpointOut) || isRawBTConnected()) {
+    if ((printerDevice && endpointOut) || isRawBTMode) {
         try {
             const custReceipt = buildEditCustomerCanvas(o, operator);
             await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
@@ -1038,7 +1030,7 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
 }
 
 async function printSpecialReceipt(o, title, operator) {
-    if ((printerDevice && endpointOut) || isRawBTConnected()) {
+    if ((printerDevice && endpointOut) || isRawBTMode) {
         try {
             const receipt = buildSpecialReceiptCanvas(o, title, operator);
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
@@ -1249,7 +1241,7 @@ function buildKitchenReceiptCanvas(o){
 }
 
 async function printOrderLabel(o){
-  if((!printerDevice || !endpointOut) && !isRawBTConnected()) throw new Error("請先建立 USB 或 RawBT 連線");
+  if((!printerDevice || !endpointOut) && !isRawBTMode) throw new Error("請先建立 USB 或啟用 RawBT");
   
   const customerReceipt = buildCustomerReceiptCanvas(o);
   const kitchenReceipt = buildKitchenReceiptCanvas(o);
@@ -1259,13 +1251,13 @@ async function printOrderLabel(o){
   await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
 
-// 【核心修改：將資料一次打包，送給平板上的 RawBT APP】
+// 【核心修改：透過 Intent 直接喚醒 RawBT 並傳送圖片陣列】
 async function printCanvasToPrinter(canvas, finalHeight){
   const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
   const ctx = canvas.getContext("2d"); const widthBytes = 48; 
   const MAX_CHUNK_HEIGHT = 1000;
   
-  let rawbtBuffers = []; // 準備一個籃子，用來收集所有的二進位資料塊
+  let rawbtBuffers = []; 
 
   for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
     const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY);
@@ -1292,12 +1284,12 @@ async function printCanvasToPrinter(canvas, finalHeight){
     const buf = new Uint8Array(header.length + bitmap.length + footer.length);
     buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
     
-    if (isRawBTConnected()) {
-        // 如果是 RawBT，我們先把資料丟進籃子裡收集起來
+    if (isRawBTMode) {
+        // 如果是 RawBT 穿透模式，收集圖片碎片
         rawbtBuffers.push(buf);
     } 
     else if (printerDevice && endpointOut) {
-        // 如果是 USB 連線，照舊分段傳送
+        // 如果是 USB，照舊分段傳送
         const CHUNK_SIZE = 8192; 
         for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
           await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
@@ -1307,21 +1299,22 @@ async function printCanvasToPrinter(canvas, finalHeight){
     await new Promise(resolve => setTimeout(resolve, 600));
   }
 
-  // 【新增：如果是 RawBT，整張圖片計算完畢後，一次把整個大封包送過去】
-  if (isRawBTConnected() && rawbtBuffers.length > 0) {
-      // 算出總長度
+  // 【穿透發射：一次將完整圖片轉為 base64 送給平板】
+  if (isRawBTMode && rawbtBuffers.length > 0) {
       let totalLen = rawbtBuffers.reduce((acc, b) => acc + b.length, 0);
       let finalBuf = new Uint8Array(totalLen);
       let offset = 0;
-      // 把所有碎片拼成一塊大陣列
       for(let b of rawbtBuffers) {
           finalBuf.set(b, offset);
           offset += b.length;
       }
+      
       try {
-          // 透過 WebSocket 把完整的二進位圖片丟給背景的 RawBT APP
-          rawbtSocket.send(finalBuf.buffer);
-      } catch(e) { console.error("RawBT 列印失敗", e); }
+          // 將二進位轉換為 base64
+          let base64Data = uint8ToBase64(finalBuf);
+          // 使用 RawBT 專屬的 intent URL，強制平板開啟 APP 並列印
+          window.location.href = "rawbt:base64," + base64Data;
+      } catch(e) { console.error("RawBT 穿透列印失敗", e); }
   }
 }
 
@@ -1366,7 +1359,7 @@ function buildShiftReceiptCanvas(data){
 }
 
 async function printShiftReceipt(data){
-  if((!printerDevice || !endpointOut) && !isRawBTConnected()) throw new Error("請先建立 USB 或 RawBT 連線");
+  if((!printerDevice || !endpointOut) && !isRawBTMode) throw new Error("請先建立 USB 或啟用 RawBT");
   const receipt = buildShiftReceiptCanvas(data);
   await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
 }
