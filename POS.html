@@ -95,6 +95,9 @@ h2 { color:#2C2C2C; margin-top:0; }
 
 @media (max-width:768px){ .wrap{display:block;} .sidebar{width:100%; border-right:none; border-bottom:1px solid #EAE8E3;} .main{padding:15px;} .cash-actions{grid-template-columns:1fr;} }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/rsvp@4/dist/rsvp.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.2/qz-tray.js"></script>
 </head>
 <body>
    
@@ -129,6 +132,9 @@ h2 { color:#2C2C2C; margin-top:0; }
     <h1>🍲 加山記 POS</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤貼紙)</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (長明細)</button>
+    
+    <button class="btn" style="background:#27ae60;color:#fff;" onclick="connectNetwork()">🌐 建立網路連線 (QZ Tray)</button>
+    
     <button class="btn btn-info" onclick="fetchOrders()">🔄 重新整理訂單</button>
     <button class="btn btn-info" style="background:#8e44ad;" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
@@ -137,6 +143,9 @@ h2 { color:#2C2C2C; margin-top:0; }
 
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
     <div id="usbStatus" class="usb-status">USB：尚未連線</div>
+    
+    <div id="networkStatus" class="usb-status" style="color:#27ae60;">網路：尚未連線</div>
+
     <div class="shift-box" id="shiftBox">
       <div class="shift-title">班次狀態</div>
       <div id="shiftStatus" class="shift-inactive">目前尚未開班</div>
@@ -281,6 +290,9 @@ async function fetchMenuData() {
 
 let printerDevice = null;
 let endpointOut = null;
+// 【新增：QZ Tray 網路設定變數】
+let networkConfig = null; 
+
 let bleDevice = null;
 let blePrintCharacteristic = null;
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb'; 
@@ -412,7 +424,8 @@ async function handleCloseShift(){
     const ok = confirm(`確認交班？\n\n班次：${summary.shiftName}\n開班人員：${summary.operator}\n本班訂單數：${summary.totalOrders}\n已完成：${summary.completedCount}\n未完成：${unfinishedCount}\n現金：$${summary.cashTotal}\nLINEPAY：$${summary.linepayTotal}\n總營業額：$${summary.grandTotal}`);
     if(!ok) return;
     
-    if(printerDevice) {
+    // 【修改：加入網路列印的判斷】
+    if(printerDevice || networkConfig) {
         await printShiftReceipt({ closeOperator, summary });
     }
     
@@ -548,8 +561,45 @@ async function submitCashOrder(){
 }
 
 /* =========================
-   藍牙與 USB 連線
+   網路 (QZ Tray)、藍牙與 USB 連線
    ========================= */
+
+// 【新增：連線 QZ Tray 網路列印功能】
+async function connectNetwork() {
+    try {
+        setMsg("正在尋找 QZ Tray 服務...");
+        document.getElementById("networkStatus").innerText = "網路：連線中...";
+        if (!qz.websocket.isActive()) {
+            await qz.websocket.connect();
+        }
+        // 綁定之前測試成功的 XP-236B
+        const printer = await qz.printers.find("XP-236B"); 
+        networkConfig = qz.configs.create(printer);
+        
+        document.getElementById("networkStatus").innerText = `網路已連線：${printer}`;
+        setMsg("網路印表機連線成功！系統會自動印出待列印訂單");
+        await fetchOrders();
+    } catch (err) {
+        alert("網路連線失敗，請確認有開啟 QZ Tray：" + err.message);
+        document.getElementById("networkStatus").innerText = "網路：連線失敗";
+        setMsg("QZ Tray 連線失敗");
+    }
+}
+
+// 【新增：將二進位影像陣列轉換為 Base64，讓 QZ Tray 也能印出精美排版】
+function uint8ToBase64(u8Arr) {
+    let CHUNK_SIZE = 0x8000;
+    let index = 0;
+    let length = u8Arr.length;
+    let result = '';
+    while (index < length) {
+        let slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
+        result += String.fromCharCode.apply(null, slice);
+        index += CHUNK_SIZE;
+    }
+    return btoa(result);
+}
+
 async function connectBLE() {
     try {
         setMsg("正在尋找藍牙標籤機...");
@@ -856,7 +906,8 @@ async function setStatus(row, status){
    列印相關邏輯
    ========================= */
 async function autoPrint(list){
-  if(!blePrintCharacteristic && (!printerDevice || !endpointOut)) return;
+  // 【修改：加入網路列印的判斷】
+  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !networkConfig) return;
 
   for(const o of list){
     if(o.status !== "待列印") continue;
@@ -891,11 +942,12 @@ async function manualPrint(encoded){
 }
 
 async function executeDualPrint(o) {
-    if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) {
-        throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線");
+    // 【修改：加入網路列印的判斷】
+    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !networkConfig) {
+        throw new Error("請先建立藍牙(標籤)、USB 或網路連線");
     }
-    if (printerDevice && endpointOut) {
-        printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e));
+    if ((printerDevice && endpointOut) || networkConfig) {
+        printOrderLabel(o).catch(e => console.error("收據列印錯誤", e));
     }
     if (blePrintCharacteristic) {
         await printOrderToBLE(o, "");
@@ -903,7 +955,8 @@ async function executeDualPrint(o) {
 }
 
 async function printEditReceipts(o, operator, diffLog) {
-    if (printerDevice && endpointOut) {
+    // 【修改：加入網路列印的判斷】
+    if ((printerDevice && endpointOut) || networkConfig) {
         try {
             const custReceipt = buildEditCustomerCanvas(o, operator);
             await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
@@ -911,7 +964,7 @@ async function printEditReceipts(o, operator, diffLog) {
             
             const kitReceipt = buildEditKitchenCanvas(o, operator, diffLog);
             await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
-        } catch(e) { console.error("USB 修改單列印錯誤", e); }
+        } catch(e) { console.error("USB/網路 修改單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -994,11 +1047,12 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
 }
 
 async function printSpecialReceipt(o, title, operator) {
-    if (printerDevice && endpointOut) {
+    // 【修改：加入網路列印的判斷】
+    if ((printerDevice && endpointOut) || networkConfig) {
         try {
             const receipt = buildSpecialReceiptCanvas(o, title, operator);
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
-        } catch(e) { console.error("USB 特殊單列印錯誤", e); }
+        } catch(e) { console.error("USB/網路 特殊單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -1205,7 +1259,9 @@ function buildKitchenReceiptCanvas(o){
 }
 
 async function printOrderLabel(o){
-  if(!printerDevice || !endpointOut) throw new Error("請先建立 USB 連線");
+  // 【修改：加入網路列印的判斷】
+  if((!printerDevice || !endpointOut) && !networkConfig) throw new Error("請先建立 USB 或網路連線");
+  
   const customerReceipt = buildCustomerReceiptCanvas(o);
   const kitchenReceipt = buildKitchenReceiptCanvas(o);
   
@@ -1214,6 +1270,7 @@ async function printOrderLabel(o){
   await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
 
+// 【核心修改：這段完全攔截原本發往 USB 的 TSPL 二進位圖片碼，無損拋給 QZ Tray】
 async function printCanvasToPrinter(canvas, finalHeight){
   const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
   const ctx = canvas.getContext("2d"); const widthBytes = 48; 
@@ -1244,10 +1301,20 @@ async function printCanvasToPrinter(canvas, finalHeight){
     const buf = new Uint8Array(header.length + bitmap.length + footer.length);
     buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
     
-    const CHUNK_SIZE = 8192; 
-    for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
-      await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
+    // 【新增分支：如果網路有連線，則送交 QZ Tray】
+    if (networkConfig) {
+        try {
+            await qz.print(networkConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: uint8ToBase64(buf) }]);
+        } catch(e) { console.error("QZ Tray 列印區塊失敗", e); }
+    } 
+    // 原本的分支：如果有 USB 連線，則送交 USB
+    else if (printerDevice && endpointOut) {
+        const CHUNK_SIZE = 8192; 
+        for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
+          await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
+        }
     }
+    
     await new Promise(resolve => setTimeout(resolve, 600));
   }
 }
@@ -1293,7 +1360,8 @@ function buildShiftReceiptCanvas(data){
 }
 
 async function printShiftReceipt(data){
-  if(!printerDevice || !endpointOut) throw new Error("請先建立 USB 連線");
+  // 【修改：加入網路列印的判斷】
+  if((!printerDevice || !endpointOut) && !networkConfig) throw new Error("請先建立 USB 或網路連線");
   const receipt = buildShiftReceiptCanvas(data);
   await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
 }
@@ -1309,9 +1377,6 @@ function toggleSearchPanel() {
   }
 }
 
-// -----------------------------------------
-// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 🔥
-// -----------------------------------------
 // -----------------------------------------
 // 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 (加上下單時間) 🔥
 // -----------------------------------------
