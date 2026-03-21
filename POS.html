@@ -129,9 +129,6 @@ h2 { color:#2C2C2C; margin-top:0; }
     <h1>🍲 加山記 POS</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤貼紙)</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (長明細)</button>
-    
-    <button class="btn" style="background:#27ae60;color:#fff;" onclick="enableRawBT()">🌐 啟用 RawBT 穿透列印 (安卓專用)</button>
-    
     <button class="btn btn-info" onclick="fetchOrders()">🔄 重新整理訂單</button>
     <button class="btn btn-info" style="background:#8e44ad;" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
@@ -140,9 +137,6 @@ h2 { color:#2C2C2C; margin-top:0; }
 
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
     <div id="usbStatus" class="usb-status">USB：尚未連線</div>
-    
-    <div id="networkStatus" class="usb-status" style="color:#27ae60;">RawBT：尚未啟用</div>
-
     <div class="shift-box" id="shiftBox">
       <div class="shift-title">班次狀態</div>
       <div id="shiftStatus" class="shift-inactive">目前尚未開班</div>
@@ -239,6 +233,7 @@ h2 { color:#2C2C2C; margin-top:0; }
 // ==========================================
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 
+// 🏆 【員工密碼設定區】 8組獨立密碼
 const EMPLOYEE_PINS = {
   "8801": "店長",
   "8802": "員工A",
@@ -250,6 +245,7 @@ const EMPLOYEE_PINS = {
   "8808": "員工G"
 };
 
+// 密碼驗證函數
 function verifyPin(actionName) {
   const pin = prompt(`⚠️ 執行【${actionName}】需要授權！\n請輸入 4 位數員工密碼：`);
   if (!pin) return null; 
@@ -261,6 +257,7 @@ function verifyPin(actionName) {
   }
 }
 
+/* --- 動態菜單變數 --- */
 let MAINS = [];
 let DRINKS = [];
 let SIDES = [];
@@ -284,10 +281,6 @@ async function fetchMenuData() {
 
 let printerDevice = null;
 let endpointOut = null;
-
-// RawBT 模式變數
-let isRawBTMode = false;
-
 let bleDevice = null;
 let blePrintCharacteristic = null;
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb'; 
@@ -304,6 +297,7 @@ let cashMode = "single";
 let curSel = { main: null, drink: null, side: null, addons: [] };
 let singleSel = {};
 
+// 修改訂單專用狀態變數
 let editSel = {};
 let currentEditOrder = null;
 let currentEditOperator = null;
@@ -418,7 +412,7 @@ async function handleCloseShift(){
     const ok = confirm(`確認交班？\n\n班次：${summary.shiftName}\n開班人員：${summary.operator}\n本班訂單數：${summary.totalOrders}\n已完成：${summary.completedCount}\n未完成：${unfinishedCount}\n現金：$${summary.cashTotal}\nLINEPAY：$${summary.linepayTotal}\n總營業額：$${summary.grandTotal}`);
     if(!ok) return;
     
-    if(printerDevice || isRawBTMode) {
+    if(printerDevice) {
         await printShiftReceipt({ closeOperator, summary });
     }
     
@@ -509,11 +503,13 @@ function renderBasketList() {
 async function submitCashOrder(){
   if(posBasket.length === 0){ alert("請先加入餐點"); return; }
   
+  // 抓取店員選擇的付款方式
   const payMethod = document.getElementById("posPayMethod").value;
   
+  // 【防呆機制】如果是客人掃立牌，跳出視窗強迫店員確認畫面
   if (payMethod === "LINEPAY(掃立牌)") {
     const confirmPay = confirm("⚠️ 請確認客人手機已顯示「付款成功」畫面！\n\n確認已收款後，再按下確定送出訂單。");
-    if (!confirmPay) return; 
+    if (!confirmPay) return; // 店員按取消就不送單
   }
 
   const btn = document.getElementById("cashSubmitBtn");
@@ -523,7 +519,7 @@ async function submitCashOrder(){
     items: posBasket.map(i => i.desc).join(","), 
     total: posBasket.reduce((sum, i) => sum + i.price, 0),
     pickupTime: "現場取餐",
-    payMethod: payMethod, 
+    payMethod: payMethod, // <--- 這裡會帶入選好的付款方式
     customerName: "現場代客",
     customerPhone: "",
     customerLineUserId: ""
@@ -552,16 +548,8 @@ async function submitCashOrder(){
 }
 
 /* =========================
-   網路 (RawBT 圖片穿透)、藍牙與 USB 連線
+   藍牙與 USB 連線
    ========================= */
-
-function enableRawBT() {
-    isRawBTMode = true;
-    document.getElementById("networkStatus").innerText = "RawBT：已啟用 (圖片直接列印)";
-    setMsg("RawBT 圖片列印模式已啟動！");
-    fetchOrders();
-}
-
 async function connectBLE() {
     try {
         setMsg("正在尋找藍牙標籤機...");
@@ -683,7 +671,7 @@ function renderOrders(list){
 }
 
 /* =========================
-   修改訂單與作廢
+   修改訂單與作廢 (精準異動明細紀錄)
    ========================= */
 
 function parseOrderContentToSel(contentStr) {
@@ -868,7 +856,7 @@ async function setStatus(row, status){
    列印相關邏輯
    ========================= */
 async function autoPrint(list){
-  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTMode) return;
+  if(!blePrintCharacteristic && (!printerDevice || !endpointOut)) return;
 
   for(const o of list){
     if(o.status !== "待列印") continue;
@@ -903,67 +891,27 @@ async function manualPrint(encoded){
 }
 
 async function executeDualPrint(o) {
-    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTMode) {
-        throw new Error("請先建立藍牙(標籤)、USB 或啟用 RawBT 模式");
+    if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) {
+        throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線");
     }
-    if ((printerDevice && endpointOut) || isRawBTMode) {
-        printOrderLabel(o).catch(e => console.error("收據列印錯誤", e));
+    if (printerDevice && endpointOut) {
+        printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e));
     }
     if (blePrintCharacteristic) {
         await printOrderToBLE(o, "");
     }
 }
 
-// 【修改：將客人聯和廚房聯接在一起，避免呼叫兩次 RawBT】
-async function printOrderLabel(o){
-  if((!printerDevice || !endpointOut) && !isRawBTMode) throw new Error("請先建立 USB 或啟用 RawBT");
-  
-  const customerReceipt = buildCustomerReceiptCanvas(o);
-  const kitchenReceipt = buildKitchenReceiptCanvas(o);
-  
-  if (isRawBTMode) {
-      // 在 RawBT 模式下，為了避免連續發送被擋，我們把它們拼成一張超長圖
-      const totalHeight = customerReceipt.finalHeight + kitchenReceipt.finalHeight;
-      const combinedCanvas = document.createElement("canvas");
-      combinedCanvas.width = 384;
-      combinedCanvas.height = totalHeight;
-      const ctx = combinedCanvas.getContext("2d");
-      
-      // 畫上客人聯
-      ctx.drawImage(customerReceipt.canvas, 0, 0);
-      // 畫上廚房聯
-      ctx.drawImage(kitchenReceipt.canvas, 0, customerReceipt.finalHeight);
-      
-      await printCanvasToPrinter(combinedCanvas, totalHeight);
-  } else {
-      // 傳統 USB 模式，分開印
-      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
-  }
-}
-
 async function printEditReceipts(o, operator, diffLog) {
-    if ((printerDevice && endpointOut) || isRawBTMode) {
+    if (printerDevice && endpointOut) {
         try {
             const custReceipt = buildEditCustomerCanvas(o, operator);
+            await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
+            await new Promise(r => setTimeout(r, 1500));
+            
             const kitReceipt = buildEditKitchenCanvas(o, operator, diffLog);
-
-            if (isRawBTMode) {
-                // 拼合成一張圖
-                const totalHeight = custReceipt.finalHeight + kitReceipt.finalHeight;
-                const combinedCanvas = document.createElement("canvas");
-                combinedCanvas.width = 384; combinedCanvas.height = totalHeight;
-                const ctx = combinedCanvas.getContext("2d");
-                ctx.drawImage(custReceipt.canvas, 0, 0);
-                ctx.drawImage(kitReceipt.canvas, 0, custReceipt.finalHeight);
-                await printCanvasToPrinter(combinedCanvas, totalHeight);
-            } else {
-                await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
-                await new Promise(r => setTimeout(r, 1500));
-                await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
-            }
-        } catch(e) { console.error("USB/RawBT 修改單列印錯誤", e); }
+            await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
+        } catch(e) { console.error("USB 修改單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -1046,11 +994,11 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
 }
 
 async function printSpecialReceipt(o, title, operator) {
-    if ((printerDevice && endpointOut) || isRawBTMode) {
+    if (printerDevice && endpointOut) {
         try {
             const receipt = buildSpecialReceiptCanvas(o, title, operator);
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
-        } catch(e) { console.error("USB/RawBT 特殊單列印錯誤", e); }
+        } catch(e) { console.error("USB 特殊單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -1256,64 +1204,51 @@ function buildKitchenReceiptCanvas(o){
   return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
+async function printOrderLabel(o){
+  if(!printerDevice || !endpointOut) throw new Error("請先建立 USB 連線");
+  const customerReceipt = buildCustomerReceiptCanvas(o);
+  const kitchenReceipt = buildKitchenReceiptCanvas(o);
+  
+  await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight);
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
+}
 
-// 【核心修改：拋棄 TSPL 指令，直接把圖片塞給 RawBT！】
 async function printCanvasToPrinter(canvas, finalHeight){
-  
-  if (isRawBTMode) {
-      try {
-          // 1. 將你精美的 Canvas 畫布，轉換成標準 PNG 圖片格式
-          const dataUrl = canvas.toDataURL("image/png");
-          
-          // 2. 使用 RawBT 最穩定的 Image Intent 協定送出
-          window.location.href = "rawbt:" + dataUrl;
-          setMsg("已將圖片送交 RawBT 列印...");
-          
-          return; // 後面的程式碼不用跑了，交給 APP 處理！
-      } catch(e) { 
-          console.error("RawBT 圖片發送失敗", e); 
-          return;
-      }
-  }
-  
-  // ---------------- 以下是原有的 USB 列印邏輯 ----------------
-  if (printerDevice && endpointOut) {
-      const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
-      const ctx = canvas.getContext("2d"); const widthBytes = 48; 
-      const MAX_CHUNK_HEIGHT = 1000;
+  const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
+  const ctx = canvas.getContext("2d"); const widthBytes = 48; 
+  const MAX_CHUNK_HEIGHT = 1000;
 
-      for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
-        const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY);
-        const img = ctx.getImageData(0, startY, width, currentHeight).data;
-        const bitmap = new Uint8Array(widthBytes * currentHeight);
-        bitmap.fill(255);
-        
-        for(let py = 0; py < currentHeight; py++){
-          for(let px = 0; px < width; px++){
-            const idx = (py * width + px) * 4;
-            const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
-            if(img[idx+3] > 128 && gray < 180) {
-              bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8)));
-            }
-          }
+  for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
+    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY);
+    const img = ctx.getImageData(0, startY, width, currentHeight).data;
+    const bitmap = new Uint8Array(widthBytes * currentHeight);
+    bitmap.fill(255);
+    
+    for(let py = 0; py < currentHeight; py++){
+      for(let px = 0; px < width; px++){
+        const idx = (py * width + px) * 4;
+        const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
+        if(img[idx+3] > 128 && gray < 180) {
+          bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8)));
         }
-        
-        const mmHeight = Math.max(10, Math.ceil(currentHeight / 8));
-        const header = new TextEncoder().encode(`SIZE 48 mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,48,${currentHeight},0,`);
-        const isLastChunk = (startY + currentHeight >= totalHeight);
-        const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`;
-        const footer = new TextEncoder().encode(footerStr);
-        
-        const buf = new Uint8Array(header.length + bitmap.length + footer.length);
-        buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-        
-        const CHUNK_SIZE = 8192; 
-        for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
-          await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 600));
       }
+    }
+    
+    const mmHeight = Math.max(10, Math.ceil(currentHeight / 8));
+    const header = new TextEncoder().encode(`SIZE 48 mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,48,${currentHeight},0,`);
+    const isLastChunk = (startY + currentHeight >= totalHeight);
+    const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`;
+    const footer = new TextEncoder().encode(footerStr);
+    
+    const buf = new Uint8Array(header.length + bitmap.length + footer.length);
+    buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+    
+    const CHUNK_SIZE = 8192; 
+    for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
+      await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
+    }
+    await new Promise(resolve => setTimeout(resolve, 600));
   }
 }
 
@@ -1358,7 +1293,7 @@ function buildShiftReceiptCanvas(data){
 }
 
 async function printShiftReceipt(data){
-  if((!printerDevice || !endpointOut) && !isRawBTMode) throw new Error("請先建立 USB 或啟用 RawBT");
+  if(!printerDevice || !endpointOut) throw new Error("請先建立 USB 連線");
   const receipt = buildShiftReceiptCanvas(data);
   await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
 }
@@ -1374,6 +1309,12 @@ function toggleSearchPanel() {
   }
 }
 
+// -----------------------------------------
+// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 🔥
+// -----------------------------------------
+// -----------------------------------------
+// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 (加上下單時間) 🔥
+// -----------------------------------------
 async function executeSearch() {
   const keyword = document.getElementById("searchInput").value.trim();
   const resultsDiv = document.getElementById("searchResults");
