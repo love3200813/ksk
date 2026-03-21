@@ -95,9 +95,6 @@ h2 { color:#2C2C2C; margin-top:0; }
 
 @media (max-width:768px){ .wrap{display:block;} .sidebar{width:100%; border-right:none; border-bottom:1px solid #EAE8E3;} .main{padding:15px;} .cash-actions{grid-template-columns:1fr;} }
 </style>
-
-<script src="https://cdn.jsdelivr.net/npm/rsvp@4/dist/rsvp.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.2/qz-tray.js"></script>
 </head>
 <body>
    
@@ -133,7 +130,7 @@ h2 { color:#2C2C2C; margin-top:0; }
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤貼紙)</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (長明細)</button>
     
-    <button class="btn" style="background:#27ae60;color:#fff;" onclick="connectNetwork()">🌐 建立網路連線 (QZ Tray)</button>
+    <button class="btn" style="background:#27ae60;color:#fff;" onclick="connectRawBT()">🌐 建立 RawBT 連線 (安卓平板)</button>
     
     <button class="btn btn-info" onclick="fetchOrders()">🔄 重新整理訂單</button>
     <button class="btn btn-info" style="background:#8e44ad;" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
@@ -144,7 +141,7 @@ h2 { color:#2C2C2C; margin-top:0; }
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
     <div id="usbStatus" class="usb-status">USB：尚未連線</div>
     
-    <div id="networkStatus" class="usb-status" style="color:#27ae60;">網路：尚未連線</div>
+    <div id="networkStatus" class="usb-status" style="color:#27ae60;">RawBT：尚未連線</div>
 
     <div class="shift-box" id="shiftBox">
       <div class="shift-title">班次狀態</div>
@@ -290,8 +287,12 @@ async function fetchMenuData() {
 
 let printerDevice = null;
 let endpointOut = null;
-// 【新增：QZ Tray 網路設定變數】
-let networkConfig = null; 
+
+// 【修改：專屬 RawBT 的 WebSocket 變數與檢查函數】
+let rawbtSocket = null; 
+function isRawBTConnected() {
+    return rawbtSocket && rawbtSocket.readyState === WebSocket.OPEN;
+}
 
 let bleDevice = null;
 let blePrintCharacteristic = null;
@@ -424,8 +425,7 @@ async function handleCloseShift(){
     const ok = confirm(`確認交班？\n\n班次：${summary.shiftName}\n開班人員：${summary.operator}\n本班訂單數：${summary.totalOrders}\n已完成：${summary.completedCount}\n未完成：${unfinishedCount}\n現金：$${summary.cashTotal}\nLINEPAY：$${summary.linepayTotal}\n總營業額：$${summary.grandTotal}`);
     if(!ok) return;
     
-    // 【修改：加入網路列印的判斷】
-    if(printerDevice || networkConfig) {
+    if(printerDevice || isRawBTConnected()) {
         await printShiftReceipt({ closeOperator, summary });
     }
     
@@ -561,43 +561,37 @@ async function submitCashOrder(){
 }
 
 /* =========================
-   網路 (QZ Tray)、藍牙與 USB 連線
+   網路 (RawBT)、藍牙與 USB 連線
    ========================= */
 
-// 【新增：連線 QZ Tray 網路列印功能】
-async function connectNetwork() {
+// 【修改：專為安卓平板打造的 RawBT WebSocket 連線】
+function connectRawBT() {
     try {
-        setMsg("正在尋找 QZ Tray 服務...");
-        document.getElementById("networkStatus").innerText = "網路：連線中...";
-        if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
-        }
-        // 綁定之前測試成功的 XP-236B
-        const printer = await qz.printers.find("XP-236B"); 
-        networkConfig = qz.configs.create(printer);
+        setMsg("正在尋找 RawBT 服務...");
+        document.getElementById("networkStatus").innerText = "RawBT：連線中...";
         
-        document.getElementById("networkStatus").innerText = `網路已連線：${printer}`;
-        setMsg("網路印表機連線成功！系統會自動印出待列印訂單");
-        await fetchOrders();
+        // RawBT 預設的 WebSocket 通訊埠是 40213
+        rawbtSocket = new WebSocket("ws://127.0.0.1:40213/");
+        rawbtSocket.binaryType = "arraybuffer"; // 設定接收與傳送二進位資料
+        
+        rawbtSocket.onopen = function() {
+            document.getElementById("networkStatus").innerText = "RawBT：已連線";
+            setMsg("RawBT 連線成功！系統會自動印出待列印訂單");
+            fetchOrders();
+        };
+        
+        rawbtSocket.onerror = function(e) {
+            alert("連線失敗！\n\n請確認您的安卓平板：\n1. 已安裝 RawBT APP。\n2. 在 RawBT 設定中開啟了「WebSocket 伺服器 (Local WebServer)」功能。");
+            document.getElementById("networkStatus").innerText = "RawBT：連線失敗";
+            setMsg("RawBT 連線失敗");
+        };
+        
+        rawbtSocket.onclose = function() {
+            document.getElementById("networkStatus").innerText = "RawBT：已斷線";
+        };
     } catch (err) {
-        alert("網路連線失敗，請確認有開啟 QZ Tray：" + err.message);
-        document.getElementById("networkStatus").innerText = "網路：連線失敗";
-        setMsg("QZ Tray 連線失敗");
+        alert("網路連線失敗：" + err.message);
     }
-}
-
-// 【新增：將二進位影像陣列轉換為 Base64，讓 QZ Tray 也能印出精美排版】
-function uint8ToBase64(u8Arr) {
-    let CHUNK_SIZE = 0x8000;
-    let index = 0;
-    let length = u8Arr.length;
-    let result = '';
-    while (index < length) {
-        let slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
-        result += String.fromCharCode.apply(null, slice);
-        index += CHUNK_SIZE;
-    }
-    return btoa(result);
 }
 
 async function connectBLE() {
@@ -906,8 +900,7 @@ async function setStatus(row, status){
    列印相關邏輯
    ========================= */
 async function autoPrint(list){
-  // 【修改：加入網路列印的判斷】
-  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !networkConfig) return;
+  if(!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTConnected()) return;
 
   for(const o of list){
     if(o.status !== "待列印") continue;
@@ -942,11 +935,10 @@ async function manualPrint(encoded){
 }
 
 async function executeDualPrint(o) {
-    // 【修改：加入網路列印的判斷】
-    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !networkConfig) {
-        throw new Error("請先建立藍牙(標籤)、USB 或網路連線");
+    if (!blePrintCharacteristic && (!printerDevice || !endpointOut) && !isRawBTConnected()) {
+        throw new Error("請先建立藍牙(標籤)、USB 或 RawBT 連線");
     }
-    if ((printerDevice && endpointOut) || networkConfig) {
+    if ((printerDevice && endpointOut) || isRawBTConnected()) {
         printOrderLabel(o).catch(e => console.error("收據列印錯誤", e));
     }
     if (blePrintCharacteristic) {
@@ -955,8 +947,7 @@ async function executeDualPrint(o) {
 }
 
 async function printEditReceipts(o, operator, diffLog) {
-    // 【修改：加入網路列印的判斷】
-    if ((printerDevice && endpointOut) || networkConfig) {
+    if ((printerDevice && endpointOut) || isRawBTConnected()) {
         try {
             const custReceipt = buildEditCustomerCanvas(o, operator);
             await printCanvasToPrinter(custReceipt.canvas, custReceipt.finalHeight);
@@ -964,7 +955,7 @@ async function printEditReceipts(o, operator, diffLog) {
             
             const kitReceipt = buildEditKitchenCanvas(o, operator, diffLog);
             await printCanvasToPrinter(kitReceipt.canvas, kitReceipt.finalHeight);
-        } catch(e) { console.error("USB/網路 修改單列印錯誤", e); }
+        } catch(e) { console.error("USB/RawBT 修改單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -1047,12 +1038,11 @@ function buildEditKitchenCanvas(o, operator, diffLog) {
 }
 
 async function printSpecialReceipt(o, title, operator) {
-    // 【修改：加入網路列印的判斷】
-    if ((printerDevice && endpointOut) || networkConfig) {
+    if ((printerDevice && endpointOut) || isRawBTConnected()) {
         try {
             const receipt = buildSpecialReceiptCanvas(o, title, operator);
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
-        } catch(e) { console.error("USB/網路 特殊單列印錯誤", e); }
+        } catch(e) { console.error("USB/RawBT 特殊單列印錯誤", e); }
     }
     if (blePrintCharacteristic) {
         try {
@@ -1259,8 +1249,7 @@ function buildKitchenReceiptCanvas(o){
 }
 
 async function printOrderLabel(o){
-  // 【修改：加入網路列印的判斷】
-  if((!printerDevice || !endpointOut) && !networkConfig) throw new Error("請先建立 USB 或網路連線");
+  if((!printerDevice || !endpointOut) && !isRawBTConnected()) throw new Error("請先建立 USB 或 RawBT 連線");
   
   const customerReceipt = buildCustomerReceiptCanvas(o);
   const kitchenReceipt = buildKitchenReceiptCanvas(o);
@@ -1270,11 +1259,13 @@ async function printOrderLabel(o){
   await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
 
-// 【核心修改：這段完全攔截原本發往 USB 的 TSPL 二進位圖片碼，無損拋給 QZ Tray】
+// 【核心修改：將資料一次打包，送給平板上的 RawBT APP】
 async function printCanvasToPrinter(canvas, finalHeight){
   const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
   const ctx = canvas.getContext("2d"); const widthBytes = 48; 
   const MAX_CHUNK_HEIGHT = 1000;
+  
+  let rawbtBuffers = []; // 準備一個籃子，用來收集所有的二進位資料塊
 
   for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
     const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY);
@@ -1301,14 +1292,12 @@ async function printCanvasToPrinter(canvas, finalHeight){
     const buf = new Uint8Array(header.length + bitmap.length + footer.length);
     buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
     
-    // 【新增分支：如果網路有連線，則送交 QZ Tray】
-    if (networkConfig) {
-        try {
-            await qz.print(networkConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: uint8ToBase64(buf) }]);
-        } catch(e) { console.error("QZ Tray 列印區塊失敗", e); }
+    if (isRawBTConnected()) {
+        // 如果是 RawBT，我們先把資料丟進籃子裡收集起來
+        rawbtBuffers.push(buf);
     } 
-    // 原本的分支：如果有 USB 連線，則送交 USB
     else if (printerDevice && endpointOut) {
+        // 如果是 USB 連線，照舊分段傳送
         const CHUNK_SIZE = 8192; 
         for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
           await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
@@ -1316,6 +1305,23 @@ async function printCanvasToPrinter(canvas, finalHeight){
     }
     
     await new Promise(resolve => setTimeout(resolve, 600));
+  }
+
+  // 【新增：如果是 RawBT，整張圖片計算完畢後，一次把整個大封包送過去】
+  if (isRawBTConnected() && rawbtBuffers.length > 0) {
+      // 算出總長度
+      let totalLen = rawbtBuffers.reduce((acc, b) => acc + b.length, 0);
+      let finalBuf = new Uint8Array(totalLen);
+      let offset = 0;
+      // 把所有碎片拼成一塊大陣列
+      for(let b of rawbtBuffers) {
+          finalBuf.set(b, offset);
+          offset += b.length;
+      }
+      try {
+          // 透過 WebSocket 把完整的二進位圖片丟給背景的 RawBT APP
+          rawbtSocket.send(finalBuf.buffer);
+      } catch(e) { console.error("RawBT 列印失敗", e); }
   }
 }
 
@@ -1360,8 +1366,7 @@ function buildShiftReceiptCanvas(data){
 }
 
 async function printShiftReceipt(data){
-  // 【修改：加入網路列印的判斷】
-  if((!printerDevice || !endpointOut) && !networkConfig) throw new Error("請先建立 USB 或網路連線");
+  if((!printerDevice || !endpointOut) && !isRawBTConnected()) throw new Error("請先建立 USB 或 RawBT 連線");
   const receipt = buildShiftReceiptCanvas(data);
   await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
 }
@@ -1377,9 +1382,6 @@ function toggleSearchPanel() {
   }
 }
 
-// -----------------------------------------
-// 🔥 將修改與作廢按鈕加入歷史訂單搜尋結果 (加上下單時間) 🔥
-// -----------------------------------------
 async function executeSearch() {
   const keyword = document.getElementById("searchInput").value.trim();
   const resultsDiv = document.getElementById("searchResults");
