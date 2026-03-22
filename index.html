@@ -293,17 +293,28 @@ function renderSingleUI() {
     // 【宅配模式】：只顯示燉湯，且必須標記為可宅配 (Y)
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y");
     categories = [
-      { name: "🚚 低溫宅配燉品專區", list: filteredDrinks }
+      { name: "🚚 低溫宅配燉品專區", list: filteredDrinks.map(d => ({ n: d.n, p: d.p, img: d.img })) }
     ];
   } else {
-    // 【門市模式】：顯示所有餐點類別 (主食、燉湯、小菜)
+    // 【門市模式】：顯示所有餐點類別
+    // 注意：這裡統一將價格對齊為 p
     categories = [
-      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: m.singlePrice, img: m.img })) },
-      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS },
-      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: s.p, img: s.img })) }
+      { 
+        name: "🍚 養生主食單點", 
+        list: COMBO_MAINS.map(m => ({ n: m.n, p: m.singlePrice, img: m.img })) 
+      },
+      { 
+        name: "🍲 招牌燉品單點", 
+        list: COMBO_DRINKS.map(d => ({ n: d.n, p: d.p, img: d.img })) 
+      },
+      { 
+        name: "🥗 精選小菜單點", 
+        list: COMBO_SIDES.map(s => ({ n: s.n, p: s.p, img: s.img })) 
+      }
     ];
   }
 
+  // 執行渲染 HTML
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step">
       <div class="brand-title" style="font-size:18px; margin-bottom:10px;">${cat.name}</div>
@@ -311,11 +322,12 @@ function renderSingleUI() {
         ${cat.list.map(i => `
           <div class="menu-card">
             ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
-            <b>${i.n}</b><br>$${i.p}
+            <b>${i.n}</b><br>
+            <span style="color:var(--danger); font-weight:bold;">$${i.p || 0}</span>
             <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
-              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p || 0})">-</button>
               <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
-              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p || 0})">+</button>
             </div>
           </div>
         `).join("")}
