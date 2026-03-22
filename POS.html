@@ -208,29 +208,34 @@ async function fetchOrders() {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
     const data = await res.json();
     
-    const activeOrders = data.filter(o => o.status !== "已完成" && o.status !== "已作廢");
-    if(activeOrders.length === 0) {
-      document.getElementById("orders").innerHTML = "<div style='color:#999;font-weight:bold;'>目前無待處理訂單</div>";
-      return;
+    // 雷達：把抓到的訂單印在開發者工具裡
+    console.log("後台傳來的訂單資料：", data);
+
+    if (data.error) {
+      console.log("後台報錯：", data.message);
+      return; 
     }
 
-    document.getElementById("orders").innerHTML = activeOrders.map(o => {
+    const htmlStr = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && o.status !== "").map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       return `
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div class="seq">${o.seq}</div>
-          <div style="font-size:12px; color:#888;">${o.pickup || "現場"}</div>
-        </div>
-        <b style="font-size:18px;">${o.content}</b><br><span style="color:red;font-weight:bold;font-size:22px;">$${o.total}</span>
-        <div style="display:flex;gap:5px;margin-top:10px;">
+        <div class="seq">${o.seq}</div>
+        <b>${o.content}</b><br>
+        <span style="color:red; font-weight:bold; font-size:22px;">$${o.total}</span>
+        <div style="display:flex; gap:5px; margin-top:10px;">
           <button class="sbtn reprint" onclick="reprintOrder('${enc}')">補印</button>
-          <button class="sbtn done" style="background:#2ecc71;color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
+          <button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
         </div>
       </div>`;
     }).join("");
+
+    document.getElementById("orders").innerHTML = htmlStr || "<div style='color:#999; padding:20px;'>目前無待處理訂單</div>";
+    
     autoPrint(data);
-  } catch(e) {}
+  } catch(e) {
+    console.log("POS 讀取訂單發生錯誤：", e);
+  }
 }
 
 async function executeSearch() {
