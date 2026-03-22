@@ -269,14 +269,17 @@ async function handleCloseShift() { if(confirm("確定交班？")) { await fetch
 function renderPosUI() {
   const draw = (list, id) => {
     document.getElementById(id).innerHTML = list.map(i => {
-      let p = i.singlePrice || i.sp || 0;
+      // 強制抓取 singlePrice 或 sp
+      let p = Number(i.singlePrice) || Number(i.sp) || 0; 
       return `<div class="cash-item"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br>
         <button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', -1, ${p})">-</button>
         <span style="margin:0 10px; font-weight:bold;">${singleSel[i.n]?.q || 0}</span>
         <button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', 1, ${p})">+</button></div>`;
     }).join("");
   };
-  draw(MAINS, "posSMainGrid"); draw(DRINKS, "posSDrinkGrid"); draw(SIDES, "posSSideGrid");
+  draw(MAINS, "posSMainGrid"); 
+  draw(DRINKS, "posSDrinkGrid"); 
+  draw(SIDES, "posSSideGrid");
 }
 function editSingle(n, d, p) { if(!singleSel[n]) singleSel[n]={q:0,p:p}; singleSel[n].q+=d; if(singleSel[n].q<=0) delete singleSel[n]; updatePosBasket(); renderPosUI(); }
 function updatePosBasket() {
