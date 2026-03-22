@@ -453,13 +453,45 @@ function closeQueryModal() { document.getElementById("queryModal").classList.rem
 async function queryOrder() {
   let id = document.getElementById("queryInput").value.trim();
   if (!id) return alert("請輸入號碼");
-  if (/^\d+$/.test(id)) id = "#" + id.padStart(3, "0");
+  
+  // 自動補齊格式，例如輸入 1 會變成 #001
+  if (/^\d+$/.test(id)) id = "#" + id.padStart(3, "0"); 
+  
   document.getElementById("queryResult").innerHTML = "查詢中...";
   try {
     const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + encodeURIComponent(id) + "&t=" + Date.now());
-    const json = await res.json();
-    document.getElementById("queryResult").innerHTML = !json ? "查無此訂單" : `<div style="padding:15px; background:#f9f9f9; border-radius:12px; border-left: 5px solid var(--info);"><b>取餐號：${json.seqId}</b><br>狀態：${json.status}<br>內容：${json.items}</div>`;
-  } catch(e) { document.getElementById("queryResult").innerHTML = "查詢失敗"; }
+    let json = await res.json();
+    
+    // 1. 如果後台回報錯誤
+    if (json && json.error) {
+      document.getElementById("queryResult").innerHTML = "查詢失敗：" + json.message;
+      return;
+    }
+    
+    // 2. 防禦陣列格式
+    if (Array.isArray(json)) json = json[0];
+    
+    // 3. 判斷是否有抓到訂單
+    if (!json || (!json.seqId && !json.seq)) {
+      document.getElementById("queryResult").innerHTML = "查無此訂單";
+      return;
+    }
+
+    // 4. 完美兼容新舊變數名稱
+    const seq = json.seqId || json.seq || id;
+    const items = json.items || json.content || "無內容";
+    const status = json.status || "處理中";
+    
+    document.getElementById("queryResult").innerHTML = `
+      <div style="padding:15px; background:#f9f9f9; border-radius:12px; border-left: 5px solid var(--info);">
+        <b>取餐號：${seq}</b><br>
+        狀態：${status}<br>
+        內容：${items}
+      </div>
+    `;
+  } catch(e) { 
+    document.getElementById("queryResult").innerHTML = "查詢失敗，請檢查網路連線"; 
+  }
 }
 
 async function checkLinePayReturn() {
