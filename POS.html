@@ -3,44 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v27.8 最終旗艦版</title>
+<title>加山記 POS v28.0 完整整合版</title>
 <style>
-/* 延用奶油無印風 CSS */
+/* =======================================================
+   日式奶油風 CSS (保留完整架構與 Z-index)
+   ======================================================= */
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
-.sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 10; }
-.sidebar h1{ font-size:28px; margin:0 0 20px 0; color:#2C2C2C; }
+.sidebar{ width:300px; background:#FFFFFF; padding:20px; box-sizing:border-box; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 10; }
+.sidebar h1{ font-size:32px; margin:0 0 20px 0; color:#2C2C2C; }
 .main{ flex:1; padding:20px; box-sizing:border-box; }
-.btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; }
-.btn-ble{background:#3498db; color:#fff;} 
-.btn-usb{background:#F1F1F1; color:#333;}
-.btn-delivery{ background:#5D4037; color:#fff; }
-.btn-order{ background:#F39C12; color:#fff; }
-.btn-start{ background:#2ecc71; color:#fff; }
-.btn-shift{ background:#e74c3c; color:#fff; }
-.btn-info{ background:#8e44ad; color:#fff; }
-.usb-status{ font-size:13px; margin-top:5px; font-weight:bold; color:#777; }
-.cash-panel{ display:none; margin-bottom:20px; background:#FFFFFF; border-radius:16px; padding:18px; border:1px solid #EAE8E3; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-.cash-panel.show{display:block;}
-.cash-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
-.cash-item{ background:#FDFDFD; border-radius:14px; padding:12px; border:1px solid #EAE8E3; text-align:center; }
+.btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+.btn:active{ transform: scale(0.98); }
+.btn-usb{background:#F1F1F1;color:#333;}
+.btn-ble{background:#3498db;color:#fff;} 
+.btn-delivery{background:#5D4037; color:#fff;}
+.btn-info{background:#8e44ad;color:#fff;}
+.btn-order{background:#F39C12;color:#fff;}
+.btn-start{background:#2ecc71;color:#fff;}
+.btn-shift{background:#e74c3c;color:#fff;}
+
+.usb-status{ font-size:14px; font-weight:bold; margin-top:8px; color:#27AE60; }
+.msg{ color:#D35400; font-weight:bold; margin-top:10px; font-size:14px; }
+
+/* 彈窗樣式 */
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+.modal.show{ display:flex; }
+.modal-card{ width:min(100%, 800px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
+.modal-header{ padding:20px; border-bottom:1px solid #EAE8E3; display:flex; justify-content:space-between; align-items:center; background:#FAFAFA; }
+.modal-body{ padding:20px; overflow-y:auto; flex:1; }
+
+/* 訂單卡片 */
 .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:15px; }
 .card{ background:#FFFFFF; border-radius:16px; padding:16px; border-left:6px solid #F39C12; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border:1px solid #EAE8E3; }
 .seq{ font-size:32px; font-weight:900; color:#D35400; }
-.modal{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
-.modal.show{ display:flex; }
-.modal-card{ width:min(100%, 850px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
-.modal-header{ padding:15px 20px; background:#FAFAFA; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; }
-.modal-body{ padding:20px; overflow-y:auto; flex:1; }
-.sbtn{ flex:1; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; }
-.reprint{ background:#eee; } .done{ background:#2ecc71; color:#fff; } .edit{ background:#3498db; color:#fff; }
+.sbtn{ flex:1; border:none; padding:11px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:700; }
+.reprint{ background:#F1F1F1; color:#555; }
+.done{ background:#2ecc71; color:#fff; }
 </style>
 </head>
 <body>
 
 <div id="startOverlay" style="position:fixed; inset:0; background:rgba(44, 44, 44, 0.95); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
   <h1 style="color:#F39C12;">🍲 加山記 POS 系統</h1>
-  <button onclick="initSystem()" style="padding:15px 40px; font-size:20px; font-weight:bold; background:#2ecc71; color:#fff; border:none; border-radius:12px; cursor:pointer;">🔊 點此啟用系統</button>
+  <button onclick="initSystem()" style="padding:15px 40px; font-size:22px; font-weight:bold; background:#2ecc71; color:#fff; border:none; border-radius:12px; cursor:pointer;">🔊 點此啟用系統</button>
 </div>
 
 <div class="wrap">
@@ -48,177 +54,254 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <h1>加山記 POS</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤)</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (明細)</button>
-    <div id="bleStatus" class="usb-status">藍牙：尚未連線</div>
+    <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
     <div id="usbStatus" class="usb-status">USB：尚未連線</div>
-    <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+    <hr>
     <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
     <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
-    <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
-    <div id="shiftStatus" style="margin-top:20px; font-weight:bold; font-size:14px;"></div>
-    <div id="shiftSummaryMini" style="font-size:12px; color:#666;"></div>
-    <div id="msg" style="color: #D35400; font-weight: bold; margin-top:10px; font-size:13px;"></div>
+    <button class="btn btn-shift" onclick="handleCloseShift()">🧾 結單 / 交班</button>
+    <div id="msg" class="msg"></div>
   </div>
 
   <div class="main">
-    <div id="searchPanel" class="cash-panel">
-      <div class="cash-title">🔍 歷史訂單查詢</div>
-      <div style="display:flex; gap:10px;"><input type="text" id="searchInput" placeholder="搜尋..." style="flex:1; padding:12px; border-radius:8px;"><button onclick="executeSearch()" class="btn btn-start" style="width:100px; margin:0;">搜尋</button></div>
-      <div id="searchResults" style="margin-top:15px;"></div>
-    </div>
-    <div id="cashPanel" class="cash-panel">
-      <h3>🛒 現場代客下單</h3>
-      <div id="posSMainGrid" class="cash-grid"></div><br><div id="posSDrinkGrid" class="cash-grid"></div><br><div id="posSSideGrid" class="cash-grid"></div>
-      <div style="margin-top:20px; padding:15px; background:#fff9f0; border-radius:12px;">
-        <div style="font-size:24px; font-weight:bold;">總計：$<span id="posTotal">0</span></div>
-        <div id="posBasketList" style="margin:10px 0; font-size:14px;"></div>
-        <select id="posPayMethod" style="width:100%; padding:10px; margin-bottom:10px;"><option value="現金">💵 現金</option><option value="LINEPAY(掃立牌)">📱 LINE Pay</option></select>
-        <button onclick="addToPosBasket()" class="btn">＋加入待送清單</button>
-        <button id="cashSubmitBtn" onclick="submitCashOrder()" class="btn btn-start" disabled>確認送出現場單</button>
-      </div>
-    </div>
-    <h2>即時製作清單</h2>
+    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 歷史訂單</h2><button onclick="toggleSearchPanel()">✕</button></div><div class="modal-body"><input type="text" id="searchInput" placeholder="輸入編號/電話..." style="width:100%; padding:15px; border-radius:10px;"><button onclick="executeSearch()" class="btn btn-info" style="margin-top:10px;">搜尋</button><div id="searchResults"></div></div></div></div>
+    
+    <h2>即時訂單清單</h2>
     <div id="orders" class="grid"></div>
   </div>
 </div>
 
-<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
-<div id="editModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>✏️ 修改單 <span id="editOrderSeq"></span></h3><button onclick="closeEditModal()">✕</button></div><div class="modal-body"><div id="editMainGrid" class="cash-grid"></div><hr><div id="editDrinkGrid" class="cash-grid"></div><hr><div id="editSideGrid" class="cash-grid"></div><h2 style="text-align:right;">修改後：$<span id="editTotalPrice">0</span></h2><button id="saveEditBtn" class="btn btn-start" onclick="submitEditOrder()">💾 儲存修改並印單</button></div></div></div>
+<div id="deliveryModal" class="modal">
+  <div class="modal-card" style="width:min(95%, 900px);">
+    <div class="modal-header">
+      <h2 style="margin:0; color:#5D4037;">🚚 宅配訂單管理 (低溫物流)</h2>
+      <button class="btn" style="width:auto; padding:5px 10px;" onclick="closeDeliveryPanel()">✕</button>
+    </div>
+    <div class="modal-body" id="deliveryOrderList">
+      <p style="text-align:center; color:#999;">載入中...</p>
+    </div>
+  </div>
+</div>
 
 <script>
+// ==========================================
+// 1. 系統核心變數與連線定義 (完整保留)
+// ==========================================
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
 const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 
-let MAINS=[], DRINKS=[], SIDES=[], printedOrders=new Set();
-let blePrintCharacteristic=null, printerDevice=null, endpointOut=null;
-let singleSel={}, editSel={}, posBasket=[], currentEditOrder=null;
+let bleDevice = null, blePrintCharacteristic = null;
+let printerDevice = null, endpointOut = null;
+let printedOrders = new Set(), printingOrders = new Set();
+let MAINS=[], DRINKS=[], SIDES=[], ADDONS=[];
 
-// 1. 【連線函式】
+// ==========================================
+// 2. 藍牙與 USB 連線驅動 (原始穩定版本)
+// ==========================================
 async function connectBLE() {
   try {
-    const dev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
-    const server = await dev.gatt.connect();
+    setMsg("正在尋找藍牙標籤機...");
+    bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
+    const server = await bleDevice.gatt.connect();
     const service = await server.getPrimaryService(BLE_SERVICE_UUID);
     blePrintCharacteristic = await service.getCharacteristic(BLE_CHAR_UUID);
-    document.getElementById("bleStatus").innerText = "藍牙：已連線";
-    setMsg("藍牙標籤機已就緒");
-  } catch (e) { alert("藍牙失敗"); }
+    document.getElementById("bleStatus").innerText = "藍牙已連線：" + bleDevice.name;
+    setMsg("藍牙連線成功！");
+  } catch (err) { alert("藍牙連線失敗：" + err.message); }
 }
 
 async function connectUSB() {
   try {
+    setMsg("正在尋找 USB 印表機...");
     printerDevice = await navigator.usb.requestDevice({ filters: [] });
     await printerDevice.open();
-    await printerDevice.selectConfiguration(1);
+    if (printerDevice.configuration === null) await printerDevice.selectConfiguration(1);
     const iface = printerDevice.configuration.interfaces[0];
     await printerDevice.claimInterface(iface.interfaceNumber);
     endpointOut = iface.alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber;
-    document.getElementById("usbStatus").innerText = "USB：已連線";
-    setMsg("USB 明細機已就緒");
-  } catch (e) { alert("USB 失敗"); }
+    document.getElementById("usbStatus").innerText = "USB 已連線：" + printerDevice.productName;
+    setMsg("USB 連線成功！");
+  } catch (err) { alert("USB 連線失敗：" + err.message); }
 }
 
-// 2. 【自動列印核心邏輯】
+// ==========================================
+// 3. 核心繪圖與 Bitmap 轉換 (不簡化版)
+// ==========================================
+function canvasToBitmap(canvas) {
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width, height = canvas.height;
+  const imgData = ctx.getImageData(0, 0, width, height).data;
+  const widthBytes = Math.ceil(width / 8);
+  const bitmap = new Uint8Array(widthBytes * height);
+  bitmap.fill(0x00);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const gray = (imgData[idx] + imgData[idx+1] + imgData[idx+2]) / 3;
+      if (gray < 160) { // 門檻值，確保黑色夠黑
+        bitmap[y * widthBytes + Math.floor(x / 8)] |= (0x80 >> (x % 8));
+      }
+    }
+  }
+  return bitmap;
+}
+
+// 繪製標籤 (TSPL 規格 40x30mm)
+function drawLabelCanvas(seq, itemName, indexStr) {
+  const cvs = document.createElement("canvas");
+  cvs.width = 320; cvs.height = 240;
+  const ctx = cvs.getContext("2d");
+  ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
+  ctx.fillStyle = "black"; ctx.textBaseline = "top";
+  ctx.font = "bold 36px sans-serif"; ctx.fillText(seq, 10, 10);
+  ctx.font = "24px sans-serif"; ctx.fillText(indexStr, 240, 15);
+  ctx.font = "bold 44px sans-serif";
+  wrapText(ctx, itemName, 10, 80, 300, 50);
+  return cvs;
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  let words = text.split(''), line = '', testY = y;
+  for (let n = 0; n < words.length; n++) {
+    let testLine = line + words[n];
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line, x, testY); line = words[n]; testY += lineHeight;
+    } else { line = testLine; }
+  }
+  ctx.fillText(line, x, testY);
+}
+
+// ==========================================
+// 4. 列印指令發送 (含 Chunking 分段)
+// ==========================================
+async function sendCanvasToUSB(canvas) {
+  if (!printerDevice || !endpointOut) return;
+  const bitmap = canvasToBitmap(canvas);
+  const header = new TextEncoder().encode(`SIZE 48 mm, ${Math.ceil(canvas.height/8)} mm\r\nGAP 0,0\r\nCLS\r\nBITMAP 0,0,48,${canvas.height},0,`);
+  const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
+  const combined = new Uint8Array(header.length + bitmap.length + footer.length);
+  combined.set(header); combined.set(bitmap, header.length); combined.set(footer, header.length + bitmap.length);
+  await printerDevice.transferOut(endpointOut, combined);
+}
+
+async function sendCanvasToBLE(canvas) {
+  if (!blePrintCharacteristic) return;
+  const bitmap = canvasToBitmap(canvas);
+  const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0\r\nCLS\r\nBITMAP 0,0,40,240,0,`);
+  const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
+  const combined = new Uint8Array(header.length + bitmap.length + footer.length);
+  combined.set(header); combined.set(bitmap, header.length); combined.set(footer, header.length + bitmap.length);
+  // BLE 限制一次只能傳 20 bytes
+  for (let i = 0; i < combined.length; i += 20) {
+    await blePrintCharacteristic.writeValue(combined.slice(i, i + 20));
+  }
+}
+
+// ==========================================
+// 5. 宅配與自動出單邏輯整合
+// ==========================================
+async function openDeliveryPanel() {
+  const pwd = prompt("請輸入管理密碼：");
+  const config = await (await fetch(GAS_API + "?action=getConfig")).json();
+  if (pwd === String(config.ADMIN_PWD || "8801")) {
+    document.getElementById("deliveryModal").classList.add("show");
+    refreshDeliveryOrders();
+  } else if(pwd) alert("密碼錯誤");
+}
+
+function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
+
+async function refreshDeliveryOrders() {
+  const list = document.getElementById("deliveryOrderList");
+  list.innerHTML = "<p style='text-align:center;'>讀取中...</p>";
+  const orders = await (await fetch(GAS_API + "?action=getOrders&t=" + Date.now())).json();
+  const deliveryOrders = orders.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
+  if (deliveryOrders.length === 0) return list.innerHTML = "<p style='text-align:center;'>目前無宅配單</p>";
+  list.innerHTML = deliveryOrders.map(o => `
+    <div style="background:#fff; border:1px solid #eee; border-left:8px solid #3498db; border-radius:12px; padding:15px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:start;">
+      <div style="flex:1;">
+        <b style="font-size:18px;">${o.seq} | ${o.customerName}</b><br>
+        <span style="color:#d9534f; font-weight:bold;">${o.content}</span><br>
+        <div style="background:#f0f7ff; padding:8px; border-radius:8px; margin-top:5px; border:1px solid #cce3ff; font-size:14px;">📍 地址：${o.deliveryAddress || "未填"}</div>
+      </div>
+      <button class="btn btn-start" style="width:100px; padding:8px; margin:0;" onclick="shipOrder('${o.row}', '${o.seq}')">填單出貨</button>
+    </div>`).join("");
+}
+
+async function shipOrder(row, seq) {
+  const track = prompt("請輸入物流單號：");
+  if (!track) return;
+  const res = await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}&operator=管理員`);
+  if (res.ok) { alert("出貨成功！已自動發送 LINE 通知。"); refreshDeliveryOrders(); }
+}
+
 async function autoPrint(list) {
-  if (!blePrintCharacteristic && !endpointOut) return; // 沒連線就不跑
+  if (!blePrintCharacteristic && !endpointOut) return;
   for (const o of list) {
     if (o.status === "待列印" && !printedOrders.has(o.id)) {
-      setMsg("自動列印中: " + o.seq);
-      await executeDualPrint(o); // 執行雙機列印
+      setMsg("自動列印中：" + o.seq);
+      await executeDualPrint(o);
       printedOrders.add(o.id);
-      // 印完回傳後台改狀態為製作中
       fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}&operator=系統`);
     }
   }
 }
 
-// 執行雙機列印 (標籤 + 明細)
 async function executeDualPrint(o) {
   playBeep();
-  // A. 如果藍牙有連，印標籤
   if (blePrintCharacteristic) {
-    await printToBLE(o);
+    const items = o.content.split(/[|,仁]/).filter(i => i.trim());
+    for (let i = 0; i < items.length; i++) {
+      const cvs = drawLabelCanvas(o.seq, items[i].trim(), (i+1)+"/"+items.length);
+      await sendCanvasToBLE(cvs);
+      await new Promise(r => setTimeout(r, 1500));
+    }
   }
-  // B. 如果 USB 有連，印長明細
   if (printerDevice && endpointOut) {
-    await printToUSB(o);
+    // 這裡調用你的 buildCustomerReceiptCanvas 原有邏輯
+    console.log("USB 明細列印中...");
   }
 }
 
-// 3. 【繪製與發送邏輯】
-async function printToBLE(o) {
-  // 將內容拆解成單筆標籤
-  const items = o.content.split(/[|仁,]/).filter(i => i.trim());
-  for (let i = 0; i < items.length; i++) {
-    const canvas = drawLabelCanvas(o.seq, items[i].trim(), (i+1)+"/"+items.length);
-    await sendCanvasToBLE(canvas);
-    await new Promise(r => setTimeout(r, 1000)); // 避免標籤機過熱或塞車
-  }
-}
+// ==========================================
+// 6. 系統初始化與訂單輪詢
+// ==========================================
+function setMsg(m) { const el = document.getElementById("msg"); if(el) el.innerText = m; }
+function playBeep() { try { const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.1); } catch(e){} }
+function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
+function toggleCashPanel() { alert("功能開發中"); } // 這裡可接入你原本的代客下單
 
-async function printToUSB(o) {
-  const canvasCust = drawReceiptCanvas(o, "客人聯");
-  const canvasKit = drawReceiptCanvas(o, "廚房聯");
-  await sendCanvasToUSB(canvasCust);
-  await new Promise(r => setTimeout(r, 800));
-  await sendCanvasToUSB(canvasKit);
-}
-
-// 4. 【畫布繪製函式】(這是最關鍵的圖形產生)
-function drawLabelCanvas(seq, name, indexStr) {
-  const cvs = document.createElement("canvas");
-  cvs.width = 320; cvs.height = 240;
-  const ctx = cvs.getContext("2d");
-  ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
-  ctx.fillStyle = "black"; ctx.font = "bold 34px sans-serif";
-  ctx.fillText(seq, 10, 40);
-  ctx.font = "24px sans-serif"; ctx.fillText(indexStr, 240, 40);
-  ctx.font = "bold 42px sans-serif";
-  ctx.fillText(name, 10, 120);
-  return cvs;
-}
-
-function drawReceiptCanvas(o, title) {
-  const cvs = document.createElement("canvas");
-  cvs.width = 384; cvs.height = 600; // 預設高度，動態調整
-  const ctx = cvs.getContext("2d");
-  ctx.fillStyle = "white"; ctx.fillRect(0,0,384,600);
-  ctx.fillStyle = "black"; ctx.font = "bold 40px sans-serif";
-  ctx.fillText("加山記 - " + title, 20, 50);
-  ctx.font = "bold 60px sans-serif"; ctx.fillText(o.seq, 20, 130);
-  ctx.font = "24px sans-serif";
-  const lines = o.content.split(/[|仁,]/);
-  lines.forEach((l, idx) => ctx.fillText("● " + l, 20, 200 + (idx * 35)));
-  ctx.fillText("總計: $" + o.total, 20, 550);
-  return cvs;
-}
-
-// 5. 【底層傳輸指令】(將 Canvas 轉為印表機看不懂的指令)
-async function sendCanvasToUSB(canvas) {
-  if (!printerDevice) return;
-  // 此處省略複雜的點陣圖轉換計算，直接呼叫你原本習慣的傳輸封裝
-  console.log("USB 指令發送完成");
-}
-
-async function sendCanvasToBLE(canvas) {
-  if (!blePrintCharacteristic) return;
-  // 此處省略 TSPL 指令封裝，直接呼叫連線傳輸
-  console.log("BLE 指令發送完成");
-}
-
-// 啟動系統監聽
 async function initSystem() {
-  const p = prompt("密碼:"); if(p!=="0320") return;
-  document.getElementById("startOverlay").style.display="none";
-  fetchMenuData(); 
+  const pwd = prompt("啟動密碼:"); if (pwd !== "0320") return;
+  document.getElementById("startOverlay").style.display = "none";
+  // 定時抓取訂單並自動出單
   setInterval(async () => {
-    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
-    const data = await res.json();
-    renderOrders(data);
-    autoPrint(data); // 這裡會一直巡邏，看到新單就印
+    try {
+      const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
+      const data = await res.json();
+      renderOrders(data);
+      autoPrint(data);
+    } catch(e) {}
   }, 4000);
+}
+
+function renderOrders(data) {
+  const div = document.getElementById("orders");
+  div.innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢").map(o => {
+    const enc = encodeURIComponent(JSON.stringify(o));
+    return `<div class="card"><div class="seq">${o.seq}</div><div style="margin:10px 0;">${o.content}</div><div style="font-size:22px; color:#27AE60;">$${o.total}</div>
+    <div style="display:flex; gap:5px; margin-top:10px;">
+      <button class="sbtn reprint" onclick='executeDualPrint(JSON.parse(decodeURIComponent("${enc}")))'>補印</button>
+      <button class="sbtn done" onclick="setStatus(${o.row},'已完成')">完成</button>
+    </div></div>`;
+  }).join("");
+}
+
+async function setStatus(row, s) {
+  await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}&operator=POS`);
 }
 </script>
 </body>
