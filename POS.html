@@ -78,174 +78,335 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
 <script>
 // ==========================================
-// 1. 系統變數與連線設定
+// 1. 系統變數與連線設定 (保留最新版的穩定 API)
 // ==========================================
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
 const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 
-let bleDevice, bleChar, printerDevice, endpointOut;
-let MAINS=[], DRINKS=[], SIDES=[], printedOrders = new Set(), singleSel = {};
+let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpointOut = null;
+let MAINS=[], DRINKS=[], SIDES=[], singleSel = {};
+
+// 列印專用狀態變數 (從舊代碼完整移植)
+let printedOrders = new Set();
+let printingOrders = new Set();
 
 // ==========================================
-// 2. 藍牙與 USB 連線
+// 2. 基礎輔助工具 (從舊代碼完整移植，處理時間與畫布排版)
+// ==========================================
+function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
+function pad2(v){ return String(v).padStart(2,"0"); }
+function playBeep(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine"; oscillator.frequency.value = 880;
+    oscillator.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.05, ctx.currentTime);
+    oscillator.start(); oscillator.stop(ctx.currentTime + 0.15);
+  }catch(err){}
+}
+function formatDateObjTaipei(dateObj){
+  const parts = new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(dateObj);
+  const map = {}; parts.forEach(p => { map[p.type] = p.value; });
+  let hh24 = parseInt(map.hour, 10); const ap = hh24 >= 12 ? "下午" : "上午";
+  let hh12 = hh24 % 12; if(hh12 === 0) hh12 = 12;
+  return `${map.year}/${map.month}/${map.day} ${ap} ${pad2(hh12)}:${map.minute}`;
+}
+function parsePickupString(value){
+  const str = String(value || "").trim();
+  if(!str || str === "現場取餐" || str.includes("現場取餐")) return null;
+  const isoDate = new Date(str); if(!isNaN(isoDate.getTime())) return isoDate;
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0), 0);
+  return null;
+}
+function isReserveOrder(order){
+  const raw = String(order.rawPickup || order.pickup || "").trim();
+  return !!raw && raw !== "現場取餐" && !raw.includes("現場取餐");
+}
+function formatPickupDisplay(value){
+  const str = String(value || "").trim();
+  if(!str || str === "現場取餐" || str.includes("現場取餐")) return "現場取餐";
+  const d = parsePickupString(str); if(d) return formatDateObjTaipei(d);
+  return str;
+}
+function shouldPrintNow(order){
+  const raw = String(order.rawPickup || order.pickup || "").trim();
+  if(!raw || raw === "現場取餐" || raw.includes("現場取餐")) return true;
+  const pickup = parsePickupString(raw); if(!pickup) return false;
+  const printAt = new Date(pickup.getTime() - 15 * 60 * 1000);
+  return Date.now() >= printAt.getTime();
+}
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const chars = text.split(''); let line = ''; let currentY = y;
+  for (let i = 0; i < chars.length; i++) {
+    let testLine = line + chars[i];
+    let testWidth = ctx.measureText(testLine).width;
+    if (testWidth > maxWidth && i > 0) {
+      ctx.fillText(line, x, currentY); line = chars[i]; currentY += lineHeight;
+    } else { line = testLine; }
+  }
+  ctx.fillText(line, x, currentY); return currentY + lineHeight;
+}
+
+
+// ==========================================
+// 3. 完美移植：藍牙與 USB 連線驅動
 // ==========================================
 async function connectBLE() {
   try {
+    setMsg("正在尋找藍牙標籤機...");
+    document.getElementById("bleStatus").innerText = "藍牙：搜尋中...";
     bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
     const server = await bleDevice.gatt.connect();
-    bleChar = await (await server.getPrimaryService(BLE_SERVICE_UUID)).getCharacteristic(BLE_CHAR_UUID);
-    document.getElementById("bleStatus").innerText = "藍牙：已連線 (" + bleDevice.name + ")";
-    setMsg("藍牙標籤機已就緒");
-  } catch (e) { alert("藍牙連線失敗"); }
-}
-
-async function connectUSB() {
-  try {
-    printerDevice = await navigator.usb.requestDevice({ filters: [] });
-    await printerDevice.open(); await printerDevice.selectConfiguration(1);
-    const iface = printerDevice.configuration.interfaces[0]; await printerDevice.claimInterface(iface.interfaceNumber);
-    endpointOut = iface.alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber;
-    document.getElementById("usbStatus").innerText = "USB：已連線";
-    setMsg("USB 明細機已就緒");
-  } catch (e) { alert("USB 連線失敗"); }
-}
-
-// 通用 Bitmap 轉換 (將畫面轉為印表機的 0 與 1)
-function canvasToBitmap(canvas) {
-  const ctx = canvas.getContext("2d");
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  const widthBytes = Math.ceil(canvas.width / 8);
-  const bitmap = new Uint8Array(widthBytes * canvas.height);
-  bitmap.fill(0x00);
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const idx = (y * canvas.width + x) * 4;
-      const gray = (imgData[idx] + imgData[idx+1] + imgData[idx+2]) / 3;
-      if (gray < 160) bitmap[y * widthBytes + Math.floor(x/8)] |= (0x80 >> (x % 8));
-    }
-  }
-  return bitmap;
-}
-
-// ==========================================
-// 3. 雙通道非同步列印引擎 (防卡死版)
-// ==========================================
-async function autoPrint(list) {
-  if (!bleChar && !endpointOut) return;
-  for (const o of list) {
-    if (o.status === "待列印" && !printedOrders.has(o.id)) {
-      printedOrders.add(o.id);
-      setMsg("已傳送列印指令: " + o.seq);
-      
-      // 不等待，直接射後不理，防止塞車
-      executeDualPrint(o);
-      
-      // 射完馬上通知後台已進入製作中
-      fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`);
-    }
+    const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+    blePrintCharacteristic = await service.getCharacteristic(BLE_CHAR_UUID);
+    document.getElementById("bleStatus").innerText = `藍牙已連線：${bleDevice.name || "標籤機"}`;
+    setMsg("藍牙標籤機連線成功！");
+    bleDevice.addEventListener('gattserverdisconnected', () => {
+        document.getElementById("bleStatus").innerText = "藍牙：已斷線";
+        blePrintCharacteristic = null;
+    });
+  } catch (error) {
+    alert("藍牙連線失敗：" + error.message);
+    document.getElementById("bleStatus").innerText = "藍牙：連線失敗";
   }
 }
 
-// 按鈕補印
-function reprintOrder(encStr) {
-  try {
-    const o = JSON.parse(decodeURIComponent(encStr));
-    setMsg("補印單號: " + o.seq);
-    executeDualPrint(o);
-  } catch(e) { alert("補印失敗"); }
+async function connectUSB(){
+  try{
+    setMsg("正在尋找印表機...");
+    printerDevice = await navigator.usb.requestDevice({ filters:[] });
+    await printerDevice.open();
+    if(printerDevice.configuration === null){ await printerDevice.selectConfiguration(1); }
+    let found = false;
+    for(const iface of printerDevice.configuration.interfaces){
+      for(const alt of iface.alternates){
+        const outEp = alt.endpoints.find(e => e.direction === "out");
+        if(outEp){
+          await printerDevice.claimInterface(iface.interfaceNumber);
+          endpointOut = outEp.endpointNumber;
+          found = true; break;
+        }
+      }
+      if(found) break;
+    }
+    if(!found) throw new Error("找不到可用的 USB 輸出端點");
+    document.getElementById("usbStatus").innerText = `USB 已連線：${printerDevice.productName || "未知裝置"}`;
+    setMsg("USB 連線成功");
+  }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// 雙通道分發
+// ==========================================
+// 4. 完美移植：畫布產生器 (Canvas)
+// ==========================================
+function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
+  const width = 320; const height = 240; 
+  const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
+  canvas.width = width; canvas.height = height;
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  let y = 10; ctx.font = "bold 26px sans-serif";
+  const headerStr = titleHeader ? `【${titleHeader}】${o.seq||""}` : `${o.seq||""}  [${currentIndex}/${totalCount}]`;
+  ctx.fillText(headerStr, 10, y); y += 32;
+  ctx.font = "20px monospace"; ctx.fillText("-----------------------", 10, y); y += 24;
+  ctx.font = "bold 32px sans-serif"; y = drawWrappedText(ctx, itemName, 10, y, 300, 38);
+  let bottomY = Math.max(y + 10, 195);
+  ctx.font = "20px sans-serif"; ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
+  return canvas;
+}
+
+function buildCustomerReceiptCanvas(o){
+  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
+  const width = 384; const lineHeight = 40; 
+  const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  tempCanvas.width = width; tempCanvas.height = 8000; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  let y = 10;
+  ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50;
+  ctx.font = "bold 50px sans-serif"; ctx.fillText("加山記", 10, y); y += 62;
+  ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 58;
+  ctx.font = "28px sans-serif";
+  ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42;
+  ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
+  ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38;
+  ctx.font = "bold 30px sans-serif";
+  for(const item of items){ y = drawWrappedText(ctx, "・" + item, 10, y, 360, lineHeight); y += 5; }
+  ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38;
+  ctx.font = "bold 46px sans-serif"; ctx.fillText("總計 $" + String(o.total || 0), 10, y); y += 60;
+  const bottomPadding = 96; 
+  const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
+  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
+  return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+}
+
+function buildKitchenReceiptCanvas(o){
+  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
+  const width = 384; const lineHeight = 42; 
+  const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  tempCanvas.width = width; tempCanvas.height = 8000; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height);
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  let y = 10;
+  ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50;
+  ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
+  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40;
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+  ctx.font = "bold 34px sans-serif"; 
+  for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+  y = drawWrappedText(ctx, "備註：" + String(o.pay || ""), 10, y, 360, 38); y += 10; 
+  const bottomPadding = 96; 
+  const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
+  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding);
+  return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+}
+
+
+// ==========================================
+// 5. 完美移植：傳輸核心 (分段傳輸與重試機制)
+// ==========================================
+async function printSingleLabelToBLE(canvas) {
+  const width = canvas.width; const height = canvas.height;
+  const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
+  const widthBytes = Math.ceil(width / 8); const bitmap = new Uint8Array(widthBytes * height);
+  bitmap.fill(255);
+  for(let py = 0; py < height; py++){
+      for(let px = 0; px < width; px++){
+          const idx = (py * width + px) * 4;
+          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
+          if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); }
+      }
+  }
+  const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
+  const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\n`);
+  const buf = new Uint8Array(header.length + bitmap.length + footer.length);
+  buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+
+  const CHUNK_SIZE = 128; // 舊代碼的穩定分段
+  for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
+      const chunk = buf.slice(i, i + CHUNK_SIZE);
+      let success = false; let retryCount = 0; 
+      while (!success && retryCount < 10) { 
+          try {
+              if (blePrintCharacteristic.properties && blePrintCharacteristic.properties.write) {
+                  await blePrintCharacteristic.writeValue(chunk);
+              } else {
+                  await blePrintCharacteristic.writeValueWithoutResponse(chunk);
+              }
+              success = true; await new Promise(r => setTimeout(r, 15)); 
+          } catch (error) {
+              retryCount++; await new Promise(r => setTimeout(r, 100)); 
+          }
+      }
+  }
+}
+
+async function printCanvasToPrinter(canvas, finalHeight){
+  const width = canvas.width; const totalHeight = Math.ceil(finalHeight);
+  const ctx = canvas.getContext("2d"); const widthBytes = 48; 
+  const MAX_CHUNK_HEIGHT = 1000;
+
+  for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
+    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY);
+    const img = ctx.getImageData(0, startY, width, currentHeight).data;
+    const bitmap = new Uint8Array(widthBytes * currentHeight);
+    bitmap.fill(255);
+    for(let py = 0; py < currentHeight; py++){
+      for(let px = 0; px < width; px++){
+        const idx = (py * width + px) * 4;
+        const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
+        if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); }
+      }
+    }
+    const mmHeight = Math.max(10, Math.ceil(currentHeight / 8));
+    const header = new TextEncoder().encode(`SIZE 48 mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,48,${currentHeight},0,`);
+    const isLastChunk = (startY + currentHeight >= totalHeight);
+    const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`;
+    const footer = new TextEncoder().encode(footerStr);
+    const buf = new Uint8Array(header.length + bitmap.length + footer.length);
+    buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+    const CHUNK_SIZE = 8192; 
+    for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
+      await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE));
+    }
+    await new Promise(resolve => setTimeout(resolve, 600));
+  }
+}
+
+// ==========================================
+// 6. 完美移植：列印派發中心
+// ==========================================
+async function printOrderToBLE(o, titleHeader) {
+  let rawItems = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
+  let labelItems = [];
+  for (let item of rawItems) {
+      let match = item.match(/x\s*(\d+)$/i); // 拆解數量
+      if (match) {
+          let qty = parseInt(match[1], 10);
+          let cleanName = item.replace(/x\s*\d+$/i, "").trim();
+          for (let i = 0; i < qty; i++) labelItems.push(cleanName);
+      } else { labelItems.push(item); }
+  }
+  for (let i = 0; i < labelItems.length; i++) {
+      const canvas = buildItemLabelCanvas(o, labelItems[i], i + 1, labelItems.length, titleHeader);
+      await printSingleLabelToBLE(canvas);
+      await new Promise(r => setTimeout(r, 1500));
+  }
+}
+
+async function printOrderLabel(o){
+  if(!printerDevice || !endpointOut) throw new Error("請先建立 USB 連線");
+  const customerReceipt = buildCustomerReceiptCanvas(o);
+  const kitchenReceipt = buildKitchenReceiptCanvas(o);
+  await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight);
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
+}
+
 async function executeDualPrint(o) {
-  playBeep();
-  if (bleChar) {
-    printToBLE(o).catch(e => console.error("BLE 列印錯誤:", e));
+  if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) {
+      throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線");
   }
-  if (printerDevice && endpointOut) {
-    printToUSB(o).catch(e => console.error("USB 列印錯誤:", e));
+  if (printerDevice && endpointOut) { printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e)); }
+  if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
+}
+
+async function autoPrint(list){
+  if(!blePrintCharacteristic && (!printerDevice || !endpointOut)) return;
+  for(const o of list){
+    if(o.status !== "待列印") continue;
+    if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue;
+    if(!shouldPrintNow(o)) continue;
+    
+    try{
+      printingOrders.add(o.id);
+      setMsg(`提醒：${o.seq} 正在列印...`); playBeep();
+      await executeDualPrint(o);
+      printedOrders.add(o.id);
+      await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`);
+      setMsg(`${o.seq} 已送出列印`);
+    }catch(err){ setMsg(`列印失敗：${err.message}`); }
+    finally{ printingOrders.delete(o.id); }
   }
 }
 
-// 🔵 藍牙：標籤機 (TSPL 指令)
-async function printToBLE(o) {
-  const items = o.content.split(/[|仁,]/).filter(i => i.trim());
-  for (let i = 0; i < items.length; i++) {
-    const cvs = document.createElement("canvas"); cvs.width = 320; cvs.height = 240;
-    const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
-    ctx.fillStyle = "black"; ctx.font = "bold 34px sans-serif"; ctx.fillText(o.seq, 10, 40);
-    ctx.font = "24px sans-serif"; ctx.fillText((i+1)+"/"+items.length, 240, 40);
-    ctx.font = "bold 38px sans-serif"; ctx.fillText(items[i].trim(), 10, 120);
-    
-    const data = canvasToBitmap(cvs);
-    const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0\r\nCLS\r\nBITMAP 0,0,40,240,0,`);
-    const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
-    const combined = new Uint8Array(header.length + data.length + footer.length);
-    combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
-    
-    // 分段傳輸防卡死
-    for (let j = 0; j < combined.length; j += 20) {
-      try { await bleChar.writeValue(combined.slice(j, j + 20)); } catch(e){}
-    }
-    await new Promise(r => setTimeout(r, 1000)); // 標籤間隔 1 秒
-  }
-}
-
-// 🔌 USB：明細單據機 (ESC/POS 指令)
-async function printToUSB(o) {
-  const items = o.content.split(/[|仁,]/).filter(i => i.trim());
-  const cvs = document.createElement("canvas"); cvs.width = 384; 
-  const h = 250 + (items.length * 40); cvs.height = h;
-  const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,384,h);
-  
-  ctx.fillStyle = "black"; ctx.font = "bold 36px sans-serif"; ctx.fillText("加山記 - 顧客單據", 20, 50);
-  ctx.font = "bold 50px sans-serif"; ctx.fillText(o.seq, 20, 120);
-  ctx.font = "bold 26px sans-serif"; 
-  items.forEach((l, idx) => ctx.fillText(l.trim(), 20, 180 + (idx * 40)));
-  ctx.fillText("------------------------", 20, 180 + (items.length * 40));
-  ctx.fillText("總計: $" + o.total, 20, 180 + (items.length * 40) + 30);
-  
-  const data = canvasToBitmap(cvs);
-  
-  // ESC/POS 標準明細列印指令
-  const init = new Uint8Array([0x1B, 0x40]); 
-  const xL = 48; const xH = 0; const yL = h & 0xFF; const yH = (h >> 8) & 0xFF;
-  const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
-  const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00]); // 換行並裁紙
-  
-  const combined = new Uint8Array(init.length + header.length + data.length + footer.length);
-  combined.set(init); combined.set(header, init.length); combined.set(data, init.length + header.length); combined.set(footer, init.length + header.length + data.length);
-  
-  await printerDevice.transferOut(endpointOut, combined);
+async function manualPrint(encoded){
+  try{
+    const o = JSON.parse(decodeURIComponent(encoded));
+    const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o);
+    if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; }
+    await executeDualPrint(o);
+    setMsg(`${o.seq} 補印完成`);
+  }catch(err){ alert("補印失敗：" + err.message); }
 }
 
 // ==========================================
-// 4. 其他 UI 操作與邏輯
+// 7. 保留最新版的強大功能 (宅配、搜尋、開班、點餐) 完全不改
 // ==========================================
-async function fetchOrders() {
-  try {
-    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
-    const data = await res.json();
-    if (data.error) return; 
-
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && o.status !== "").map(o => {
-      const enc = encodeURIComponent(JSON.stringify(o));
-      return `
-      <div class="card">
-        <div class="seq">${o.seq}</div>
-        <b>${o.content}</b><br>
-        <span style="color:red;font-weight:bold;font-size:22px;">$${o.total}</span>
-        <div style="display:flex;gap:5px;margin-top:10px;">
-          <button class="sbtn reprint" onclick="reprintOrder('${enc}')">補印</button>
-          <button class="sbtn done" style="background:#2ecc71;color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
-        </div>
-      </div>`;
-    }).join("") || "<div style='color:#999;'>目前無待處理訂單</div>";
-    
-    autoPrint(data);
-  } catch(e) {}
-}
-
 async function submitCashOrder() {
   const btn = document.getElementById("cashSubmitBtn");
   const total = document.getElementById("posTotal").innerText;
@@ -259,6 +420,24 @@ async function submitCashOrder() {
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
 
+async function fetchOrders() {
+  try {
+    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
+    const data = await res.json();
+    if(data.error) return;
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢").map(o => {
+      const enc = encodeURIComponent(JSON.stringify(o));
+      return `
+      <div class="card"><div class="seq">${o.seq}</div><b>${o.content}</b><br><span style="color:red;font-weight:bold;font-size:22px;">$${o.total}</span>
+      <div style="display:flex;gap:5px;margin-top:10px;">
+        <button class="sbtn reprint" onclick="manualPrint('${enc}')">補印</button>
+        <button class="sbtn done" style="background:#2ecc71;color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
+      </div></div>`;
+    }).join("");
+    autoPrint(data);
+  } catch(e) {}
+}
+
 async function executeSearch() {
   const key = document.getElementById("searchInput").value;
   const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
@@ -270,6 +449,7 @@ async function openDeliveryPanel() {
   const pwd = prompt("密碼:");
   const config = await (await fetch(GAS_API + "?action=getConfig")).json();
   if (pwd === String(config.ADMIN_PWD || "0320")) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); }
+  else if(pwd) alert("錯誤");
 }
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 async function refreshDeliveryOrders() {
@@ -292,9 +472,7 @@ async function fetchCurrentShift() {
   if(data.active) {
     divS.innerText = "✅ 班次：" + data.shiftName; divS.style.color = "#27AE60";
     divM.innerHTML = `人員：${data.operator}<br>現金：$${summary.cashTotal || 0}<br>LINE Pay：$${summary.linepayTotal || 0}<br><b>總營業額：$${summary.grandTotal || 0}</b>`;
-  } else {
-    divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = "";
-  }
+  } else { divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = ""; }
 }
 async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
 async function handleCloseShift() { if(confirm("確定交班？")) { await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); } }
@@ -319,8 +497,6 @@ function updatePosBasket() {
 async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
 function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
 function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
-function setMsg(m) { document.getElementById("msg").innerText = m; }
-function playBeep() { try { const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.1); } catch(e){} }
 async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
 async function initSystem() {
