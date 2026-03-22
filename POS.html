@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v7.0 旗艦完全體</title>
+<title>加山記 POS v29.5 終極列印解鎖版</title>
 <style>
+/* CSS 奶油無印風 */
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
 .sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 10; }
@@ -47,12 +48,9 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
-    
-    <div style="margin-top:15px; background:#FAFAFA; border:1px solid #EAE8E3; border-radius:14px; padding:12px;">
-      <div id="shiftStatus" style="font-weight:bold; color:#e74c3c;">❌ 未開班</div>
-      <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6; margin-top:8px;"></div>
-    </div>
-    <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:13px;"></div>
+    <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
+    <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
+    <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:14px;"></div>
   </div>
 
   <div class="main">
@@ -90,7 +88,7 @@ let bleDevice, bleChar, printerDevice, endpointOut;
 let MAINS=[], DRINKS=[], SIDES=[], printedOrders = new Set(), singleSel = {};
 
 // ==========================================
-// 2. 硬體連線與 Bitmap 點陣轉換
+// 2. 藍牙與 USB 連線
 // ==========================================
 async function connectBLE() {
   try {
@@ -113,6 +111,7 @@ async function connectUSB() {
   } catch (e) { alert("USB 連線失敗"); }
 }
 
+// 通用 Bitmap 轉換 (將畫面轉為印表機的 0 與 1)
 function canvasToBitmap(canvas) {
   const ctx = canvas.getContext("2d");
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -130,66 +129,123 @@ function canvasToBitmap(canvas) {
 }
 
 // ==========================================
-// 3. 自動列印引擎 (雙機出單)
+// 3. 雙通道非同步列印引擎 (防卡死版)
 // ==========================================
 async function autoPrint(list) {
   if (!bleChar && !endpointOut) return;
   for (const o of list) {
     if (o.status === "待列印" && !printedOrders.has(o.id)) {
-      setMsg("正在列印單號: " + o.seq);
-      await executeDualPrint(o);
       printedOrders.add(o.id);
+      setMsg("已傳送列印指令: " + o.seq);
+      
+      // 不等待，直接射後不理，防止塞車
+      executeDualPrint(o);
+      
+      // 射完馬上通知後台已進入製作中
       fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`);
     }
   }
 }
 
-// 防呆補印函式，避免 HTML 單引號衝突
-async function reprintOrder(encStr) {
+// 按鈕補印
+function reprintOrder(encStr) {
   try {
     const o = JSON.parse(decodeURIComponent(encStr));
-    await executeDualPrint(o);
+    setMsg("補印單號: " + o.seq);
+    executeDualPrint(o);
   } catch(e) { alert("補印失敗"); }
 }
 
+// 雙通道分發
 async function executeDualPrint(o) {
   playBeep();
   if (bleChar) {
-    const items = o.content.split(/[|仁,]/).filter(i => i.trim());
-    for (let i = 0; i < items.length; i++) {
-      const cvs = document.createElement("canvas"); cvs.width = 320; cvs.height = 240;
-      const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
-      ctx.fillStyle = "black"; ctx.font = "bold 34px sans-serif"; ctx.fillText(o.seq, 10, 40);
-      ctx.font = "24px sans-serif"; ctx.fillText((i+1)+"/"+items.length, 240, 40);
-      ctx.font = "bold 38px sans-serif"; ctx.fillText(items[i].trim(), 10, 120);
-      const data = canvasToBitmap(cvs);
-      const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0\r\nCLS\r\nBITMAP 0,0,40,240,0,`);
-      const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
-      const combined = new Uint8Array(header.length + data.length + footer.length);
-      combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
-      for (let j = 0; j < combined.length; j += 20) await bleChar.writeValue(combined.slice(j, j + 20));
-      await new Promise(r => setTimeout(r, 1200));
-    }
+    printToBLE(o).catch(e => console.error("BLE 列印錯誤:", e));
   }
   if (printerDevice && endpointOut) {
-    const cvs = document.createElement("canvas"); cvs.width = 384; cvs.height = 500;
-    const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,384,500);
-    ctx.fillStyle = "black"; ctx.font = "bold 40px sans-serif"; ctx.fillText("加山記明細", 20, 50);
-    ctx.font = "bold 60px sans-serif"; ctx.fillText(o.seq, 20, 130);
-    ctx.font = "bold 26px sans-serif"; ctx.fillText(o.content, 20, 220);
-    ctx.fillText("總計: $" + o.total, 20, 440);
-    const data = canvasToBitmap(cvs);
-    const header = new TextEncoder().encode(`SIZE 48 mm, 62 mm\r\nCLS\r\nBITMAP 0,0,48,500,0,`);
-    const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
-    const combined = new Uint8Array(header.length + data.length + footer.length);
-    combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
-    await printerDevice.transferOut(endpointOut, combined);
+    printToUSB(o).catch(e => console.error("USB 列印錯誤:", e));
   }
 }
 
+// 🔵 藍牙：標籤機 (TSPL 指令)
+async function printToBLE(o) {
+  const items = o.content.split(/[|仁,]/).filter(i => i.trim());
+  for (let i = 0; i < items.length; i++) {
+    const cvs = document.createElement("canvas"); cvs.width = 320; cvs.height = 240;
+    const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
+    ctx.fillStyle = "black"; ctx.font = "bold 34px sans-serif"; ctx.fillText(o.seq, 10, 40);
+    ctx.font = "24px sans-serif"; ctx.fillText((i+1)+"/"+items.length, 240, 40);
+    ctx.font = "bold 38px sans-serif"; ctx.fillText(items[i].trim(), 10, 120);
+    
+    const data = canvasToBitmap(cvs);
+    const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0\r\nCLS\r\nBITMAP 0,0,40,240,0,`);
+    const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
+    const combined = new Uint8Array(header.length + data.length + footer.length);
+    combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
+    
+    // 分段傳輸防卡死
+    for (let j = 0; j < combined.length; j += 20) {
+      try { await bleChar.writeValue(combined.slice(j, j + 20)); } catch(e){}
+    }
+    await new Promise(r => setTimeout(r, 1000)); // 標籤間隔 1 秒
+  }
+}
+
+// 🔌 USB：明細單據機 (ESC/POS 指令)
+async function printToUSB(o) {
+  const items = o.content.split(/[|仁,]/).filter(i => i.trim());
+  const cvs = document.createElement("canvas"); cvs.width = 384; 
+  const h = 250 + (items.length * 40); cvs.height = h;
+  const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,384,h);
+  
+  ctx.fillStyle = "black"; ctx.font = "bold 36px sans-serif"; ctx.fillText("加山記 - 顧客單據", 20, 50);
+  ctx.font = "bold 50px sans-serif"; ctx.fillText(o.seq, 20, 120);
+  ctx.font = "bold 26px sans-serif"; 
+  items.forEach((l, idx) => ctx.fillText(l.trim(), 20, 180 + (idx * 40)));
+  ctx.fillText("------------------------", 20, 180 + (items.length * 40));
+  ctx.fillText("總計: $" + o.total, 20, 180 + (items.length * 40) + 30);
+  
+  const data = canvasToBitmap(cvs);
+  
+  // ESC/POS 標準明細列印指令
+  const init = new Uint8Array([0x1B, 0x40]); 
+  const xL = 48; const xH = 0; const yL = h & 0xFF; const yH = (h >> 8) & 0xFF;
+  const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+  const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00]); // 換行並裁紙
+  
+  const combined = new Uint8Array(init.length + header.length + data.length + footer.length);
+  combined.set(init); combined.set(header, init.length); combined.set(data, init.length + header.length); combined.set(footer, init.length + header.length + data.length);
+  
+  await printerDevice.transferOut(endpointOut, combined);
+}
+
 // ==========================================
-// 4. 現場下單、宅配、歷史與班次
+// 4. 其他 UI 操作與邏輯
 // ==========================================
+async function fetchOrders() {
+  try {
+    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
+    const data = await res.json();
+    if (data.error) return; 
+
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && o.status !== "").map(o => {
+      const enc = encodeURIComponent(JSON.stringify(o));
+      return `
+      <div class="card">
+        <div class="seq">${o.seq}</div>
+        <b>${o.content}</b><br>
+        <span style="color:red;font-weight:bold;font-size:22px;">$${o.total}</span>
+        <div style="display:flex;gap:5px;margin-top:10px;">
+          <button class="sbtn reprint" onclick="reprintOrder('${enc}')">補印</button>
+          <button class="sbtn done" style="background:#2ecc71;color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
+        </div>
+      </div>`;
+    }).join("") || "<div style='color:#999;'>目前無待處理訂單</div>";
+    
+    autoPrint(data);
+  } catch(e) {}
+}
+
 async function submitCashOrder() {
   const btn = document.getElementById("cashSubmitBtn");
   const total = document.getElementById("posTotal").innerText;
@@ -203,41 +259,6 @@ async function submitCashOrder() {
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
 
-async function fetchOrders() {
-  try {
-    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
-    const data = await res.json();
-    
-    // 雷達：把抓到的訂單印在開發者工具裡
-    console.log("後台傳來的訂單資料：", data);
-
-    if (data.error) {
-      console.log("後台報錯：", data.message);
-      return; 
-    }
-
-    const htmlStr = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && o.status !== "").map(o => {
-      const enc = encodeURIComponent(JSON.stringify(o));
-      return `
-      <div class="card">
-        <div class="seq">${o.seq}</div>
-        <b>${o.content}</b><br>
-        <span style="color:red; font-weight:bold; font-size:22px;">$${o.total}</span>
-        <div style="display:flex; gap:5px; margin-top:10px;">
-          <button class="sbtn reprint" onclick="reprintOrder('${enc}')">補印</button>
-          <button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
-        </div>
-      </div>`;
-    }).join("");
-
-    document.getElementById("orders").innerHTML = htmlStr || "<div style='color:#999; padding:20px;'>目前無待處理訂單</div>";
-    
-    autoPrint(data);
-  } catch(e) {
-    console.log("POS 讀取訂單發生錯誤：", e);
-  }
-}
-
 async function executeSearch() {
   const key = document.getElementById("searchInput").value;
   const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
@@ -249,14 +270,12 @@ async function openDeliveryPanel() {
   const pwd = prompt("密碼:");
   const config = await (await fetch(GAS_API + "?action=getConfig")).json();
   if (pwd === String(config.ADMIN_PWD || "0320")) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); }
-  else if(pwd) alert("錯誤");
 }
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
   const data = await (await fetch(GAS_API + "?action=getOrders")).json();
-  const list = data.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
-  if(!list.length) return div.innerHTML = "目前無宅配單";
+  const list = data.filter(o => String(o.pickup).includes("宅配"));
   div.innerHTML = list.map(o => `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div><b style="font-size:18px;">${o.seq}</b> | ${o.customerName}<br><b>${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:5px;">📍 ${o.deliveryAddress}</div></div><button class="sbtn done" style="width:100px; flex:none; margin-left:15px;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div>`).join("");
 }
 async function shipOrder(row, seq) {
@@ -277,26 +296,20 @@ async function fetchCurrentShift() {
     divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = "";
   }
 }
-
 async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
 async function handleCloseShift() { if(confirm("確定交班？")) { await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); } }
 
-// ==========================================
-// 5. 初始化與渲染
-// ==========================================
 function renderPosUI() {
   const draw = (list, id) => {
     document.getElementById(id).innerHTML = list.map(i => {
-      let p = Number(i.singlePrice) || Number(i.sp) || Number(i.p) || 0; 
+      let p = Number(i.singlePrice) || Number(i.sp) || 0;
       return `<div class="cash-item"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br>
         <button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', -1, ${p})">-</button>
         <span style="margin:0 10px; font-weight:bold;">${singleSel[i.n]?.q || 0}</span>
         <button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', 1, ${p})">+</button></div>`;
     }).join("");
   };
-  draw(MAINS, "posSMainGrid"); 
-  draw(DRINKS, "posSDrinkGrid"); 
-  draw(SIDES, "posSSideGrid");
+  draw(MAINS, "posSMainGrid"); draw(DRINKS, "posSDrinkGrid"); draw(SIDES, "posSSideGrid");
 }
 function editSingle(n, d, p) { if(!singleSel[n]) singleSel[n]={q:0,p:p}; singleSel[n].q+=d; if(singleSel[n].q<=0) delete singleSel[n]; updatePosBasket(); renderPosUI(); }
 function updatePosBasket() {
