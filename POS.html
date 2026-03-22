@@ -116,41 +116,39 @@ function formatDateObjTaipei(dateObj){
 }
 function parsePickupString(value){
   const str = String(value || "").trim();
-  if(!str || str === "現場取餐" || str.includes("現場取餐")) return null;
+  // 加上宅配的排除
+  if(!str || str === "現場取餐" || str.includes("現場取餐") || str === "delivery_cold" || str === "低溫宅配") return null;
   const isoDate = new Date(str); if(!isNaN(isoDate.getTime())) return isoDate;
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
   if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0), 0);
   return null;
 }
+
 function isReserveOrder(order){
   const raw = String(order.rawPickup || order.pickup || "").trim();
-  return !!raw && raw !== "現場取餐" && !raw.includes("現場取餐");
+  // 加上宅配的排除
+  return !!raw && raw !== "現場取餐" && !raw.includes("現場取餐") && raw !== "delivery_cold" && raw !== "低溫宅配";
 }
+
 function formatPickupDisplay(value){
   const str = String(value || "").trim();
   if(!str || str === "現場取餐" || str.includes("現場取餐")) return "現場取餐";
+  // 讓畫面上顯示「低溫宅配」
+  if(str === "delivery_cold" || str === "低溫宅配") return "低溫宅配";
   const d = parsePickupString(str); if(d) return formatDateObjTaipei(d);
   return str;
 }
+
 function shouldPrintNow(order){
   const raw = String(order.rawPickup || order.pickup || "").trim();
-  if(!raw || raw === "現場取餐" || raw.includes("現場取餐")) return true;
-  const pickup = parsePickupString(raw); if(!pickup) return false;
+  // 現場單與宅配單，立刻印
+  if(!raw || raw === "現場取餐" || raw.includes("現場取餐") || raw === "delivery_cold" || raw === "低溫宅配") return true;
+  const pickup = parsePickupString(raw); 
+  if(!pickup) return true; // 算不出時間的異常單，為了安全起見直接印
+  // 預約單：取餐時間減去 15分鐘 (15 * 60 * 1000 毫秒)
   const printAt = new Date(pickup.getTime() - 15 * 60 * 1000);
   return Date.now() >= printAt.getTime();
 }
-function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
-  const chars = text.split(''); let line = ''; let currentY = y;
-  for (let i = 0; i < chars.length; i++) {
-    let testLine = line + chars[i];
-    let testWidth = ctx.measureText(testLine).width;
-    if (testWidth > maxWidth && i > 0) {
-      ctx.fillText(line, x, currentY); line = chars[i]; currentY += lineHeight;
-    } else { line = testLine; }
-  }
-  ctx.fillText(line, x, currentY); return currentY + lineHeight;
-}
-
 
 // ==========================================
 // 3. 完美移植：藍牙與 USB 連線驅動
