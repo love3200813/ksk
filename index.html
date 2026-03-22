@@ -431,6 +431,34 @@ function addToBasket() {
   updateBasketUI(); // 重新渲染購物車
 }
 
+// 這是處理購物車加減數量的核心函數
+function updateCartQty(index, delta) {
+  const item = basket[index];
+  if (!item) return;
+
+  // 如果這筆資料沒有單價，自動幫它算出來 (總價 / 數量)
+  if (!item.unitPrice) {
+    item.unitPrice = item.price / (item.qty || 1);
+  }
+
+  const newQty = (item.qty || 1) + delta;
+
+  if (newQty <= 0) {
+    // 減到 0 時詢問是否移除
+    if (confirm("要移除這項餐點嗎？")) {
+      basket.splice(index, 1);
+      updateBasketUI();
+    }
+  } else {
+    // 更新該品項的數量與總價
+    item.qty = newQty;
+    item.price = item.unitPrice * newQty;
+    
+    // 重新刷一次介面
+    updateBasketUI();
+  }
+}
+  
 function updateBasketUI() {
   const list = document.getElementById("basketItemsList");
   const cartQty = document.getElementById("cartQty");
