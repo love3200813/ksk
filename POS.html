@@ -77,6 +77,17 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 <div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理面板</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
 
 <script>
+  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const chars = text.split(''); let line = ''; let currentY = y;
+  for (let i = 0; i < chars.length; i++) {
+    let testLine = line + chars[i];
+    let testWidth = ctx.measureText(testLine).width;
+    if (testWidth > maxWidth && i > 0) {
+      ctx.fillText(line, x, currentY); line = chars[i]; currentY += lineHeight;
+    } else { line = testLine; }
+  }
+  ctx.fillText(line, x, currentY); return currentY + lineHeight;
+}
 // ==========================================
 // 1. 系統變數與連線設定 (保留最新版的穩定 API)
 // ==========================================
