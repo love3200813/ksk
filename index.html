@@ -5,6 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加山記點餐</title>
 <style>
+/* 奶油風追蹤條優化 */
+#orderTrackerBar {
+  background-color: #FFF9E6; 
+  border-bottom: 2px solid #F3E5AB;
+  padding: 15px;
+  text-align: center;
+  position: relative; /* 改為 relative 讓它推開下方的 topbar */
+  z-index: 9999;
+  font-family: "Microsoft JhengHei", sans-serif;
+  display: none; /* 初始隱藏，由 JS 控制顯示 */
+}
+#orderTrackerBar span {
+  color: #5D4037;
+  font-weight: bold;
+  font-size: 15px;
+}
+#orderTrackerBar .track-btn {
+  background-color: #111;
+  color: white;
+  padding: 6px 15px;
+  border-radius: 20px;
+  margin-left: 10px;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
 :root{
   --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b;
   --muted:#7a7a7a; --primary:#111111; --success:#1f8f55; --danger:#d9534f;
@@ -54,7 +81,13 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 </style>
 </head>
 <body>
+<div id="orderTrackerBar">
+  <span id="trackerText"></span>
+  <button type="button" class="track-btn" onclick="autoQueryLastOrder()">點此查進度 ➔</button>
+  <span style="margin-left:15px; cursor:pointer; color:#999; font-size: 20px;" onclick="this.parentElement.style.display='none'">✕</span>
+</div>
 
+<div id="toast" class="toast"></div>
 <div id="toast" class="toast"></div>
 
 <div id="orderPage" class="page active">
@@ -624,12 +657,21 @@ async function submitOrder() {
     const res = await fetch(GAS_API + "?action=submitOrder&orderData=" + JSON.stringify(orderData));
     const json = await res.json();
     
-    // 【新增】如果後台回傳錯誤，立刻跳出警告並恢復按鈕
     if (json.error) {
       alert("後台錯誤：" + json.message);
       btn.disabled = false; btn.innerText = "確認送出訂單";
       return;
     }
+
+    // --- 修改開始：統一記憶訂單資訊 (不論是否為 LINEPAY) ---
+    const orderToSave = {
+      seq: json.seq || "",
+      orderId: json.orderId || "",
+      items: orderData.items,
+      time: new Date().getTime() // 存時間戳記
+    };
+    localStorage.setItem("ksk_last_order", JSON.stringify(orderToSave));
+    // --- 修改結束 ---
 
     if(json.payUrl) {
       location.href = json.payUrl;
@@ -703,6 +745,34 @@ async function checkLinePayReturn() {
 initializeLiff();
 fetchMenuData();
 checkLinePayReturn();
+  // 1. 自動檢查機制
+window.addEventListener('load', function() {
+  const lastOrderStr = localStorage.getItem("ksk_last_order");
+  if (lastOrderStr) {
+    const lastOrder = JSON.parse(lastOrderStr);
+    const now = new Date().getTime();
+    
+    // 如果是 24 小時內的訂單才顯示 (86400000 毫秒)
+    if (now - lastOrder.time < 86400000) {
+      document.getElementById("trackerText").innerText = "您有一筆進行中的訂單 [" + lastOrder.seq + "]";
+      document.getElementById("orderTrackerBar").style.display = 'block';
+    }
+  }
+});
+
+// 2. 自動查詢功能
+function autoQueryLastOrder() {
+  const lastOrderStr = localStorage.getItem("ksk_last_order");
+  if (lastOrderStr) {
+    const lastOrder = JSON.parse(lastOrderStr);
+    // 填入號碼
+    document.getElementById("queryInput").value = lastOrder.seq;
+    // 打開 Modal
+    openQueryModal();
+    // 執行查詢
+    queryOrder();
+  }
+}
 </script>
 </body>
 </html>
