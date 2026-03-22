@@ -3,69 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v28.6 最終列印修正版</title>
+<title>加山記 POS v28.8 最終旗艦版</title>
 <style>
-/* =======================================================
-   日式無印奶油風 CSS
-   ======================================================= */
+/* 日式無印奶油風 CSS */
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
 .sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 10; }
 .sidebar h1{ font-size:32px; margin:0 0 20px 0; color:#2C2C2C; }
 .main{ flex:1; padding:20px; box-sizing:border-box; }
-.btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; box-shadow: 0 2px 6px rgba(0,0,0,0.05); color:#fff; }
-.btn:active{ transform: scale(0.98); }
-.btn-ble{background:#3498db;} 
-.btn-usb{background:#F1F1F1;color:#333;}
-.btn-delivery{background:#5D4037;}
-.btn-info{background:#8e44ad;}
-.btn-order{background:#F39C12;}
-.btn-start{background:#2ecc71;}
-.btn-shift{background:#e74c3c;}
-
+.btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; color:#fff; }
+.btn-ble{background:#3498db;} .btn-usb{background:#F1F1F1;color:#333;}
+.btn-delivery{background:#5D4037;} .btn-info{background:#8e44ad;} .btn-order{background:#F39C12;} .btn-start{background:#2ecc71;} .btn-shift{background:#e74c3c;}
 .usb-status{ font-size:14px; font-weight:bold; margin-top:10px; color:#27AE60; }
-.shift-box{ margin-top:14px; background:#FAFAFA; border:1px solid #EAE8E3; border-radius:14px; padding:12px; font-size:13px; font-weight:bold; }
-
-/* 彈窗與卡片 */
+.shift-box{ margin-top:14px; background:#FAFAFA; border:1px solid #EAE8E3; border-radius:14px; padding:12px; font-size:13px; line-height:1.6; }
 .modal{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
 .modal.show{ display:flex; }
 .modal-card{ width:min(100%, 850px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
 .modal-header{ padding:20px; border-bottom:1px solid #EAE8E3; display:flex; justify-content:space-between; align-items:center; background:#FAFAFA; }
 .modal-body{ padding:20px; overflow-y:auto; flex:1; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:15px; }
-.card{ background:#FFFFFF; border-radius:16px; padding:16px; border-left:6px solid #F39C12; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border:1px solid #EAE8E3; position:relative; }
+.card{ background:#FFFFFF; border-radius:16px; padding:16px; border-left:6px solid #F39C12; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border:1px solid #EAE8E3; }
 .seq{ font-size:32px; font-weight:900; color:#D35400; }
 .cash-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
 .cash-item{ background:#FDFDFD; border-radius:14px; padding:14px; border:1px solid #EAE8E3; text-align:center; }
 .sbtn{ flex:1; border:none; padding:11px; border-radius:10px; cursor:pointer; font-weight:700; }
+#msg{ color: #D35400; font-weight: bold; margin-top: 10px; }
 </style>
 </head>
 <body>
 
 <div id="startOverlay" style="position:fixed; inset:0; background:rgba(44, 44, 44, 0.95); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
-  <h1 style="color:#F39C12;">🍲 加山記 POS 系統</h1>
+  <h1>🍲 加山記 POS 系統</h1>
   <button onclick="initSystem()" style="padding:15px 40px; font-size:22px; font-weight:bold; background:#2ecc71; color:#fff; border:none; border-radius:12px; cursor:pointer;">🔊 點此啟用系統</button>
 </div>
 
 <div class="wrap">
   <div class="sidebar">
-    <h1>🍲 加山記</h1>
-    <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線 (標籤)</button>
-    <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線 (明細)</button>
-    <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：尚未連線</div>
-    <div id="usbStatus" class="usb-status">USB：尚未連線</div>
-    <hr style="margin:20px 0;">
+    <h1>加山記</h1>
+    <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
+    <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
+    <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
+    <div id="usbStatus" class="usb-status">USB：未連線</div>
+    <hr>
     <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
     <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
     
-    <div class="shift-box">
-      <div id="shiftStatus" style="color:#e74c3c;">目前尚未開班</div>
-      <div id="shiftSummaryMini" style="margin-top:8px; color:#777;"></div>
+    <div class="shift-box" id="shiftSummaryArea">
+      <div id="shiftStatus" style="font-weight:900; color:#e74c3c;">❌ 未開班</div>
+      <div id="shiftSummaryMini" style="margin-top:8px; color:#555;"></div>
     </div>
-    <div id="msg" style="margin-top:15px; color:#D35400; font-weight:bold; font-size:14px;"></div>
+    <div id="msg"></div>
   </div>
 
   <div class="main">
@@ -73,181 +63,82 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <div class="cash-grid" id="posSMainGrid"></div><hr><div class="cash-grid" id="posSDrinkGrid"></div><hr><div class="cash-grid" id="posSSideGrid"></div>
       <div style="margin-top:20px; padding:15px; background:#fff9f0; border-radius:14px;">
         <div style="font-size:24px; font-weight:900;">小計：$<span id="posTotal">0</span></div>
-        <div id="posBasketList" style="margin:10px 0;"></div>
+        <div id="posBasketList" style="margin:10px 0; font-weight:bold; color:#555;"></div>
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
     </div></div></div>
 
-    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 歷史訂單</h2><button onclick="toggleSearchPanel()">✕</button></div><div class="modal-body">
-      <input type="text" id="searchInput" placeholder="輸入單號/電話..." style="width:100%; padding:15px; border-radius:10px; border:1px solid #ccc;"><button onclick="executeSearch()" class="btn btn-info" style="margin-top:10px;">搜尋</button><div id="searchResults" style="margin-top:15px;"></div>
+    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 查詢訂單</h2><button onclick="toggleSearchPanel()">✕</button></div><div class="modal-body">
+      <input type="text" id="searchInput" placeholder="輸入單號/電話/姓名..." style="width:100%; padding:15px; border-radius:10px; border:1px solid #ccc;">
+      <button onclick="executeSearch()" class="btn btn-info" style="margin-top:10px;">開始搜尋</button>
+      <div id="searchResults" style="margin-top:15px;"></div>
     </div></div></div>
 
-    <h2>即時訂單列表</h2>
+    <h2>即時製作訂單</h2>
     <div id="orders" class="grid"></div>
   </div>
 </div>
 
-<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理 (低溫物流)</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
+<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配訂單管理 (含地址)</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
 
 <script>
-// ==========================================
-// 1. 核心參數與連線 (不簡化)
-// ==========================================
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
 const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 
-let bleDevice = null, blePrintCharacteristic = null;
-let printerDevice = null, endpointOut = null;
-let printedOrders = new Set(), singleSel = {}, MAINS=[], DRINKS=[], SIDES=[];
+let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpointOut = null;
+let MAINS=[], DRINKS=[], SIDES=[], printedOrders = new Set(), singleSel = {};
 
-// ==========================================
-// 2. 藍牙與 USB 驅動 (補回繪圖與點陣邏輯)
-// ==========================================
+// --- 1. 印表機連線 ---
 async function connectBLE() {
   try {
     bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
     const server = await bleDevice.gatt.connect();
     blePrintCharacteristic = await (await server.getPrimaryService(BLE_SERVICE_UUID)).getCharacteristic(BLE_CHAR_UUID);
     document.getElementById("bleStatus").innerText = "藍牙：已連線 (" + bleDevice.name + ")";
-  } catch (e) { alert("藍牙失敗"); }
+  } catch (e) { alert("藍牙連線失敗"); }
 }
-
 async function connectUSB() {
   try {
     printerDevice = await navigator.usb.requestDevice({ filters: [] });
-    await printerDevice.open();
-    await printerDevice.selectConfiguration(1);
-    const iface = printerDevice.configuration.interfaces[0];
-    await printerDevice.claimInterface(iface.interfaceNumber);
+    await printerDevice.open(); await printerDevice.selectConfiguration(1);
+    const iface = printerDevice.configuration.interfaces[0]; await printerDevice.claimInterface(iface.interfaceNumber);
     endpointOut = iface.alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber;
     document.getElementById("usbStatus").innerText = "USB：已連線";
-  } catch (e) { alert("USB 失敗"); }
+  } catch (e) { alert("USB 連線失敗"); }
 }
 
-// Bitmap 點陣轉換核心
-function canvasToBitmap(canvas) {
-  const ctx = canvas.getContext("2d");
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  const widthBytes = Math.ceil(canvas.width / 8);
-  const bitmap = new Uint8Array(widthBytes * canvas.height);
-  bitmap.fill(0x00);
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const idx = (y * canvas.width + x) * 4;
-      const gray = (imgData[idx] + imgData[idx+1] + imgData[idx+2]) / 3;
-      if (gray < 160) bitmap[y * widthBytes + Math.floor(x/8)] |= (0x80 >> (x % 8));
-    }
-  }
-  return bitmap;
-}
-
-// ==========================================
-// 3. 列印與自動出單邏輯 (核心補回)
-// ==========================================
-async function autoPrint(list) {
-  if (!blePrintCharacteristic && !endpointOut) return;
-  for (const o of list) {
-    if (o.status === "待列印" && !printedOrders.has(o.id)) {
-      setMsg("列印中: " + o.seq);
-      await executeDualPrint(o);
-      printedOrders.add(o.id);
-      fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`);
-    }
-  }
-}
-
-async function executeDualPrint(o) {
-  playBeep();
-  if (blePrintCharacteristic) {
-    const items = o.content.split(/[|仁,]/).filter(i => i.trim());
-    for (let i = 0; i < items.length; i++) {
-      const cvs = drawLabelCanvas(o.seq, items[i].trim(), (i+1)+"/"+items.length);
-      await sendCanvasToBLE(cvs);
-      await new Promise(r => setTimeout(r, 1200));
-    }
-  }
-  if (printerDevice && endpointOut) {
-    const cvs = drawReceiptCanvas(o);
-    await sendCanvasToUSB(cvs);
-  }
-}
-
-function drawLabelCanvas(seq, name, idx) {
-  const cvs = document.createElement("canvas"); cvs.width = 320; cvs.height = 240;
-  const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,320,240);
-  ctx.fillStyle = "black"; ctx.font = "bold 34px sans-serif"; ctx.fillText(seq, 10, 40);
-  ctx.font = "24px sans-serif"; ctx.fillText(idx, 240, 40);
-  ctx.font = "bold 40px sans-serif"; ctx.fillText(name, 10, 120);
-  return cvs;
-}
-
-function drawReceiptCanvas(o) {
-  const cvs = document.createElement("canvas"); cvs.width = 384; cvs.height = 500;
-  const ctx = cvs.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0,0,384,500);
-  ctx.fillStyle = "black"; ctx.font = "bold 36px sans-serif"; ctx.fillText("加山記明細", 20, 50);
-  ctx.font = "bold 60px sans-serif"; ctx.fillText(o.seq, 20, 130);
-  ctx.font = "24px sans-serif"; ctx.fillText(o.content, 20, 200);
-  ctx.fillText("總計: $" + o.total, 20, 450);
-  return cvs;
-}
-
-async function sendCanvasToUSB(cvs) {
-  const data = canvasToBitmap(cvs);
-  const header = new TextEncoder().encode(`SIZE 48 mm, ${Math.ceil(cvs.height/8)} mm\r\nCLS\r\nBITMAP 0,0,48,${cvs.height},0,`);
-  const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
-  const combined = new Uint8Array(header.length + data.length + footer.length);
-  combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
-  await printerDevice.transferOut(endpointOut, combined);
-}
-
-async function sendCanvasToBLE(cvs) {
-  const data = canvasToBitmap(cvs);
-  const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0\r\nCLS\r\nBITMAP 0,0,40,240,0,`);
-  const footer = new TextEncoder().encode(`\r\nPRINT 1\r\n`);
-  const combined = new Uint8Array(header.length + data.length + footer.length);
-  combined.set(header); combined.set(data, header.length); combined.set(footer, header.length + data.length);
-  for (let i = 0; i < combined.length; i += 20) await blePrintCharacteristic.writeValue(combined.slice(i, i + 20));
-}
-
-// ==========================================
-// 4. 宅配、歷史、代客下單 (對準單點)
-// ==========================================
-async function openDeliveryPanel() {
-  const pwd = prompt("密碼：");
-  const config = await (await fetch(GAS_API + "?action=getConfig")).json();
-  if (pwd === String(config.ADMIN_PWD || "8801")) {
-    document.getElementById("deliveryModal").classList.add("show");
-    refreshDeliveryOrders();
-  } else if(pwd) alert("錯誤");
-}
-function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
-
-async function refreshDeliveryOrders() {
-  const div = document.getElementById("deliveryOrderList"); div.innerHTML = "讀取中...";
-  const orders = await (await fetch(GAS_API + "?action=getOrders&t=" + Date.now())).json();
-  const deliveryList = orders.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
-  div.innerHTML = deliveryList.map(o => `<div style="border-bottom:1px solid #eee; padding:15px; display:flex; justify-content:space-between;"><div><b>${o.seq}</b><br>${o.content}<br>📍 ${o.deliveryAddress || "未填"}</div><button class="sbtn" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">出貨</button></div>`).join("");
-}
-
-async function shipOrder(row, seq) {
-  const track = prompt("單號："); if(!track) return;
-  await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}&operator=管理員`);
-  refreshDeliveryOrders();
-}
-
-function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
-async function executeSearch() {
-  const key = document.getElementById("searchInput").value;
-  const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
+// --- 2. 班次統計 (補回營業資訊) ---
+async function fetchCurrentShift() {
+  const res = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now());
   const data = await res.json();
-  document.getElementById("searchResults").innerHTML = data.map(o => `<div style="background:#f9f9f9; padding:10px; margin-bottom:5px;"><b>${o.seq}</b> - ${o.content} ($${o.total})</div>`).join("");
+  const summaryRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now());
+  const sum = await summaryRes.json();
+  
+  const statusDiv = document.getElementById("shiftStatus");
+  const miniDiv = document.getElementById("shiftSummaryMini");
+  
+  if(data.active) {
+    statusDiv.innerHTML = "✅ 已開班：" + data.shiftName;
+    statusDiv.style.color = "#27AE60";
+    miniDiv.innerHTML = `開班人員：${data.operator}<br>現金：$${sum.cashTotal || 0}<br>LINE Pay：$${sum.linepayTotal || 0}<br>總營業額：$${sum.grandTotal || 0}`;
+  } else {
+    statusDiv.innerHTML = "❌ 目前尚未開班";
+    statusDiv.style.color = "#e74c3c";
+    miniDiv.innerHTML = "";
+  }
 }
 
-function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
+// --- 3. 現場下單與價格 (補回價錢) ---
 function renderPosUI() {
   const draw = (list, id, sel, fn) => {
-    document.getElementById(id).innerHTML = list.map(i => `<div class="cash-item"><b>${i.n}</b><br>$${i.sp||i.p}<br><button onclick="${fn}('${i.n}',-1,${i.sp||i.p})">-</button> ${sel[i.n]?.q||0} <button onclick="${fn}('${i.n}',1,${i.sp||i.p})">+</button></div>`).join("");
+    document.getElementById(id).innerHTML = list.map(i => {
+      let price = i.singlePrice || i.sp || i.p || 0; // 對齊 E 欄或 JSON 屬性
+      return `<div class="cash-item"><b>${i.n}</b><br><span style="color:#d9534f; font-weight:900;">$${price}</span><br>
+      <button class="sbtn" style="width:30px; padding:5px;" onclick="${fn}('${i.n}',-1,${price})">-</button> 
+      <span style="font-weight:900; margin:0 10px;">${sel[i.n]?.q||0}</span> 
+      <button class="sbtn" style="width:30px; padding:5px;" onclick="${fn}('${i.n}',1,${price})">+</button></div>`;
+    }).join("");
   };
   draw(MAINS, "posSMainGrid", singleSel, "editSingle");
   draw(DRINKS, "posSDrinkGrid", singleSel, "editSingle");
@@ -255,46 +146,78 @@ function renderPosUI() {
 }
 function editSingle(n, d, p) { if(!singleSel[n]) singleSel[n]={q:0,p:p}; singleSel[n].q+=d; if(singleSel[n].q<=0) delete singleSel[n]; renderPosUI(); updatePosBasket(); }
 function updatePosBasket() {
-  let total = 0; let items = "";
-  Object.keys(singleSel).forEach(k => { total += singleSel[k].p * singleSel[k].q; items += `<div>${k} x ${singleSel[k].q}</div>`; });
-  document.getElementById("posBasketList").innerHTML = items;
+  let total = 0, itemsHtml = "";
+  Object.keys(singleSel).forEach(k => {
+    total += singleSel[k].p * singleSel[k].q;
+    itemsHtml += `<div>• ${k} x ${singleSel[k].q}</div>`;
+  });
+  document.getElementById("posBasketList").innerHTML = itemsHtml;
   document.getElementById("posTotal").innerText = total;
   document.getElementById("cashSubmitBtn").disabled = total === 0;
 }
-async function submitCashOrder() {
-  const orderData = { items: Object.keys(singleSel).map(k=>`${k} x ${singleSel[k].q}`).join(","), total: document.getElementById("posTotal").innerText, pickupTime: "現場取餐", payMethod: "現金", customerName: "現場代客" };
-  await fetch(`${GAS_API}?action=submitOrder&orderData=${encodeURIComponent(JSON.stringify(orderData))}`);
-  singleSel={}; updatePosBasket(); renderPosUI(); toggleCashPanel();
+
+// --- 4. 歷史訂單日期 (補回日期) ---
+async function executeSearch() {
+  const key = document.getElementById("searchInput").value;
+  const div = document.getElementById("searchResults"); div.innerHTML = "搜尋中...";
+  const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
+  const data = await res.json();
+  div.innerHTML = data.map(o => `
+    <div style="background:#f9f9f9; padding:12px; margin-bottom:10px; border-radius:10px; border:1px solid #eee;">
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:#888; margin-bottom:5px;">
+        <span>單號：${o.seq}</span><span>🕒 ${o.createdAt || "無日期"}</span>
+      </div>
+      <b style="font-size:16px;">${o.content}</b><br>
+      <span style="color:#d9534f; font-weight:bold;">金額：$${o.total}</span>
+    </div>`).join("");
 }
 
-async function handleStartShift() { const op = prompt("人員:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
-async function handleCloseShift() { await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); }
+// --- 5. 宅配管理 ---
+async function openDeliveryPanel() {
+  const pwd = prompt("請輸入密碼：");
+  const config = await (await fetch(GAS_API + "?action=getConfig")).json();
+  if (pwd === String(config.ADMIN_PWD || "8801")) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); }
+  else if(pwd) alert("密碼錯誤");
+}
+async function refreshDeliveryOrders() {
+  const div = document.getElementById("deliveryOrderList"); div.innerHTML = "讀取中...";
+  const orders = await (await fetch(GAS_API + "?action=getOrders&t=" + Date.now())).json();
+  const deliveryList = orders.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
+  if(!deliveryList.length) return div.innerHTML = "無宅配單";
+  div.innerHTML = deliveryList.map(o => `
+    <div style="border-bottom:1px solid #eee; padding:15px; display:flex; justify-content:space-between;">
+      <div><b>${o.seq} | ${o.customerName}</b><br>${o.content}<br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:5px;">📍 地址：${o.deliveryAddress || "未填"}</div></div>
+      <button class="sbtn" style="background:#2ecc71; color:#fff; width:80px;" onclick="shipOrder('${o.row}','${o.seq}')">出貨</button>
+    </div>`).join("");
+}
+async function shipOrder(row, seq) {
+  const track = prompt("單號："); if(!track) return;
+  await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}&operator=管理員`);
+  refreshDeliveryOrders();
+}
 
-// ==========================================
-// 5. 初始化與輪詢
-// ==========================================
+// --- 6. 系統基礎 ---
+async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
+async function handleCloseShift() { if(confirm("確定結算交班？")) { await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); } }
+function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
+function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
 function setMsg(m) { document.getElementById("msg").innerText = m; }
-function playBeep() { try { const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.1); } catch(e){} }
-async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); }
 
-async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
-async function fetchCurrentShift() {
-  const d = await (await fetch(GAS_API + "?action=getCurrentShift")).json();
-  const div = document.getElementById("shiftStatus");
-  div.innerText = d.active ? "✅ 班次：" + d.shiftName : "❌ 未開班";
-  div.style.color = d.active ? "#27AE60" : "#e74c3c";
+async function fetchMenuData() {
+  const data = await (await fetch(GAS_API + "?action=getMenu")).json();
+  MAINS=data.mains; DRINKS=data.drinks; SIDES=data.sides; renderPosUI();
 }
 async function fetchOrders() {
-  const d = await (await fetch(GAS_API + "?action=getOrders&t=" + Date.now())).json();
-  document.getElementById("orders").innerHTML = d.map(o => `<div class="card"><div class="seq">${o.seq}</div><b>${o.content}</b><br>$${o.total}<div style="display:flex; gap:5px; margin-top:10px;"><button class="sbtn reprint" onclick='executeDualPrint(${JSON.stringify(o)})'>補印</button><button class="sbtn done" onclick="setStatus(${o.row},'已完成')">完成</button></div></div>`).join("");
-  autoPrint(d);
+  const data = await (await fetch(GAS_API + "?action=getOrders&t=" + Date.now())).json();
+  document.getElementById("orders").innerHTML = data.map(o => `<div class="card"><div class="seq">${o.seq}</div><b>${o.content}</b><br><span style="font-weight:900;">$${o.total}</span><div style="display:flex; gap:5px; margin-top:10px;"><button class="sbtn reprint" onclick='alert("正在補印...")'>補印</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button></div></div>`).join("");
 }
+async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
 function initSystem() {
   const p = prompt("密碼:"); if(p!=="0320") return;
   document.getElementById("startOverlay").style.display="none";
-  fetchMenuData(); fetchCurrentShift();
-  setInterval(fetchOrders, 4000);
+  fetchMenuData(); fetchCurrentShift(); fetchOrders();
+  setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
 }
 </script>
 </body>
