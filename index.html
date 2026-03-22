@@ -182,20 +182,35 @@ function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y");
-    categories = [{ name: "🚚 低溫宅配專區", list: filteredDrinks.map(d => ({ n: d.n, p: d.sp || d.singlePrice || 0, img: d.img })) }];
+    // 強制抓取 singlePrice 或 sp
+    categories = [{ name: "🚚 低溫宅配專區", list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) }];
   } else {
     categories = [
-      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: m.singlePrice || m.sp || 0, img: m.img })) },
-      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: d.sp || d.singlePrice || 0, img: d.img })) },
-      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: s.sp || s.singlePrice || 0, img: s.img })) }
+      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || Number(m.sp) || 0, img: m.img })) },
+      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) },
+      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || Number(s.sp) || 0, img: s.img })) }
     ];
   }
+
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
-    <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
-        ${cat.list.map(i => `<div class="menu-card">${i.img ? `<img src="${i.img}" class="menu-img">` : ''}<b>${i.n}</b><br><span style="color:var(--danger); font-weight:900;">$${i.p}</span>
-            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;"><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button><b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button></div>
-          </div>`).join("")}
-      </div></div>`).join("");
+    <div class="combo-step">
+      <div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div>
+      <div class="grid">
+        ${cat.list.map(i => `
+          <div class="menu-card">
+            ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
+            <b>${i.n}</b><br>
+            <span style="color:var(--danger); font-weight:900;">$${i.p}</span>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
+              <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
 }
 
 function showCheckout() {
