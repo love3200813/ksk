@@ -6,10 +6,37 @@
 <title>加山記點餐</title>
 <style>
 /* 奶油風追蹤條優化 */
-#orderTrackerBar { background-color: #FFF9E6; border-bottom: 2px solid #F3E5AB; padding: 15px; text-align: center; position: relative; z-index: 9999; display: none; }
-#orderTrackerBar span { color: #5D4037; font-weight: bold; font-size: 15px; }
-#orderTrackerBar .track-btn { background-color: #111; color: white; padding: 6px 15px; border-radius: 20px; margin-left: 10px; font-size: 13px; border: none; cursor: pointer; font-weight: bold; }
-:root{ --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b; --muted:#7a7a7a; --primary:#111111; --success:#1f8f55; --danger:#d9534f; --warning:#d98b00; --info:#2563eb; --shadow:0 10px 24px rgba(0,0,0,.06); --radius:18px; }
+#orderTrackerBar {
+  background-color: #FFF9E6; 
+  border-bottom: 2px solid #F3E5AB;
+  padding: 15px;
+  text-align: center;
+  position: relative; 
+  z-index: 9999;
+  font-family: "Microsoft JhengHei", sans-serif;
+  display: none; 
+}
+#orderTrackerBar span {
+  color: #5D4037;
+  font-weight: bold;
+  font-size: 15px;
+}
+#orderTrackerBar .track-btn {
+  background-color: #111;
+  color: white;
+  padding: 6px 15px;
+  border-radius: 20px;
+  margin-left: 10px;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+:root{
+  --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b;
+  --muted:#7a7a7a; --primary:#111111; --success:#1f8f55; --danger:#d9534f;
+  --warning:#d98b00; --info:#2563eb; --shadow:0 10px 24px rgba(0,0,0,.06); --radius:18px;
+}
 *{box-sizing:border-box;}
 html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--text); }
 .page{ display:none; max-width:1100px; margin:0 auto; min-height:100vh; padding:18px 16px 40px; }
@@ -58,15 +85,28 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
   <div id="entryPortal" style="position:fixed; inset:0; background:#f5f5f2; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
     <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
     <p style="margin-bottom:40px; color:#666; font-size:18px;">請選擇您的點餐方式</p>
-    <button type="button" class="btn btn-primary btn-block" style="margin-bottom:20px; padding:30px; font-size:22px; border-radius:20px; box-shadow:var(--shadow);" onclick="chooseServiceMode('pickup')">🏠 門市現場 / 預約自取</button>
-    <button type="button" class="btn btn-secondary btn-block" style="padding:30px; font-size:22px; border:2px solid #111; border-radius:20px; background:#fff; box-shadow:var(--shadow);" onclick="chooseServiceMode('delivery')">🚚 低溫宅配到府</button>
+    
+    <button type="button" class="btn btn-primary btn-block" style="margin-bottom:20px; padding:30px; font-size:22px; border-radius:20px; box-shadow:var(--shadow);" onclick="chooseServiceMode('pickup')">
+      🏠 門市現場 / 預約自取
+    </button>
+    
+    <button type="button" class="btn btn-secondary btn-block" style="padding:30px; font-size:22px; border:2px solid #111; border-radius:20px; background:#fff; box-shadow:var(--shadow);" onclick="chooseServiceMode('delivery')">
+      🚚 低溫宅配到府
+    </button>
+    
     <p style="margin-top:40px; font-size:14px; color:#999;">(宅配運費固定 $190，滿額享免運優惠)</p>
   </div>
 
   <div class="topbar">
     <div class="topbar-inner">
-      <div><div class="brand-title">🍲 加山記 Kashan Kee stew</div><div style="font-size:13px; color:var(--muted);">加入購物車後可點下一份，最後統一結帳</div></div>
-      <div class="top-actions"><div class="top-chip">目前總計｜$<b id="cartTotalTop">0</b></div><button class="btn btn-secondary" onclick="openQueryModal()">查詢訂單</button></div>
+      <div>
+        <div class="brand-title">🍲 加山記 Kashan Kee stew</div>
+        <div style="font-size:13px; color:var(--muted);">加入購物車後可點下一份，最後統一結帳</div>
+      </div>
+      <div class="top-actions">
+        <div class="top-chip">目前總計｜$<b id="cartTotalTop">0</b></div>
+        <button class="btn btn-secondary" onclick="openQueryModal()">查詢訂單</button>
+      </div>
     </div>
   </div>
 
@@ -76,29 +116,63 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
   </div>
 
   <div id="comboModeWrap" style="display:none;">
-    <div id="comboStep1" class="combo-step"><div class="step-head"><div class="brand-title" style="font-size:20px;">1. 選擇主餐</div><span id="stepMainChip" class="step-chip">請選擇</span></div><div id="mainGrid" class="grid"></div></div>
+    <div id="comboStep1" class="combo-step">
+      <div class="step-head">
+        <div class="brand-title" style="font-size:20px;">1. 選擇主餐</div>
+        <span id="stepMainChip" class="step-chip">請選擇</span>
+      </div>
+      <div id="mainGrid" class="grid"></div>
+    </div>
+
     <div id="comboOptionsWrap" class="combo-step step-lock" style="display:none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--line);"><button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選主餐</button><div style="font-weight: 900; color: var(--danger); font-size: 18px;" id="selectedMainDisplay"></div></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--line);">
+        <button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選主餐</button>
+        <div style="font-weight: 900; color: var(--danger); font-size: 18px;" id="selectedMainDisplay"></div>
+      </div>
       <div class="brand-title" style="font-size:20px; margin-bottom:15px;">2. 套餐配項</div>
-      <div style="margin-bottom:15px;"><label style="font-weight:900; display:block; margin-bottom:5px;">主餐加料 (選填)</label><select id="comboAddonSelect" onchange="syncComboSelection()"></select></div>
-      <div style="margin-bottom:15px;"><label style="font-weight:900; display:block; margin-bottom:5px;">選擇飲料</label><select id="comboDrinkSelect" onchange="syncComboSelection()"></select></div>
-      <div style="margin-bottom:15px;"><label style="font-weight:900; display:block; margin-bottom:5px;">選擇副餐</label><select id="comboSideSelect" onchange="syncComboSelection()"></select></div>
-      <div style="padding:10px; background:#fffceb; border-radius:12px; border:1px solid #ffeeba; text-align:right;"><span style="font-weight:bold; color:#856404;">套餐小計：$</span><span id="currentComboPrice" style="font-size:24px; font-weight:900; color:var(--danger);">0</span></div>
+      <div style="margin-bottom:15px;">
+        <label style="font-weight:900; display:block; margin-bottom:5px;">主餐加料 (選填)</label>
+        <select id="comboAddonSelect" onchange="syncComboSelection()"></select>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇飲料</label>
+        <select id="comboDrinkSelect" onchange="syncComboSelection()"></select>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇副餐</label>
+        <select id="comboSideSelect" onchange="syncComboSelection()"></select>
+      </div>
+      <div style="padding:10px; background:#fffceb; border-radius:12px; border:1px solid #ffeeba; text-align:right;">
+        <span style="font-weight:bold; color:#856404;">套餐小計：$</span>
+        <span id="currentComboPrice" style="font-size:24px; font-weight:900; color:var(--danger);">0</span>
+      </div>
     </div>
   </div>
 
-  <div id="singleModeWrap" style="display:block;"><div id="singleMenuWrap"></div></div>
+  <div id="singleModeWrap" style="display:block;">
+    <div id="singleMenuWrap"></div>
+  </div>
 
   <div class="inline-summary" style="border-color: #111; background: #fff;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><div class="brand-title" style="font-size:20px;">🍱 當前餐點小計</div><div style="font-size:26px; font-weight:900; color:var(--danger);">$<span id="currentComboPriceDisplay">0</span></div></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <div class="brand-title" style="font-size:20px;">🍱 當前餐點小計</div>
+      <div style="font-size:26px; font-weight:900; color:var(--danger);">$<span id="currentComboPriceDisplay">0</span></div>
+    </div>
     <button class="btn btn-secondary btn-block" style="background:#111; color:#fff;" onclick="addToBasket()">＋加入購物車 (點完請按此)</button>
   </div>
 
-  <div id="cartSection" style="margin-top:20px; display:none;"><div class="brand-title" style="font-size:20px; margin-bottom:10px;">🛒 已加入清單</div><div id="basketItemsList"></div><div style="height: 100px;"></div></div>
+  <div id="cartSection" style="margin-top:20px; display:none;">
+    <div class="brand-title" style="font-size:20px; margin-bottom:10px;">🛒 已加入清單</div>
+    <div id="basketItemsList"></div>
+    <div style="height: 100px;"></div> 
+  </div>
   
   <div id="stickyCheckoutBar" style="position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,0.96); backdrop-filter:blur(10px); border-top:2px solid #111; padding:15px 20px; display:none; z-index:999; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);">
     <div style="max-width:1100px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
-      <div><div style="font-size:14px; color:#666; font-weight:bold;">共 <span id="cartQty">0</span> 份餐點</div><div style="font-size:24px; font-weight:900; color:var(--danger);">$<span id="cartTotalBottom">0</span></div></div>
+      <div>
+        <div style="font-size:14px; color:#666; font-weight:bold;">共 <span id="cartQty">0</span> 份餐點</div>
+        <div style="font-size:24px; font-weight:900; color:var(--danger);">$<span id="cartTotalBottom">0</span></div>
+      </div>
       <button id="goCheckoutBtn" class="btn btn-primary" style="padding:12px 40px; font-size:18px;" onclick="showCheckout()">確認結帳 ➔</button>
     </div>
   </div>
@@ -114,15 +188,22 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     </select>
 
     <div id="reserveFields" style="display:none;">
-      <label style="font-weight:900;">預約日期</label><select id="pickupDate" onchange="updatePickupTimeOptions()"></select>
-      <label style="font-weight:900;">預約時間</label><select id="pickupTime"></select>
+      <label style="font-weight:900;">預約日期</label>
+      <select id="pickupDate" onchange="updatePickupTimeOptions()"></select>
+      <label style="font-weight:900;">預約時間</label>
+      <select id="pickupTime"></select>
     </div>
 
     <label style="font-weight:900;">付款方式</label>
-    <select id="payMethod"><option value="LINEPAY">LINE Pay</option><option value="現金">現場付款</option></select>
+    <select id="payMethod">
+      <option value="LINEPAY">LINE Pay</option>
+      <option value="現金">現場付款</option>
+    </select>
 
-    <label style="font-weight:900;">聯絡姓名</label><input type="text" id="customerName" placeholder="請輸入姓名">
-    <label style="font-weight:900;">聯絡電話</label><input type="tel" id="customerPhone" placeholder="請輸入電話">
+    <label style="font-weight:900;">聯絡姓名</label>
+    <input type="text" id="customerName" placeholder="請輸入姓名">
+    <label style="font-weight:900;">聯絡電話</label>
+    <input type="tel" id="customerPhone" placeholder="請輸入電話">
     
     <div id="deliveryAddressSection" style="display:none; margin-top:15px; padding:15px; background:#fff5f5; border-radius:14px; border:1px solid #ffcccc;">
       <label style="font-weight:900; color:#d9534f; display:block; margin-bottom:8px;">🚚 收件完整地址</label>
@@ -138,18 +219,23 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 </div>
 
 <div id="successPage" class="page">
-  <div class="combo-step" style="text-align:center;">
-    <h2 class="brand-title">✅ 訂單成立:請稍後等待取餐號碼顯示</h2>
-    <div id="successDetail" style="margin:20px 0; line-height:2; font-size:18px;"></div>
-    <button class="btn btn-primary" onclick="location.reload()">再點一筆/返回首頁查詢訂單狀態</button>
-  </div>
+    <div class="combo-step" style="text-align:center;">
+        <h2 class="brand-title">✅ 訂單成立:請稍後等待取餐號碼顯示</h2>
+        <div id="successDetail" style="margin:20px 0; line-height:2; font-size:18px;"></div>
+        <button class="btn btn-primary" onclick="location.reload()">再點一筆/返回首頁查詢訂單狀態</button>
+    </div>
 </div>
 
 <div id="queryModal" class="modal">
   <div class="modal-card">
-    <div class="step-head"><div class="brand-title">🔍 查詢訂單</div><button class="btn" style="padding:5px 10px; width:auto;" onclick="closeQueryModal()">✕</button></div>
+    <div class="step-head">
+      <div class="brand-title">🔍 查詢訂單</div>
+      <button class="btn" style="padding:5px 10px; width:auto;" onclick="closeQueryModal()">✕</button>
+    </div>
     <input type="text" id="queryInput" placeholder="請輸入取餐號 (例如：#001或#P001)">
-    <div style="font-size:13px; color:#888; margin-bottom:15px; margin-top:-5px;">💡 範例：請輸入取餐號 <b>#001或#P001</b> 或是訂單編號 <b>RW123456789</b></div>
+    <div style="font-size:13px; color:#888; margin-bottom:15px; margin-top:-5px;">
+      💡 範例：請輸入取餐號 <b>#001或#P001</b> 或是訂單編號 <b>RW123456789</b>
+    </div>
     <button class="btn btn-primary btn-block" onclick="queryOrder()">送出查詢</button>
     <div id="queryResult" style="margin-top:15px;"></div>
   </div>
@@ -171,19 +257,25 @@ function chooseServiceMode(mode) {
   serviceMode = mode;
   document.getElementById("entryPortal").style.display = "none";
   if (mode === 'delivery') {
-    setOrderMode('single'); document.querySelector(".mode-switch").style.display = "none"; 
-    renderSingleUI(); showToast("已進入宅配專區");
+    setOrderMode('single'); 
+    document.querySelector(".mode-switch").style.display = "none"; 
+    renderSingleUI(); 
+    showToast("已進入宅配專區");
   } else {
-    document.querySelector(".mode-switch").style.display = "flex"; renderSingleUI(); 
+    document.querySelector(".mode-switch").style.display = "flex"; 
+    renderSingleUI(); 
   }
 }
 
+// 🛑 【重大修復】：強制抓取後台來的 singlePrice 屬性，確保金額不再是 $0
 function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y");
-    // 強制抓取 singlePrice 或 sp
-    categories = [{ name: "🚚 低溫宅配專區", list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) }];
+    categories = [{ 
+      name: "🚚 低溫宅配專區", 
+      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) 
+    }];
   } else {
     categories = [
       { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || Number(m.sp) || 0, img: m.img })) },
@@ -191,26 +283,13 @@ function renderSingleUI() {
       { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || Number(s.sp) || 0, img: s.img })) }
     ];
   }
-
+  
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
-    <div class="combo-step">
-      <div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div>
-      <div class="grid">
-        ${cat.list.map(i => `
-          <div class="menu-card">
-            ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
-            <b>${i.n}</b><br>
-            <span style="color:var(--danger); font-weight:900;">$${i.p}</span>
-            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
-              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
-              <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
-              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `).join("");
+    <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
+        ${cat.list.map(i => `<div class="menu-card">${i.img ? `<img src="${i.img}" class="menu-img">` : ''}<b>${i.n}</b><br><span style="color:var(--danger); font-weight:900;">$${i.p}</span>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;"><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button><b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button></div>
+          </div>`).join("")}
+      </div></div>`).join("");
 }
 
 function showCheckout() {
