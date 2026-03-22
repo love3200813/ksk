@@ -391,23 +391,44 @@ function changeSingle(n, d, p) {
 function addToBasket() {
   if (orderMode === "combo") {
     if(!curCombo.main) return alert("請先選擇主餐！");
+    
     const addonP = curCombo.addons.reduce((s,a)=>s+a.p, 0);
     const total = curCombo.main.comboPrice + curCombo.drink.extra + curCombo.side.extra + addonP;
     const desc = `超值套餐:${curCombo.main.n}(配:${curCombo.drink.n}/${curCombo.side.n}${curCombo.addons.length?',加:'+curCombo.addons.map(a=>a.n).join('|'):''})`;
-    basket.push({ desc, price: total });
+    
+    // --- 修改這裡：加入 qty 與 unitPrice ---
+    basket.push({ 
+      desc: desc, 
+      price: total, 
+      unitPrice: total, // 套餐整組單價
+      qty: 1            // 預設 1 份
+    });
+    
     resetCombo();
   } else {
     const keys = Object.keys(singleSelection);
     if(keys.length===0) return alert("請先選擇品項！");
+    
+    // --- 修改這裡：將單點品項分開存入，以便後續加減 ---
     keys.forEach(k => {
-      basket.push({ desc: `輕鬆單點:${k} x ${singleSelection[k].q}`, price: singleSelection[k].p * singleSelection[k].q });
+      const q = singleSelection[k].q;
+      const p = singleSelection[k].p;
+      
+      basket.push({ 
+        desc: `輕鬆單點:${k}`, // 去掉字串裡的 x 數量，改由 UI 動態顯示
+        price: p * q,
+        unitPrice: p, 
+        qty: q 
+      });
     });
+    
     singleSelection = {};
     renderSingleUI();
     document.getElementById("currentComboPriceDisplay").innerText = "0";
   }
+  
   showToast("已加入購物車");
-  updateBasketUI();
+  updateBasketUI(); // 重新渲染購物車
 }
 
 function updateBasketUI() {
@@ -418,27 +439,44 @@ function updateBasketUI() {
   const cartSection = document.getElementById("cartSection");
   const totalTop = document.getElementById("cartTotalTop");
 
-  if(basket.length === 0){
+  if (basket.length === 0) {
     cartSection.style.display = "none";
     stickyBar.style.display = "none";
     totalTop.innerText = "0";
     return;
   }
 
-  let sum = 0;
+  let totalSum = 0;
+  let totalItems = 0;
+
   list.innerHTML = basket.map((item, i) => {
-    sum += item.price;
+    // 假設我們在加入購物車時多存一個單價 unitPrice
+    // 如果沒有 unitPrice，就用 item.price / item.qty 反推
+    const unitPrice = item.unitPrice || (item.price / (item.qty || 1));
+    totalSum += item.price;
+    totalItems += (item.qty || 1);
+
     return `
-      <div class="cart-item-box">
-        <span class="del-btn" onclick="removeItem(${i})">✕</span>
-        <b>${item.desc}</b><br>$${item.price}
+      <div class="cart-item-box" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <b style="font-size:16px;">${item.desc.split('x')[0]}</b><br>
+          <span style="color: var(--danger); font-weight: bold;">$${item.price}</span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 8px; background: #f8f8f8; border-radius: 10px; padding: 4px 8px;">
+          <button class="btn" style="padding: 2px 8px; background: none; color: #333;" onclick="updateCartQty(${i}, -1)">-</button>
+          <b style="min-width: 20px; text-align: center;">${item.qty || 1}</b>
+          <button class="btn" style="padding: 2px 8px; background: none; color: #333;" onclick="updateCartQty(${i}, 1)">+</button>
+        </div>
+        
+        <span class="del-btn" style="position: static; margin-left: 15px;" onclick="removeItem(${i})">✕</span>
       </div>
     `;
   }).join("");
 
-  cartQty.innerText = basket.length;
-  cartTotalBottom.innerText = sum;
-  totalTop.innerText = sum;
+  cartQty.innerText = totalItems;
+  cartTotalBottom.innerText = totalSum;
+  totalTop.innerText = totalSum;
   cartSection.style.display = "block";
   stickyBar.style.display = "block";
 }
