@@ -650,9 +650,17 @@ function renderComboUI() {
 
 function selectMain(c) {
   curCombo.main = COMBO_MAINS.find(x => x.code === c);
-  document.getElementById("comboStep1").style.display = "none"; document.getElementById("comboOptionsWrap").style.display = "block";
+  document.getElementById("comboStep1").style.display = "none"; 
+  
+  const optionsWrap = document.getElementById("comboOptionsWrap");
+  optionsWrap.style.display = "block";
+  // 🌟 關鍵修復：擊碎隱形盾牌，讓裡面的下拉選單可以被點擊！
+  optionsWrap.classList.remove("step-lock"); 
+  
   document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
-  window.scrollTo({top: 0, behavior: 'smooth'}); renderComboUI(); syncComboSelection();
+  window.scrollTo({top: 0, behavior: 'smooth'}); 
+  renderComboUI(); 
+  syncComboSelection();
 }
 
 function syncComboSelection() {
