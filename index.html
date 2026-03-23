@@ -152,6 +152,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
         <span id="currentComboPrice" style="font-size:32px; font-weight:900; color:var(--danger);">0</span>
       </div>
     </div>
+  </div>
 
   <div id="singleModeWrap" style="display:block;">
     <div id="singleMenuWrap"></div>
@@ -258,7 +259,7 @@ let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500 };
 
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
-let curCombo = { main: null, drink: null, side: null, addons: [] };
+let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
 // 🌟 新增：自動抓取後台運費與開關設定 (防閃爍優化版)
 async function fetchSysConfig() {
@@ -274,7 +275,7 @@ async function fetchSysConfig() {
     
     // 🌟 讀取點餐模式開關 (修復布林值導致按鈕消失的問題)
     sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
-    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; // ⚠️ 這裡改成 || 'Y'，確保它是文字
+    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; // 確保它是文字
 
     const modeComboBtn = document.getElementById("modeComboBtn");
     const modeSingleBtn = document.getElementById("modeSingleBtn");
@@ -298,14 +299,12 @@ async function fetchSysConfig() {
     const subtitle = document.getElementById("portalSubtitle");
     
     if (!enableOnsite && !enableDelivery) {
-       // 兩個都關閉：維持按鈕隱藏，顯示暫停接單
        subtitle.innerText = "⚠️ 目前暫停接單 ⚠️";
        subtitle.style.color = "var(--danger)";
        subtitle.style.fontSize = "24px";
        hintEl.innerText = "店面休息中或已售完，請稍後再試！";
        hintEl.style.fontSize = "16px";
     } else {
-       // 確認有開，才把字改回請選擇，並顯示對應的按鈕
        subtitle.innerText = "請選擇您的點餐方式";
        subtitle.style.color = "#666";
        subtitle.style.fontSize = "18px";
@@ -325,13 +324,13 @@ async function fetchSysConfig() {
     }
   } catch(err) { 
     console.error("設定載入失敗:", err); 
-    // 網路異常斷線時的保險機制：預設打開按鈕讓客人能點餐
     document.getElementById("btnOnsite").style.display = "block";
     document.getElementById("btnDelivery").style.display = "block";
     document.getElementById("portalSubtitle").innerText = "請選擇您的點餐方式";
     document.getElementById("deliveryFeeHint").innerText = "(無法讀取最新設定，套用預設運費)";
   }
 }
+
 function chooseServiceMode(mode) {
   serviceMode = mode;
   document.getElementById("entryPortal").style.display = "none";
@@ -349,19 +348,27 @@ function chooseServiceMode(mode) {
 function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
-    const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y");
+    // 宅配模式只抓有開放宅配，且有單點價的燉湯
+    const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
     categories = [{ 
       name: "🚚 低溫宅配專區", 
-      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) 
+      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img })) 
     }];
   } else {
+    // 現場模式：抓取所有分類，對應正確的 singlePrice
     categories = [
-      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || Number(m.sp) || 0, img: m.img })) },
-      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || Number(d.sp) || 0, img: d.img })) },
-      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || Number(s.sp) || 0, img: s.img })) }
+      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img })) },
+      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || 0, img: d.img })) },
+      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || 0, img: s.img })) },
+      { name: "➕ 其他加料", list: COMBO_ADDONS.map(a => ({ n: a.n, p: Number(a.singlePrice) || 0, img: a.img })) }
     ];
   }
   
+  // 🌟 神級優化：自動過濾掉「單點價為 0」的品項（代表它專屬於套餐，不會在單點區洗版）
+  categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0));
+  categories = categories.filter(cat => cat.list.length > 0);
+
+  // 渲染出單點畫面
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
         ${cat.list.map(i => `<div class="menu-card">${i.img ? `<img src="${i.img}" class="menu-img">` : ''}<b>${i.n}</b><br><span style="color:var(--danger); font-weight:900;">$${i.p}</span>
@@ -488,21 +495,6 @@ function changeSingle(n, d, p) {
   const el = document.getElementById(`single-qty-${n}`); if(el) el.innerText = singleSelection[n]?.q || 0;
   let singleSum = 0; Object.keys(singleSelection).forEach(k => { singleSum += singleSelection[k].q * singleSelection[k].p; });
   document.getElementById("currentComboPriceDisplay").innerText = singleSum;
-}
-
-function addToBasket() {
-  if (orderMode === "combo") {
-    if(!curCombo.main) return alert("請先選擇主餐！");
-    const total = curCombo.main.comboPrice + curCombo.drink.extra + curCombo.side.extra + curCombo.addons.reduce((s,a)=>s+a.p, 0);
-    basket.push({ desc: `套餐:${curCombo.main.n}`, price: total, unitPrice: total, qty: 1 });
-    resetCombo();
-  } else {
-    const keys = Object.keys(singleSelection);
-    if(keys.length===0) return alert("請先選擇品項！");
-    keys.forEach(k => { basket.push({ desc: `單點:${k}`, price: singleSelection[k].p * singleSelection[k].q, unitPrice: singleSelection[k].p, qty: singleSelection[k].q }); });
-    singleSelection = {}; renderSingleUI(); document.getElementById("currentComboPriceDisplay").innerText = "0";
-  }
-  showToast("已加入購物車"); updateBasketUI();
 }
 
 function updateCartQty(index, delta) {
@@ -642,54 +634,6 @@ function autoQueryLastOrder() {
   const lastOrder = JSON.parse(localStorage.getItem("ksk_last_order"));
   if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
-function renderComboUI() {
-  // 🌟 1. 讓第 1 步顯示「燉湯/飲料」(COMBO_DRINKS) 作為主角
-  document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
-  
-  document.getElementById("comboAddonSelect").innerHTML = '<option value="">(不加料)</option>' + COMBO_ADDONS.map(a => `<option value="${a.n}">+ $${a.singlePrice} ${a.n}</option>`).join("");
-  
-  // 🌟 2. 讓第 2 步的下拉選單去抓「飯/麵主食」(COMBO_MAINS)
-  document.getElementById("comboDrinkSelect").innerHTML = COMBO_MAINS.map(d => `<option value="${d.n}">${d.n} ${d.comboPrice > 0 ? '(+ $'+d.comboPrice+')' : '(內含)'}</option>`).join("");
-  
-  document.getElementById("comboSideSelect").innerHTML = COMBO_SIDES.map(s => `<option value="${s.n}">${s.n} ${s.comboPrice > 0 ? '(+ $'+s.comboPrice+')' : '(內含)'}</option>`).join("");
-}
-
-function selectMain(c) {
-  // 🌟 因為主角換成燉湯了，所以要去 COMBO_DRINKS 裡面找被點擊的項目
-  curCombo.main = COMBO_DRINKS.find(x => x.code === c);
-  document.getElementById("comboStep1").style.display = "none"; 
-  
-  const optionsWrap = document.getElementById("comboOptionsWrap");
-  optionsWrap.style.display = "block";
-  optionsWrap.classList.remove("step-lock"); 
-  
-  document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
-  window.scrollTo({top: 0, behavior: 'smooth'}); 
-  renderComboUI(); 
-  syncComboSelection();
-}
-
-function syncComboSelection() {
-  if (!curCombo.main) return;
-  
-  const addonObj = COMBO_ADDONS.find(a => a.n === document.getElementById("comboAddonSelect").value) || { n: "", singlePrice: 0 };
-  
-  // 🌟 這裡去 COMBO_MAINS 裡面找客人選的飯麵
-  const drinkObj = COMBO_MAINS.find(d => d.n === document.getElementById("comboDrinkSelect").value) || { n: "無", comboPrice: 0 };
-  
-  const sideObj = COMBO_SIDES.find(s => s.n === document.getElementById("comboSideSelect").value) || { n: "無", comboPrice: 0 };
-  
-  curCombo.drink = drinkObj; curCombo.side = sideObj; curCombo.addons = addonObj.n ? [addonObj] : [];
-  
-  const total = Number(curCombo.main.comboPrice) + Number(drinkObj.comboPrice) + Number(sideObj.comboPrice) + Number(addonObj.singlePrice);
-  document.getElementById("currentComboPrice").innerText = total; document.getElementById("currentComboPriceDisplay").innerText = total;
-}
-
-function resetCombo() {
-  curCombo = { main: null, drink: null, side: null, addons: [] };
-  document.getElementById("comboStep1").style.display = "block"; document.getElementById("comboOptionsWrap").style.display = "none";
-  document.getElementById("currentComboPriceDisplay").innerText = "0"; renderComboUI();
-}
 
 function renderComboUI() {
   // 🌟 第 1 步：選擇燉湯主角
@@ -705,7 +649,7 @@ function renderComboUI() {
             </label>`;
   };
 
-  // 🌟 把選單塞進剛剛 HTML 做好的方塊區
+  // 🌟 把選單塞進 HTML 做好的方塊區
   document.getElementById("comboAddonContainer").innerHTML = COMBO_ADDONS.map(a => makeCheckbox(a, 'addon', 'singlePrice')).join("");
   document.getElementById("comboMainContainer").innerHTML = COMBO_MAINS.map(d => makeCheckbox(d, 'main', 'comboPrice')).join("");
   document.getElementById("comboSideContainer").innerHTML = COMBO_SIDES.map(s => makeCheckbox(s, 'side', 'comboPrice')).join("");
