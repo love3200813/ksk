@@ -309,7 +309,8 @@ async function connectUSB(){
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
   const width = 320; 
-  const height = 224; // 🌟 關鍵修復1：把畫布高度從 240 縮小到 224，強迫提早結束，絕不跨頁！
+  // 🌟 修復 1：高度再往下縮小到 210，給標籤機留出絕對的安全距離，保證不跨頁！
+  const height = 210; 
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
   canvas.width = width; canvas.height = height; 
   ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
@@ -321,11 +322,11 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   ctx.fillText(headerStr, 10, y); y += 32; 
   ctx.font = "20px monospace"; ctx.fillText("-----------------------", 10, y); y += 24;
   
-  ctx.font = "bold 30px sans-serif"; // 稍微縮小字體一點點，避免品名換行太多佔空間
+  ctx.font = "bold 30px sans-serif"; 
   y = drawWrappedText(ctx, itemName, 10, y, 300, 36);
   
-  // 🌟 關鍵修復2：把底部的「取餐方式」強制往上提 (從 195 提高到 175)
-  let bottomY = Math.max(y + 10, 175); 
+  // 🌟 修復 2：拿掉原本的底部對齊限制，讓「取餐方式」直接緊貼在品項的下方！
+  let bottomY = y + 15; 
   ctx.font = "20px sans-serif"; 
   ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
   
