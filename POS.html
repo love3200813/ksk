@@ -444,7 +444,7 @@ async function fetchOrders() {
     const data = await res.json();
     if(data.error) return;
     
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢").map(o => {
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       return `
       <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
@@ -619,7 +619,7 @@ function closeDeliveryPanel() { document.getElementById("deliveryModal").classLi
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
   const data = await (await fetch(GAS_API + "?action=getOrders")).json();
-  const list = data.filter(o => String(o.pickup).includes("宅配"));
+  const list = data.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
   div.innerHTML = list.map(o => `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div><b style="font-size:18px;">${o.seq}</b> | ${o.customerName}<br><b>${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:5px;">📍 ${o.deliveryAddress}</div></div><button class="sbtn done" style="width:100px; flex:none; margin-left:15px;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div>`).join("");
 }
 async function shipOrder(row, seq) {
