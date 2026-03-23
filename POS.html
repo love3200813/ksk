@@ -667,26 +667,36 @@ async function openSettingsPanel() {
   
   document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
   document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
+  // 讀取開關狀態 (預設為 Y，只有明確寫 N 才是關閉)
+  document.getElementById("settingOnsite").checked = (sysConfig.ENABLE_ONSITE !== 'N');
+  document.getElementById("settingDelivery").checked = (sysConfig.ENABLE_DELIVERY !== 'N');
+  
   document.getElementById("settingsModal").classList.add("show");
 }
 
-function closeSettingsPanel() {
-  document.getElementById("settingsModal").classList.remove("show");
-}
+function closeSettingsPanel() { document.getElementById("settingsModal").classList.remove("show"); }
 
 async function saveSettings() {
   const fee = document.getElementById("settingFee").value;
   const limit = document.getElementById("settingLimit").value;
+  const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
+  const enableDelivery = document.getElementById("settingDelivery").checked ? 'Y' : 'N';
   
-  const res = await (await fetch(`${GAS_API}?action=updateConfig&pwd=1988&fee=${fee}&limit=${limit}`)).json();
-  if (res.success) {
-    alert(res.msg);
-    sysConfig.DELIVERY_FEE = Number(fee);
-    sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
-    closeSettingsPanel();
-  } else {
-    alert(res.msg);
-  }
+  const btn = document.querySelector("#settingsModal .btn-start");
+  btn.disabled = true; btn.innerText = "儲存中...";
+  
+  try {
+    const res = await (await fetch(`${GAS_API}?action=updateConfig&pwd=1988&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}`)).json();
+    if (res.success) {
+      alert(res.msg);
+      sysConfig.DELIVERY_FEE = Number(fee);
+      sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
+      sysConfig.ENABLE_ONSITE = enableOnsite;
+      sysConfig.ENABLE_DELIVERY = enableDelivery;
+      closeSettingsPanel();
+    } else { alert(res.msg); }
+  } catch (e) { alert("連線失敗"); }
+  finally { btn.disabled = false; btn.innerText = "💾 儲存設定並同步至前台"; }
 }
 
 async function executeSearch() {
