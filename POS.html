@@ -309,25 +309,31 @@ async function connectUSB(){
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
   const width = 320; 
-  // 🌟 終極修復 1：畫布高度縮小到 200，保留超大安全邊距，保證白紙部分絕對不會推到下一張！
-  const height = 200; 
+  const height = 224; // 恢復標準 28mm 安全高度
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
   canvas.width = width; canvas.height = height; 
   ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
   ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   
-  let y = 10; 
-  ctx.font = "bold 26px sans-serif";
+  // 1. 緊湊的頭部資訊
+  let y = 8; 
+  ctx.font = "bold 24px sans-serif";
   const headerStr = titleHeader ? `【${titleHeader}】${o.seq||""}` : `${o.seq||""}  [${currentIndex}/${totalCount}]`;
-  ctx.fillText(headerStr, 10, y); y += 32; 
-  ctx.font = "20px monospace"; ctx.fillText("-----------------------", 10, y); y += 24;
+  ctx.fillText(headerStr, 10, y); y += 28; 
+  ctx.font = "18px monospace"; ctx.fillText("-------------------------", 10, y); y += 20;
   
-  ctx.font = "bold 30px sans-serif"; 
-  y = drawWrappedText(ctx, itemName, 10, y, 300, 36);
+  // 2. 🌟 神級優化：智能縮放字體！如果字數超過 15 個字 (例如孕婦忌食那道)，自動縮小字體避免佔用太多行
+  if (itemName.length > 15) {
+     ctx.font = "bold 24px sans-serif";
+     drawWrappedText(ctx, itemName, 10, y, 300, 30);
+  } else {
+     ctx.font = "bold 30px sans-serif";
+     drawWrappedText(ctx, itemName, 10, y, 300, 36);
+  }
   
-  // 🌟 終極修復 2：拿掉原本的 175 強制對齊限制！讓「取餐方式」緊緊跟在品名的正下方 15px 處！
-  let bottomY = y + 15; 
-  ctx.font = "20px sans-serif"; 
+  // 3. 🌟 終極防護：把「取餐方式」絕對釘死在距離底部 28px 的位置！不管上面怎麼擠，它絕對不動如山！
+  const bottomY = height - 28; 
+  ctx.font = "bold 20px sans-serif"; 
   ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
   
   return canvas;
