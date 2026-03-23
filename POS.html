@@ -170,6 +170,17 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
+      
+      <div style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center;">
+        <h4 style="margin:0; color:#d35400;">🍔 客人點餐模式：</h4>
+        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="menuEnableCombo" style="width:20px; height:20px; margin:0 8px 0 0;"> 🍱 開放「超值套餐」
+        </label>
+        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="menuEnableSingle" style="width:20px; height:20px; margin:0 8px 0 0;" checked> 🍜 開放「輕鬆單點」
+        </label>
+      </div>
+
       <button onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
       
       <div style="overflow-y:auto; border:1px solid #EAE8E3; border-radius:10px;">
@@ -709,6 +720,10 @@ async function openMenuPanel() {
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
   if (String(pwd) !== currentSettingsPwd) { if(pwd) alert("❌ 密碼錯誤"); return; }
 
+  // 🌟 讀取開關狀態 (預設隱藏套餐，開啟單點)
+  document.getElementById("menuEnableCombo").checked = (sysConfig.ENABLE_COMBO === 'Y');
+  document.getElementById("menuEnableSingle").checked = (sysConfig.ENABLE_SINGLE !== 'N');
+
   document.getElementById("menuModal").classList.add("show");
   document.getElementById("menuTbody").innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
 
@@ -717,50 +732,6 @@ async function openMenuPanel() {
     rawMenuData = await res.json();
     renderMenuTable();
   } catch (e) { alert("讀取菜單失敗！"); }
-}
-
-function closeMenuPanel() { document.getElementById("menuModal").classList.remove("show"); }
-
-function renderMenuTable() {
-  const tbody = document.getElementById("menuTbody");
-  if (rawMenuData.length === 0) {
-     tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>";
-     return;
-  }
-  tbody.innerHTML = rawMenuData.map((row, idx) => `
-    <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
-      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚 主餐</option>
-        <option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲 飲料/燉湯</option>
-        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗 副餐</option>
-        <option value="加料" ${row[0]==='加料'?'selected':''}>➕ 加料</option>
-      </select></td>
-      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:160px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" placeholder="例如: 滷肉飯"></td>
-      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-        <option value="Y" ${row[6]==='Y'?'selected':''}>是 (Y)</option>
-        <option value="N" ${row[6]==='N'?'selected':''}>否 (N)</option>
-      </select></td>
-      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
-    </tr>
-  `).join("");
-}
-
-function addMenuRow() {
-  // 預設給一個空資料列：[類別, 代號, 品名, 套餐價, 單點價, 圖片, 宅配]
-  rawMenuData.push(["主餐", "", "", 0, 0, "", "Y"]);
-  renderMenuTable();
-  // 自動滾動到最底方便編輯
-  const modalBody = document.querySelector("#menuModal .modal-body");
-  modalBody.scrollTop = modalBody.scrollHeight;
-}
-
-function deleteMenuRow(idx) {
-  if(confirm("確定要刪除這道餐點嗎？（按下最底下的儲存後才會正式生效）")) {
-    rawMenuData.splice(idx, 1);
-    renderMenuTable();
-  }
 }
 
 async function saveMenuData() {
@@ -773,32 +744,37 @@ async function saveMenuData() {
   
   rows.forEach(tr => {
      const cat = tr.querySelector(".m-cat")?.value;
-     if(!cat) return; // 略過空行
+     if(!cat) return; 
      const name = tr.querySelector(".m-name").value.trim();
      const sprice = Number(tr.querySelector(".m-sprice").value);
      const cprice = Number(tr.querySelector(".m-cprice").value);
      const del = tr.querySelector(".m-del").value;
-     const code = "M" + Math.floor(Math.random() * 10000); // 系統自動配發亂數代號
+     const code = "M" + Math.floor(Math.random() * 10000); 
      
-     if(name !== "") {
-       newData.push([cat, code, name, cprice, sprice, "", del]);
-     }
+     if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del]);
   });
 
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   
-  // ⚠️ 菜單資料量大，自動改用 POST 表單封裝傳送，避免當機
+  // 🌟 抓取開關狀態
+  const enableCombo = document.getElementById("menuEnableCombo").checked ? 'Y' : 'N';
+  const enableSingle = document.getElementById("menuEnableSingle").checked ? 'Y' : 'N';
+  
   const formData = new URLSearchParams();
   formData.append("action", "saveMenu");
   formData.append("pwd", currentSettingsPwd);
   formData.append("menuData", JSON.stringify(newData));
+  formData.append("enableCombo", enableCombo);
+  formData.append("enableSingle", enableSingle);
 
   try {
     const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
     if(res.success) {
        alert(res.msg);
+       sysConfig.ENABLE_COMBO = enableCombo;
+       sysConfig.ENABLE_SINGLE = enableSingle;
        closeMenuPanel();
-       fetchMenuData(); // 儲存成功後，自動幫 POS 現場畫面也刷新成新菜單
+       fetchMenuData(); // 刷新 POS 本地菜單
     } else { alert(res.msg); }
   } catch (e) {
     alert("儲存失敗，請檢查網路：" + e.message);
