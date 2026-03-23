@@ -451,7 +451,7 @@ function buildKitchenReceiptCanvas(o){
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
-// 🌟 新增：產生「交班結算單」的畫布 (把它獨立放在廚房單的下方！)
+// 🌟 產生「交班結算單」的畫布 (終極防弊對帳版)
 function buildShiftReceiptCanvas(info, summary) {
   const width = printerConf.usbPxW; 
   const tempCanvas = document.createElement("canvas"); 
@@ -471,17 +471,66 @@ function buildShiftReceiptCanvas(info, summary) {
 
   ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
 
-  ctx.font = "bold 28px sans-serif";
-  ctx.fillText(`總單數　：${summary.totalOrders || 0} 單`, 10, y); y += 45;
-  ctx.fillText(`現金收入：$${summary.cashTotal || 0}`, 10, y); y += 45;
-  ctx.fillText(`LINE Pay：$${summary.linepayTotal || 0}`, 10, y); y += 45;
+  // 📊 【銷售分析】
+  ctx.font = "bold 28px sans-serif"; ctx.fillText("【銷售分析】", 10, y); y += 40;
+  ctx.font = "24px sans-serif";
+  const totalOrders = summary.totalOrders || 0;
+  const voidOrders = summary.voidOrders || 0;
+  const voidTotal = summary.voidTotal || 0;
+  const aov = totalOrders > 0 ? Math.round((summary.grandTotal || 0) / totalOrders) : 0;
+  const onsiteOrders = summary.onsiteOrders || 0;
+  const onsiteTotal = summary.onsiteTotal || 0;
+  const deliveryOrders = summary.deliveryOrders || 0;
+  const deliveryTotal = summary.deliveryTotal || 0;
+
+  ctx.fillText(`有效單數：${totalOrders} 單`, 10, y); y += 35;
+  ctx.fillText(`作廢單數：${voidOrders} 單 (-$${voidTotal})`, 10, y); y += 35;
+  ctx.fillText(`平均客單：$${aov}`, 10, y); y += 45;
+
+  ctx.fillText(`現場預約：${onsiteOrders} 單 ($${onsiteTotal})`, 10, y); y += 35;
+  ctx.fillText(`低溫宅配：${deliveryOrders} 單 ($${deliveryTotal})`, 10, y); y += 45;
 
   ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
 
-  ctx.font = "bold 40px sans-serif";
+  // 💰 【收款明細】
+  ctx.font = "bold 28px sans-serif"; ctx.fillText("【收款明細】", 10, y); y += 40;
+  ctx.font = "24px sans-serif";
+  const cashTotal = summary.cashTotal || 0;
+  const linepayTotal = summary.linepayTotal || 0;
+  ctx.fillText(`現金收入：$${cashTotal}`, 10, y); y += 35;
+  ctx.fillText(`LINE Pay：$${linepayTotal}`, 10, y); y += 45;
+
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  // 🛑 【現金對帳】
+  ctx.font = "bold 28px sans-serif"; ctx.fillText("【現金對帳】", 10, y); y += 40;
+  ctx.font = "24px sans-serif";
+  // 💡 如果你店裡有固定放找零備用金 (例如 2000)，可以把下面這個 0 改成 2000
+  const baseCash = 0; 
+  const expectedCash = baseCash + cashTotal;
+
+  if(baseCash > 0) {
+      ctx.fillText(`起始備用金：$${baseCash}`, 10, y); y += 35;
+  }
+  ctx.fillText(`抽屜應有現：$${expectedCash}`, 10, y); y += 45;
+
+  ctx.fillText(`實際點交金：$___________`, 10, y); y += 40;
+  ctx.fillText(`差異金額　：$___________`, 10, y); y += 45;
+
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  // 🏆 總計
+  ctx.font = "bold 36px sans-serif";
   ctx.fillText(`總營業額：$${summary.grandTotal || 0}`, 10, y); y += 60;
 
-  const finalHeight = y + 80; // 底部留白
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  // ✍️ 簽名畫押區
+  ctx.font = "26px sans-serif";
+  ctx.fillText("交班簽名：______________", 10, y); y += 80;
+  ctx.fillText("接班簽名：______________", 10, y); y += 60;
+
+  const finalHeight = y + 80; 
   const finalCanvas = document.createElement("canvas"); 
   finalCanvas.width = width; finalCanvas.height = finalHeight;
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
