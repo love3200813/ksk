@@ -364,7 +364,33 @@ async function fetchOrders() {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
     document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
-      return `<div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};"><div style="display:flex; justify-content:space-between; align-items:start;"><div class="seq">${o.seq}</div><div style="text-align:right; font-size:12px; color:#666;">${formatPickupDisplay(o.pickup)}</div></div><b style="font-size:18px; display:block; margin:5px 0;">${o.content}</b><span style="color:#e74c3c; font-weight:bold; font-size:24px;">$${o.total}</span><div style="display:flex; gap:5px; margin-top:10px;"><button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">補印</button><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button></div><div style="display:flex; gap:5px; margin-top:5px;"><button class="sbtn" style="background:#17a2b8; color:#fff;" onclick="triggerNotify(${o.row})">通知</button><button class="sbtn" style="background:#e74c3c; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button></div></div>`;
+      return `
+      <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
+        <div style="display:flex; justify-content:space-between; align-items:start;">
+          <div class="seq">${o.seq}</div>
+          <div style="text-align:right; font-size:12px; color:#666;">
+            🕒 ${o.time}<br>
+            <span style="color:#8e44ad; font-weight:bold;">${formatPickupDisplay(o.pickup)}</span>
+          </div>
+        </div>
+        
+        <div style="font-size:15px; color:#2980b9; margin:6px 0; font-weight:bold; background:#f0f8ff; padding:5px 8px; border-radius:6px; display:inline-block;">
+          👤 ${o.customerName || '現場代客'} | 📞 ${o.customerPhone || '無電話'}
+        </div>
+        
+        <b style="font-size:18px; display:block; margin:5px 0;">${o.content}</b>
+        <span style="color:#e74c3c; font-weight:bold; font-size:24px;">$${o.total}</span>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+          <button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">補印</button>
+          <button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button>
+          <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
+        </div>
+        <div style="display:flex; gap:5px; margin-top:5px;">
+          <button class="sbtn" style="background:#17a2b8; color:#fff;" onclick="triggerNotify(${o.row})">通知</button>
+          <button class="sbtn" style="background:#e74c3c; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
+        </div>
+      </div>`;
     }).join("");
     autoPrint(data);
   } catch(e) { console.log("載入訂單出錯", e); }
