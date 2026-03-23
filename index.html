@@ -269,9 +269,9 @@ async function fetchSysConfig() {
     sysConfig.RESERVE_START = conf.RESERVE_START || "17:00";
     sysConfig.RESERVE_END = conf.RESERVE_END || "23:00";
     
-    // 🌟 讀取點餐模式開關
+    // 🌟 讀取點餐模式開關 (修復布林值導致按鈕消失的問題)
     sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
-    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE !== 'N';
+    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; // ⚠️ 這裡改成 || 'Y'，確保它是文字
 
     const modeComboBtn = document.getElementById("modeComboBtn");
     const modeSingleBtn = document.getElementById("modeSingleBtn");
@@ -286,7 +286,6 @@ async function fetchSysConfig() {
     } else if (sysConfig.ENABLE_SINGLE === 'Y') {
         setOrderMode('single');
     }
-
     const enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
     const enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
     
@@ -641,30 +640,55 @@ function autoQueryLastOrder() {
   if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
 function renderComboUI() {
-  document.getElementById("mainGrid").innerHTML = COMBO_MAINS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐價 $${m.comboPrice}</small></div>`).join("");
-  document.getElementById("comboAddonSelect").innerHTML = '<option value="">(不加料)</option>' + COMBO_ADDONS.map(a => `<option value="${a.n}">+ $${a.p} ${a.n}</option>`).join("");
-  document.getElementById("comboDrinkSelect").innerHTML = COMBO_DRINKS.map(d => `<option value="${d.n}">${d.n} ${d.extra > 0 ? '(+ $'+d.extra+')' : '(內含)'}</option>`).join("");
-  document.getElementById("comboSideSelect").innerHTML = COMBO_SIDES.map(s => `<option value="${s.n}">${s.n} ${s.extra > 0 ? '(+ $'+s.extra+')' : '(內含)'}</option>`).join("");
+  document.getElementById("mainGrid").innerHTML = COMBO_MAINS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
+  
+  // 🌟 使用全新的 singlePrice 和 comboPrice 變數
+  document.getElementById("comboAddonSelect").innerHTML = '<option value="">(不加料)</option>' + COMBO_ADDONS.map(a => `<option value="${a.n}">+ $${a.singlePrice} ${a.n}</option>`).join("");
+  document.getElementById("comboDrinkSelect").innerHTML = COMBO_DRINKS.map(d => `<option value="${d.n}">${d.n} ${d.comboPrice > 0 ? '(+ $'+d.comboPrice+')' : '(內含)'}</option>`).join("");
+  document.getElementById("comboSideSelect").innerHTML = COMBO_SIDES.map(s => `<option value="${s.n}">${s.n} ${s.comboPrice > 0 ? '(+ $'+s.comboPrice+')' : '(內含)'}</option>`).join("");
 }
+
 function selectMain(c) {
   curCombo.main = COMBO_MAINS.find(x => x.code === c);
   document.getElementById("comboStep1").style.display = "none"; document.getElementById("comboOptionsWrap").style.display = "block";
   document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
   window.scrollTo({top: 0, behavior: 'smooth'}); renderComboUI(); syncComboSelection();
 }
+
 function syncComboSelection() {
   if (!curCombo.main) return;
-  const addonObj = COMBO_ADDONS.find(a => a.n === document.getElementById("comboAddonSelect").value) || { n: "", p: 0 };
-  const drinkObj = COMBO_DRINKS.find(d => d.n === document.getElementById("comboDrinkSelect").value) || { n: "未知", extra: 0 };
-  const sideObj = COMBO_SIDES.find(s => s.n === document.getElementById("comboSideSelect").value) || { n: "未知", extra: 0 };
+  // 🌟 對應新變數名稱
+  const addonObj = COMBO_ADDONS.find(a => a.n === document.getElementById("comboAddonSelect").value) || { n: "", singlePrice: 0 };
+  const drinkObj = COMBO_DRINKS.find(d => d.n === document.getElementById("comboDrinkSelect").value) || { n: "未知", comboPrice: 0 };
+  const sideObj = COMBO_SIDES.find(s => s.n === document.getElementById("comboSideSelect").value) || { n: "未知", comboPrice: 0 };
+  
   curCombo.drink = drinkObj; curCombo.side = sideObj; curCombo.addons = addonObj.n ? [addonObj] : [];
-  const total = curCombo.main.comboPrice + drinkObj.extra + sideObj.extra + addonObj.p;
+  
+  // 🌟 準確計算價錢
+  const total = Number(curCombo.main.comboPrice) + Number(drinkObj.comboPrice) + Number(sideObj.comboPrice) + Number(addonObj.singlePrice);
   document.getElementById("currentComboPrice").innerText = total; document.getElementById("currentComboPriceDisplay").innerText = total;
 }
+
 function resetCombo() {
   curCombo = { main: null, drink: null, side: null, addons: [] };
   document.getElementById("comboStep1").style.display = "block"; document.getElementById("comboOptionsWrap").style.display = "none";
   document.getElementById("currentComboPriceDisplay").innerText = "0"; renderComboUI();
+}
+
+function addToBasket() {
+  if (orderMode === "combo") {
+    if(!curCombo.main) return alert("請先選擇主餐！");
+    // 🌟 購物車也要用新變數算錢
+    const total = Number(curCombo.main.comboPrice) + Number(curCombo.drink.comboPrice) + Number(curCombo.side.comboPrice) + curCombo.addons.reduce((s,a) => s + Number(a.singlePrice), 0);
+    basket.push({ desc: `套餐:${curCombo.main.n}`, price: total, unitPrice: total, qty: 1 });
+    resetCombo();
+  } else {
+    const keys = Object.keys(singleSelection);
+    if(keys.length===0) return alert("請先選擇品項！");
+    keys.forEach(k => { basket.push({ desc: `單點:${k}`, price: singleSelection[k].p * singleSelection[k].q, unitPrice: singleSelection[k].p, qty: singleSelection[k].q }); });
+    singleSelection = {}; renderSingleUI(); document.getElementById("currentComboPriceDisplay").innerText = "0";
+  }
+  showToast("已加入購物車"); updateBasketUI();
 }
 </script>
 </body>
