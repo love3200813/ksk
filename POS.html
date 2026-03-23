@@ -379,7 +379,7 @@ async function connectUSB(){
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
   const width = printerConf.blePxW; 
-  const height = printerConf.blePxH; // 動態高度
+  const height = printerConf.blePxH; // 動態高度 (防溢位靠這個)
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
   canvas.width = width; canvas.height = height; 
   ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
@@ -391,16 +391,18 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   ctx.fillText(headerStr, 10, y); y += 28; 
   ctx.font = "18px monospace"; ctx.fillText("-------------------------", 10, y); y += 20;
   
+  // 🌟 關鍵修復 1：加上 "y =" 來接住座標，系統才知道品名印到哪裡結束！
   if (itemName.length > 15) {
      ctx.font = "bold 24px sans-serif";
-     drawWrappedText(ctx, itemName, 10, y, width - 20, 30);
+     y = drawWrappedText(ctx, itemName, 10, y, width - 20, 30);
   } else {
      ctx.font = "bold 30px sans-serif";
-     drawWrappedText(ctx, itemName, 10, y, width - 20, 36);
+     y = drawWrappedText(ctx, itemName, 10, y, width - 20, 36);
   }
   
-  // 動態抓取距離底部的參數
-  const bottomY = height - printerConf.bleBottom; 
+  // 🌟 關鍵修復 2：解決間距太大！不要釘死在底部，而是「緊貼在品名下方」。
+  // 我們把你設定面板裡的 bleBottom (預設28) 當作「品名與取餐之間的間距」
+  const bottomY = y + printerConf.bleBottom; 
   ctx.font = "bold 20px sans-serif"; 
   ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
   
