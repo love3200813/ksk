@@ -516,7 +516,8 @@ async function openSettingsPanel() {
   
   document.getElementById("settingsModal").classList.add("show");
 }
-
+function closeSettingsPanel() { document.getElementById("settingsModal").classList.remove("show"); }
+  
 async function saveSettings() {
   const btn = document.querySelector("#settingsModal .btn-start"); 
   if (btn.disabled) return; // 🛡️ 防連點機制：如果按鈕已經按下去，就直接擋掉第二次點擊
