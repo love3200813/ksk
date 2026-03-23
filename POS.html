@@ -164,6 +164,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
   </div>
 </div>
+
 <div id="menuModal" class="modal">
   <div class="modal-card" style="width:min(100%, 1000px); max-height:95vh;">
     <div class="modal-header">
@@ -204,6 +205,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
   </div>
 </div>
+
 <div id="printerModal" class="modal">
   <div class="modal-card" style="width: 500px; max-height:90vh;">
     <div class="modal-header">
@@ -449,6 +451,42 @@ function buildKitchenReceiptCanvas(o){
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
+// 🌟 新增：產生「交班結算單」的畫布 (把它獨立放在廚房單的下方！)
+function buildShiftReceiptCanvas(info, summary) {
+  const width = printerConf.usbPxW; 
+  const tempCanvas = document.createElement("canvas"); 
+  const ctx = tempCanvas.getContext("2d");
+  tempCanvas.width = width; tempCanvas.height = 3000; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); 
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+
+  let y = 10; 
+  ctx.font = "bold 40px sans-serif"; ctx.fillText("🧾 交班結算單", 10, y); y += 60;
+  
+  ctx.font = "24px sans-serif";
+  ctx.fillText(`班次：${info.shiftName || '未知'}`, 10, y); y += 35;
+  ctx.fillText(`人員：${info.operator || '系統'}`, 10, y); y += 35;
+  ctx.fillText(`開班：${info.startAt || ''}`, 10, y); y += 35;
+  ctx.fillText(`結算：${formatDateObjTaipei(new Date())}`, 10, y); y += 45;
+
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  ctx.font = "bold 28px sans-serif";
+  ctx.fillText(`總單數　：${summary.totalOrders || 0} 單`, 10, y); y += 45;
+  ctx.fillText(`現金收入：$${summary.cashTotal || 0}`, 10, y); y += 45;
+  ctx.fillText(`LINE Pay：$${summary.linepayTotal || 0}`, 10, y); y += 45;
+
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+
+  ctx.font = "bold 40px sans-serif";
+  ctx.fillText(`總營業額：$${summary.grandTotal || 0}`, 10, y); y += 60;
+
+  const finalHeight = y + 80; // 底部留白
+  const finalCanvas = document.createElement("canvas"); 
+  finalCanvas.width = width; finalCanvas.height = finalHeight;
+  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
+  return { canvas: finalCanvas, finalHeight: finalHeight };
+}
 async function printSingleLabelToBLE(canvas) {
   const width = canvas.width; const height = canvas.height; const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
   const widthBytes = Math.ceil(width / 8); const bitmap = new Uint8Array(widthBytes * height); bitmap.fill(255);
@@ -769,7 +807,35 @@ async function fetchCurrentShift() {
   if(data.active) { divS.innerText = "✅ 班次：" + data.shiftName; divS.style.color = "#27AE60"; divM.innerHTML = `人員：${data.operator}<br>現金：$${summary.cashTotal || 0}<br>LINE Pay：$${summary.linepayTotal || 0}<br><b>總營業額：$${summary.grandTotal || 0}</b>`; } else { divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = ""; }
 }
 async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
-async function handleCloseShift() { if(confirm("確定交班？")) { await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); } }
+async function handleCloseShift() { 
+  if(!confirm("確定要進行交班結算嗎？\n(若有連線 USB 出單機，將會自動列印交班單據)")) return; 
+
+  try {
+    // 1. 在關班前，先跟後台要這班的總金額跟人員資訊
+    const infoRes = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now());
+    const info = await infoRes.json();
+    const sumRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now());
+    const summary = await sumRes.json();
+
+    // 2. 如果 USB 印表機有連線，就印出實體單據
+    if (printerDevice && endpointOut) {
+      setMsg("正在列印交班單據...");
+      const receipt = buildShiftReceiptCanvas(info, summary);
+      await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
+    } else {
+      alert("⚠️ 注意：目前未連線 USB 出單機，本次交班將只會記錄到雲端，不會列印實體紙本！");
+    }
+
+    // 3. 正式通知後台關閉班次
+    await fetch(`${GAS_API}?action=closeShift`); 
+    fetchCurrentShift(); 
+    setMsg("✅ 交班結算完成");
+    
+    if(printerDevice && endpointOut) alert("✅ 交班完成！單據已成功列印。");
+  } catch (e) {
+    alert("交班處理失敗：" + e.message);
+  }
+}
 
 function renderPosUI() {
   const draw = (list, id) => {
@@ -943,4 +1009,4 @@ async function saveMenuData() {
 }
 </script>
 </body>
-</html>
+</html>這樣對嗎
