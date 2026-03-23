@@ -711,7 +711,7 @@ async function initSystem() {
   }
 }
 // ==========================================
-// 🌟 菜單設計管理中心邏輯
+// 🌟 菜單設計管理中心邏輯 (100% 完整版)
 // ==========================================
 let rawMenuData = [];
 
@@ -730,8 +730,59 @@ async function openMenuPanel() {
   try {
     const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now());
     rawMenuData = await res.json();
+    renderMenuTable(); // 這裡呼叫畫圖函數
+  } catch (e) { 
+    alert("讀取菜單失敗！錯誤原因：" + e.message); 
+    console.error(e);
+  }
+}
+
+// 🌟 補回：關閉面板函數
+function closeMenuPanel() { 
+  document.getElementById("menuModal").classList.remove("show"); 
+}
+
+// 🌟 補回：畫出表格的函數
+function renderMenuTable() {
+  const tbody = document.getElementById("menuTbody");
+  if (rawMenuData.length === 0) {
+     tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>";
+     return;
+  }
+  tbody.innerHTML = rawMenuData.map((row, idx) => `
+    <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
+      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚 主餐</option>
+        <option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲 飲料/燉湯</option>
+        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗 副餐</option>
+        <option value="加料" ${row[0]==='加料'?'selected':''}>➕ 加料</option>
+      </select></td>
+      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:160px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" placeholder="例如: 滷肉飯"></td>
+      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+        <option value="Y" ${row[6]==='Y'?'selected':''}>是 (Y)</option>
+        <option value="N" ${row[6]==='N'?'selected':''}>否 (N)</option>
+      </select></td>
+      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
+    </tr>
+  `).join("");
+}
+
+// 🌟 補回：新增一列的函數
+function addMenuRow() {
+  rawMenuData.push(["主餐", "", "", 0, 0, "", "Y"]);
+  renderMenuTable();
+  const modalBody = document.querySelector("#menuModal .modal-body");
+  modalBody.scrollTop = modalBody.scrollHeight;
+}
+
+// 🌟 補回：刪除一列的函數
+function deleteMenuRow(idx) {
+  if(confirm("確定要刪除這道餐點嗎？（按下最底下的儲存後才會正式生效）")) {
+    rawMenuData.splice(idx, 1);
     renderMenuTable();
-  } catch (e) { alert("讀取菜單失敗！"); }
+  }
 }
 
 async function saveMenuData() {
