@@ -301,6 +301,7 @@ function savePrinterSettings() {
   alert("✅ 列印機參數已儲存！下一次列印將立即套用新設定。");
   closePrinterSettings();
 }
+
 // 🌟 預設設定與密碼容器
 let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988' };
 
@@ -410,6 +411,7 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   
   return canvas;
 }
+
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
@@ -420,7 +422,7 @@ function buildCustomerReceiptCanvas(o){
   ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42; 
   ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
   
-  // 🌟 新增：把顧客姓名、電話、地址印出來 (如果現場代客沒留就不印)
+  // 🌟 顧客姓名、電話、地址印出來 (如果現場代客沒留就不印)
   if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 42; }
   if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 42; }
   if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
@@ -439,7 +441,7 @@ function buildKitchenReceiptCanvas(o){
   let y = 10; ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50; ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
   ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; 
   
-  // 🌟 新增：廚房單也印出姓名與電話，方便內場核對外送包裝
+  // 🌟 廚房單印出姓名與電話，方便內場核對外送包裝
   if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 40; }
   if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 40; }
   if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
@@ -536,6 +538,7 @@ function buildShiftReceiptCanvas(info, summary) {
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
   return { canvas: finalCanvas, finalHeight: finalHeight };
 }
+
 async function printSingleLabelToBLE(canvas) {
   const width = canvas.width; const height = canvas.height; const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
   const widthBytes = Math.ceil(width / 8); const bitmap = new Uint8Array(widthBytes * height); bitmap.fill(255);
@@ -1058,4 +1061,4 @@ async function saveMenuData() {
 }
 </script>
 </body>
-</html>這樣對嗎
+</html>
