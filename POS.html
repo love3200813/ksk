@@ -49,6 +49,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
     <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
     <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單設計管理</button>
+    <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機設定</button>
     
     <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
     <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
@@ -203,6 +204,45 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
   </div>
 </div>
+<div id="printerModal" class="modal">
+  <div class="modal-card" style="width: 500px; max-height:90vh;">
+    <div class="modal-header">
+      <h3>🖨️ 列印機硬體參數設定</h3>
+      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+      
+      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
+        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
+        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
+        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
+        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
+        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+
+      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 USB 出單機設定 (廚房/客人明細)</h4>
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
+        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
+    </div>
+  </div>
+</div>
+
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -229,6 +269,36 @@ let currentEditingOrder = null;
 let printedOrders = new Set();
 let printingOrders = new Set();
 
+  // 🌟 列印機動態設定 (從本機 localStorage 讀取，若無則套用預設值)
+let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
+  bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384
+};
+
+function openPrinterSettings() {
+  document.getElementById("p_bleMmW").value = printerConf.bleMmW;
+  document.getElementById("p_bleMmH").value = printerConf.bleMmH;
+  document.getElementById("p_blePxW").value = printerConf.blePxW;
+  document.getElementById("p_blePxH").value = printerConf.blePxH;
+  document.getElementById("p_bleBottom").value = printerConf.bleBottom;
+  document.getElementById("p_usbPxW").value = printerConf.usbPxW;
+  document.getElementById("printerModal").classList.add("show");
+}
+
+function closePrinterSettings() { document.getElementById("printerModal").classList.remove("show"); }
+
+function savePrinterSettings() {
+  printerConf = {
+    bleMmW: Number(document.getElementById("p_bleMmW").value),
+    bleMmH: Number(document.getElementById("p_bleMmH").value),
+    blePxW: Number(document.getElementById("p_blePxW").value),
+    blePxH: Number(document.getElementById("p_blePxH").value),
+    bleBottom: Number(document.getElementById("p_bleBottom").value),
+    usbPxW: Number(document.getElementById("p_usbPxW").value)
+  };
+  localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
+  alert("✅ 列印機參數已儲存！下一次列印將立即套用新設定。");
+  closePrinterSettings();
+}
 // 🌟 預設設定與密碼容器
 let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988' };
 
@@ -308,31 +378,29 @@ async function connectUSB(){
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
-  const width = 320; 
-  const height = 224; // 恢復標準 28mm 安全高度
+  const width = printerConf.blePxW; 
+  const height = printerConf.blePxH; // 動態高度
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
   canvas.width = width; canvas.height = height; 
   ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
   ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   
-  // 1. 緊湊的頭部資訊
   let y = 8; 
   ctx.font = "bold 24px sans-serif";
   const headerStr = titleHeader ? `【${titleHeader}】${o.seq||""}` : `${o.seq||""}  [${currentIndex}/${totalCount}]`;
   ctx.fillText(headerStr, 10, y); y += 28; 
   ctx.font = "18px monospace"; ctx.fillText("-------------------------", 10, y); y += 20;
   
-  // 2. 🌟 神級優化：智能縮放字體！如果字數超過 15 個字 (例如孕婦忌食那道)，自動縮小字體避免佔用太多行
   if (itemName.length > 15) {
      ctx.font = "bold 24px sans-serif";
-     drawWrappedText(ctx, itemName, 10, y, 300, 30);
+     drawWrappedText(ctx, itemName, 10, y, width - 20, 30);
   } else {
      ctx.font = "bold 30px sans-serif";
-     drawWrappedText(ctx, itemName, 10, y, 300, 36);
+     drawWrappedText(ctx, itemName, 10, y, width - 20, 36);
   }
   
-  // 3. 🌟 終極防護：把「取餐方式」絕對釘死在距離底部 28px 的位置！不管上面怎麼擠，它絕對不動如山！
-  const bottomY = height - 28; 
+  // 動態抓取距離底部的參數
+  const bottomY = height - printerConf.bleBottom; 
   ctx.font = "bold 20px sans-serif"; 
   ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
   
@@ -340,7 +408,7 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
 }
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
-  const width = 384; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
   ctx.font = "bold 50px sans-serif"; ctx.fillText("加山記", 10, y); y += 62;
@@ -362,7 +430,7 @@ function buildCustomerReceiptCanvas(o){
 
 function buildKitchenReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
-  const width = 384; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  const width = printerConf.usbPxW; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50; ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
   ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; 
@@ -388,7 +456,7 @@ async function printSingleLabelToBLE(canvas) {
           if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); }
       }
   }
-  const header = new TextEncoder().encode(`SIZE 40 mm, 30 mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
+  const header = new TextEncoder().encode(`SIZE ${printerConf.bleMmW} mm, ${printerConf.bleMmH} mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
   const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\n`); const buf = new Uint8Array(header.length + bitmap.length + footer.length);
   buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
   const CHUNK_SIZE = 128; 
