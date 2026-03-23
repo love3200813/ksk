@@ -308,33 +308,64 @@ async function connectUSB(){
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
-  const width = 320; const height = 240; const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
-  canvas.width = width; canvas.height = height; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  let y = 10; ctx.font = "bold 26px sans-serif";
+  const width = 320; 
+  const height = 224; // 🌟 關鍵修復1：把畫布高度從 240 縮小到 224，強迫提早結束，絕不跨頁！
+  const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
+  canvas.width = width; canvas.height = height; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  
+  let y = 10; 
+  ctx.font = "bold 26px sans-serif";
   const headerStr = titleHeader ? `【${titleHeader}】${o.seq||""}` : `${o.seq||""}  [${currentIndex}/${totalCount}]`;
-  ctx.fillText(headerStr, 10, y); y += 32; ctx.font = "20px monospace"; ctx.fillText("-----------------------", 10, y); y += 24;
-  ctx.font = "bold 32px sans-serif"; y = drawWrappedText(ctx, itemName, 10, y, 300, 38);
-  let bottomY = Math.max(y + 10, 195); ctx.font = "20px sans-serif"; ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
+  ctx.fillText(headerStr, 10, y); y += 32; 
+  ctx.font = "20px monospace"; ctx.fillText("-----------------------", 10, y); y += 24;
+  
+  ctx.font = "bold 30px sans-serif"; // 稍微縮小字體一點點，避免品名換行太多佔空間
+  y = drawWrappedText(ctx, itemName, 10, y, 300, 36);
+  
+  // 🌟 關鍵修復2：把底部的「取餐方式」強制往上提 (從 195 提高到 175)
+  let bottomY = Math.max(y + 10, 175); 
+  ctx.font = "20px sans-serif"; 
+  ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
+  
   return canvas;
 }
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   const width = 384; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; ctx.font = "bold 50px sans-serif"; ctx.fillText("加山記", 10, y); y += 62;
-  ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 58; ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42; ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
+  let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
+  ctx.font = "bold 50px sans-serif"; ctx.fillText("加山記", 10, y); y += 62;
+  ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 58; 
+  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42; 
+  ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
+  
+  // 🌟 新增：把顧客姓名、電話、地址印出來 (如果現場代客沒留就不印)
+  if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 42; }
+  if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 42; }
+  if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
+
   ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 30px sans-serif";
   for(const item of items){ y = drawWrappedText(ctx, "・" + item, 10, y, 360, lineHeight); y += 5; }
   ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 46px sans-serif"; ctx.fillText("總計 $" + String(o.total || 0), 10, y); y += 60;
   const bottomPadding = 96; const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
+
 function buildKitchenReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
   const width = 384; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50; ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
-  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; 
+  
+  // 🌟 新增：廚房單也印出姓名與電話，方便內場核對外送包裝
+  if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 40; }
+  if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 40; }
+  if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
+
+  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
   ctx.font = "bold 34px sans-serif"; for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
   ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35; y = drawWrappedText(ctx, "備註：" + String(o.pay || ""), 10, y, 360, 38); y += 10; 
   const bottomPadding = 96; const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
