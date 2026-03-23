@@ -625,10 +625,34 @@ async function openDeliveryPanel() {
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
+  // 從後台抓資料
   const data = await (await fetch(GAS_API + "?action=getOrders")).json();
+  
+  // 過濾出宅配單 (同時相容兩種寫法)
   const list = data.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
-  div.innerHTML = list.map(o => `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div><b style="font-size:18px;">${o.seq}</b> | ${o.customerName}<br><b>${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:5px;">📍 ${o.deliveryAddress}</div></div><button class="sbtn done" style="width:100px; flex:none; margin-left:15px;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div>`).join("");
+  
+  // 重新排版並加入 📞電話、修改與作廢按鈕
+  div.innerHTML = list.map(o => {
+    const enc = encodeURIComponent(JSON.stringify(o));
+    return `
+    <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;">
+      <div style="flex:1; padding-right:15px;">
+        <b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br>
+        <b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br>
+        <div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">
+          📍 ${o.deliveryAddress || '未填寫地址'}
+        </div>
+      </div>
+      
+      <div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;">
+        <button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button>
+        <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
+        <button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button>
+      </div>
+    </div>`;
+  }).join("");
 }
+  
 async function shipOrder(row, seq) {
   const track = prompt("單號:"); if(!track) return;
   await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`);
