@@ -119,7 +119,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
   <div id="comboModeWrap" style="display:none;">
     <div id="comboStep1" class="combo-step">
       <div class="step-head">
-        <div class="brand-title" style="font-size:20px;">1. 選擇主餐</div>
+        <div class="brand-title" style="font-size:20px;">1. 選擇招牌燉湯</div> 
         <span id="stepMainChip" class="step-chip">請選擇</span>
       </div>
       <div id="mainGrid" class="grid"></div>
@@ -127,20 +127,20 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 
     <div id="comboOptionsWrap" class="combo-step step-lock" style="display:none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--line);">
-        <button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選主餐</button>
+        <button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選燉湯</button>
         <div style="font-weight: 900; color: var(--danger); font-size: 18px;" id="selectedMainDisplay"></div>
       </div>
       <div class="brand-title" style="font-size:20px; margin-bottom:15px;">2. 套餐配項</div>
       <div style="margin-bottom:15px;">
-        <label style="font-weight:900; display:block; margin-bottom:5px;">主餐加料 (選填)</label>
+        <label style="font-weight:900; display:block; margin-bottom:5px;">燉湯加料 (選填)</label>
         <select id="comboAddonSelect" onchange="syncComboSelection()"></select>
       </div>
       <div style="margin-bottom:15px;">
-        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇飲料</label>
+        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇主食 (飯 / 麵)</label>
         <select id="comboDrinkSelect" onchange="syncComboSelection()"></select>
       </div>
       <div style="margin-bottom:15px;">
-        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇副餐</label>
+        <label style="font-weight:900; display:block; margin-bottom:5px;">選擇副餐 (小菜)</label>
         <select id="comboSideSelect" onchange="syncComboSelection()"></select>
       </div>
       <div style="padding:10px; background:#fffceb; border-radius:12px; border:1px solid #ffeeba; text-align:right;">
@@ -640,21 +640,24 @@ function autoQueryLastOrder() {
   if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
 function renderComboUI() {
-  document.getElementById("mainGrid").innerHTML = COMBO_MAINS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
+  // 🌟 1. 讓第 1 步顯示「燉湯/飲料」(COMBO_DRINKS) 作為主角
+  document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
   
-  // 🌟 使用全新的 singlePrice 和 comboPrice 變數
   document.getElementById("comboAddonSelect").innerHTML = '<option value="">(不加料)</option>' + COMBO_ADDONS.map(a => `<option value="${a.n}">+ $${a.singlePrice} ${a.n}</option>`).join("");
-  document.getElementById("comboDrinkSelect").innerHTML = COMBO_DRINKS.map(d => `<option value="${d.n}">${d.n} ${d.comboPrice > 0 ? '(+ $'+d.comboPrice+')' : '(內含)'}</option>`).join("");
+  
+  // 🌟 2. 讓第 2 步的下拉選單去抓「飯/麵主食」(COMBO_MAINS)
+  document.getElementById("comboDrinkSelect").innerHTML = COMBO_MAINS.map(d => `<option value="${d.n}">${d.n} ${d.comboPrice > 0 ? '(+ $'+d.comboPrice+')' : '(內含)'}</option>`).join("");
+  
   document.getElementById("comboSideSelect").innerHTML = COMBO_SIDES.map(s => `<option value="${s.n}">${s.n} ${s.comboPrice > 0 ? '(+ $'+s.comboPrice+')' : '(內含)'}</option>`).join("");
 }
 
 function selectMain(c) {
-  curCombo.main = COMBO_MAINS.find(x => x.code === c);
+  // 🌟 因為主角換成燉湯了，所以要去 COMBO_DRINKS 裡面找被點擊的項目
+  curCombo.main = COMBO_DRINKS.find(x => x.code === c);
   document.getElementById("comboStep1").style.display = "none"; 
   
   const optionsWrap = document.getElementById("comboOptionsWrap");
   optionsWrap.style.display = "block";
-  // 🌟 關鍵修復：擊碎隱形盾牌，讓裡面的下拉選單可以被點擊！
   optionsWrap.classList.remove("step-lock"); 
   
   document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
@@ -665,14 +668,16 @@ function selectMain(c) {
 
 function syncComboSelection() {
   if (!curCombo.main) return;
-  // 🌟 對應新變數名稱
+  
   const addonObj = COMBO_ADDONS.find(a => a.n === document.getElementById("comboAddonSelect").value) || { n: "", singlePrice: 0 };
-  const drinkObj = COMBO_DRINKS.find(d => d.n === document.getElementById("comboDrinkSelect").value) || { n: "未知", comboPrice: 0 };
-  const sideObj = COMBO_SIDES.find(s => s.n === document.getElementById("comboSideSelect").value) || { n: "未知", comboPrice: 0 };
+  
+  // 🌟 這裡去 COMBO_MAINS 裡面找客人選的飯麵
+  const drinkObj = COMBO_MAINS.find(d => d.n === document.getElementById("comboDrinkSelect").value) || { n: "無", comboPrice: 0 };
+  
+  const sideObj = COMBO_SIDES.find(s => s.n === document.getElementById("comboSideSelect").value) || { n: "無", comboPrice: 0 };
   
   curCombo.drink = drinkObj; curCombo.side = sideObj; curCombo.addons = addonObj.n ? [addonObj] : [];
   
-  // 🌟 準確計算價錢
   const total = Number(curCombo.main.comboPrice) + Number(drinkObj.comboPrice) + Number(sideObj.comboPrice) + Number(addonObj.singlePrice);
   document.getElementById("currentComboPrice").innerText = total; document.getElementById("currentComboPriceDisplay").innerText = total;
 }
@@ -685,10 +690,14 @@ function resetCombo() {
 
 function addToBasket() {
   if (orderMode === "combo") {
-    if(!curCombo.main) return alert("請先選擇主餐！");
-    // 🌟 購物車也要用新變數算錢
+    if(!curCombo.main) return alert("請先選擇招牌燉湯！");
     const total = Number(curCombo.main.comboPrice) + Number(curCombo.drink.comboPrice) + Number(curCombo.side.comboPrice) + curCombo.addons.reduce((s,a) => s + Number(a.singlePrice), 0);
-    basket.push({ desc: `套餐:${curCombo.main.n}`, price: total, unitPrice: total, qty: 1 });
+    
+    // 🌟 讓購物車顯示更清楚，例如：套餐:人蔘雞湯 (搭配:滷肉飯, 燙青菜)
+    const detailStr = [curCombo.drink.n, curCombo.side.n].filter(x => x && x !== "無").join(", ");
+    const cartDesc = `套餐:${curCombo.main.n}` + (detailStr ? ` (${detailStr})` : '');
+    
+    basket.push({ desc: cartDesc, price: total, unitPrice: total, qty: 1 });
     resetCombo();
   } else {
     const keys = Object.keys(singleSelection);
