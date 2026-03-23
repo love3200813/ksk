@@ -625,11 +625,22 @@ async function openDeliveryPanel() {
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
+  div.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>載入中...</div>"; // 貼心的載入提示
+  
   // 從後台抓資料
   const data = await (await fetch(GAS_API + "?action=getOrders")).json();
   
-  // 過濾出宅配單 (同時相容兩種寫法)
-  const list = data.filter(o => String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery"));
+  // 🌟 關鍵修改：過濾出宅配單，並且【排除狀態是「已出貨」的訂單】
+  const list = data.filter(o => 
+    (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && 
+    o.status !== "已出貨"
+  );
+  
+  // 如果清單空了（都出貨完了），顯示提示文字
+  if (list.length === 0) {
+    div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>";
+    return;
+  }
   
   // 重新排版並加入 📞電話、修改與作廢按鈕
   div.innerHTML = list.map(o => {
