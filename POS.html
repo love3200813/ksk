@@ -76,6 +76,27 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
 <div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理面板</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
 
+<div id="editModal" class="modal">
+  <div class="modal-card" style="width: 500px;">
+    <div class="modal-header">
+      <h3>✏️ 修改訂單 <span id="editSeq" style="color:#e74c3c; margin-left:10px;"></span></h3>
+      <button onclick="closeEditModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editRow">
+      <input type="hidden" id="editPwd">
+      
+      <label style="font-weight:bold; display:block; margin-bottom:8px;">餐點內容 (請直接修改文字)</label>
+      <textarea id="editContent" rows="4" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:18px; margin-bottom:15px; font-family:inherit; box-sizing:border-box;"></textarea>
+      
+      <label style="font-weight:bold; display:block; margin-bottom:8px;">總金額</label>
+      <input type="number" id="editTotal" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:18px; margin-bottom:25px; box-sizing:border-box;">
+      
+      <button id="saveEditBtn" class="btn btn-start" onclick="saveOrderEdit()">💾 確認儲存修改</button>
+    </div>
+  </div>
+</div>
+
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -89,7 +110,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   ctx.fillText(line, x, currentY); return currentY + lineHeight;
 }
 // ==========================================
-// 1. 系統變數與連線設定 (保留最新版的穩定 API)
+// 1. 系統變數與連線設定
 // ==========================================
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
@@ -98,13 +119,9 @@ const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpointOut = null;
 let MAINS=[], DRINKS=[], SIDES=[], singleSel = {};
 
-// 列印專用狀態變數 (從舊代碼完整移植)
 let printedOrders = new Set();
 let printingOrders = new Set();
 
-// ==========================================
-// 2. 基礎輔助工具 (從舊代碼完整移植，處理時間與畫布排版)
-// ==========================================
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
 function playBeep(){
@@ -127,7 +144,6 @@ function formatDateObjTaipei(dateObj){
 }
 function parsePickupString(value){
   const str = String(value || "").trim();
-  // 加上宅配的排除
   if(!str || str === "現場取餐" || str.includes("現場取餐") || str === "delivery_cold" || str === "低溫宅配") return null;
   const isoDate = new Date(str); if(!isNaN(isoDate.getTime())) return isoDate;
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
@@ -137,14 +153,12 @@ function parsePickupString(value){
 
 function isReserveOrder(order){
   const raw = String(order.rawPickup || order.pickup || "").trim();
-  // 加上宅配的排除
   return !!raw && raw !== "現場取餐" && !raw.includes("現場取餐") && raw !== "delivery_cold" && raw !== "低溫宅配";
 }
 
 function formatPickupDisplay(value){
   const str = String(value || "").trim();
   if(!str || str === "現場取餐" || str.includes("現場取餐")) return "現場取餐";
-  // 讓畫面上顯示「低溫宅配」
   if(str === "delivery_cold" || str === "低溫宅配") return "低溫宅配";
   const d = parsePickupString(str); if(d) return formatDateObjTaipei(d);
   return str;
@@ -152,18 +166,13 @@ function formatPickupDisplay(value){
 
 function shouldPrintNow(order){
   const raw = String(order.rawPickup || order.pickup || "").trim();
-  // 現場單與宅配單，立刻印
   if(!raw || raw === "現場取餐" || raw.includes("現場取餐") || raw === "delivery_cold" || raw === "低溫宅配") return true;
   const pickup = parsePickupString(raw); 
-  if(!pickup) return true; // 算不出時間的異常單，為了安全起見直接印
-  // 預約單：取餐時間減去 15分鐘 (15 * 60 * 1000 毫秒)
+  if(!pickup) return true; 
   const printAt = new Date(pickup.getTime() - 15 * 60 * 1000);
   return Date.now() >= printAt.getTime();
 }
 
-// ==========================================
-// 3. 完美移植：藍牙與 USB 連線驅動
-// ==========================================
 async function connectBLE() {
   try {
     setMsg("正在尋找藍牙標籤機...");
@@ -208,9 +217,6 @@ async function connectUSB(){
   }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// ==========================================
-// 4. 完美移植：畫布產生器 (Canvas)
-// ==========================================
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
   const width = 320; const height = 240; 
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
@@ -274,9 +280,6 @@ function buildKitchenReceiptCanvas(o){
   return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
-// ==========================================
-// 5. 完美移植：傳輸核心 (分段傳輸與重試機制)
-// ==========================================
 async function printSingleLabelToBLE(canvas) {
   const width = canvas.width; const height = canvas.height;
   const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
@@ -294,7 +297,7 @@ async function printSingleLabelToBLE(canvas) {
   const buf = new Uint8Array(header.length + bitmap.length + footer.length);
   buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
 
-  const CHUNK_SIZE = 128; // 舊代碼的穩定分段
+  const CHUNK_SIZE = 128; 
   for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
       const chunk = buf.slice(i, i + CHUNK_SIZE);
       let success = false; let retryCount = 0; 
@@ -345,14 +348,11 @@ async function printCanvasToPrinter(canvas, finalHeight){
   }
 }
 
-// ==========================================
-// 6. 完美移植：列印派發中心
-// ==========================================
 async function printOrderToBLE(o, titleHeader) {
   let rawItems = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   let labelItems = [];
   for (let item of rawItems) {
-      let match = item.match(/x\s*(\d+)$/i); // 拆解數量
+      let match = item.match(/x\s*(\d+)$/i); 
       if (match) {
           let qty = parseInt(match[1], 10);
           let cleanName = item.replace(/x\s*\d+$/i, "").trim();
@@ -412,9 +412,6 @@ async function manualPrint(encoded){
   }catch(err){ alert("補印失敗：" + err.message); }
 }
 
-// ==========================================
-// 7. 完美移植：保留原版功能與介面
-// ==========================================
 async function submitCashOrder() {
   const btn = document.getElementById("cashSubmitBtn");
   const total = document.getElementById("posTotal").innerText;
@@ -428,30 +425,106 @@ async function submitCashOrder() {
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
 
-// 👉 這是唯一修改的函數：加入了修改、作廢、通知按鈕
+// ==========================================
+// 👉 這是生成卡片的函數 (包含 5 個按鈕)
+// ==========================================
 async function fetchOrders() {
   try {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
     const data = await res.json();
     if(data.error) return;
+    
     document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢").map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       return `
-      <div class="card"><div class="seq">${o.seq}</div><b>${o.content}</b><br><span style="color:red;font-weight:bold;font-size:22px;">$${o.total}</span>
-      <div style="display:flex;gap:5px;margin-top:10px;">
-        <button class="sbtn reprint" style="background:#3498db;color:#fff;" onclick="manualPrint('${enc}')">補印</button>
-        <button class="sbtn" style="background:#f39c12;color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit')">修改</button>
-        <button class="sbtn" style="background:#555555;color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
-      </div>
-      <div style="display:flex;gap:5px;margin-top:5px;">
-        <button class="sbtn" style="background:#17a2b8;color:#fff;" onclick="triggerNotify(${o.row})">通知</button>
-        <button class="sbtn done" style="background:#e74c3c;color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
-      </div></div>`;
+      <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
+        <div style="display:flex; justify-content:space-between; align-items:start;">
+          <div class="seq">${o.seq}</div>
+          <div style="text-align:right; font-size:12px; color:#666;">${formatPickupDisplay(o.pickup)}</div>
+        </div>
+        <b style="font-size:18px; display:block; margin:5px 0;">${o.content}</b>
+        <span style="color:#e74c3c; font-weight:bold; font-size:24px;">$${o.total}</span>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+          <button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">補印</button>
+          <button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit')">修改</button>
+          <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
+        </div>
+        
+        <div style="display:flex; gap:5px; margin-top:5px;">
+          <button class="sbtn" style="background:#17a2b8; color:#fff;" onclick="triggerNotify(${o.row})">通知</button>
+          <button class="sbtn" style="background:#e74c3c; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
+        </div>
+      </div>`;
     }).join("");
+    
     autoPrint(data);
-  } catch(e) {}
+  } catch(e) { console.log("載入訂單出錯", e); }
 }
 
+// ==========================================
+// 🌟 核心新增：開啟編輯視窗與儲存邏輯
+// ==========================================
+async function triggerManagerAction(row, op) {
+  const pwd = prompt("請輸入管理密碼：");
+  if (!pwd) return;
+  
+  if (op === 'void') {
+    const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
+    if (res.success) { alert(res.msg); fetchOrders(); } else { alert(res.msg); }
+  } else if (op === 'edit') {
+    // 呼叫 API 抓取 Google Sheet 資料給 POS 顯示
+    const res = await (await fetch(`${GAS_API}?action=getOrderForEdit&row=${row}&pwd=${pwd}`)).json();
+    if (res.success) {
+      document.getElementById("editRow").value = row;
+      document.getElementById("editPwd").value = pwd;
+      document.getElementById("editSeq").innerText = res.seq;
+      document.getElementById("editContent").value = res.content;
+      document.getElementById("editTotal").value = res.total;
+      document.getElementById("editModal").classList.add("show");
+    } else {
+      alert(res.msg);
+    }
+  }
+}
+
+function closeEditModal() {
+  document.getElementById("editModal").classList.remove("show");
+}
+
+async function saveOrderEdit() {
+  const row = document.getElementById("editRow").value;
+  const pwd = document.getElementById("editPwd").value;
+  const content = document.getElementById("editContent").value;
+  const total = document.getElementById("editTotal").value;
+  
+  const btn = document.getElementById("saveEditBtn");
+  btn.disabled = true; btn.innerText = "儲存中...";
+  
+  const url = `${GAS_API}?action=saveEditedOrder&row=${row}&pwd=${pwd}&content=${encodeURIComponent(content)}&total=${total}`;
+  try {
+    const res = await (await fetch(url)).json();
+    if(res.success) {
+      alert(res.msg);
+      closeEditModal();
+      fetchOrders(); // 畫面立刻更新為新資料
+    } else {
+      alert(res.msg);
+    }
+  } catch(e) {
+    alert("儲存失敗: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerText = "💾 確認儲存修改";
+  }
+}
+
+async function triggerNotify(row) {
+  if(!confirm("確定要發送取餐通知嗎？")) return;
+  const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json();
+  alert(res.msg);
+}
+
+// 輔助與其他功能
 async function executeSearch() {
   const key = document.getElementById("searchInput").value;
   const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
@@ -512,23 +585,6 @@ async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action
 function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
 function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
 async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
-
-// 👉 新增的功能函數放這裡
-async function triggerManagerAction(row, op) {
-  const pwd = prompt("請輸入管理密碼：");
-  if (!pwd) return;
-  const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
-  if (res.success) {
-    if (op === 'void') { alert(res.msg); fetchOrders(); }
-    else { alert("驗證成功，請至 Google 試算表手動修改內容以確保正確。"); }
-  } else { alert(res.msg); }
-}
-
-async function triggerNotify(row) {
-  if(!confirm("確定要發送取餐通知嗎？")) return;
-  const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json();
-  alert(res.msg);
-}
 
 async function initSystem() {
   const p = prompt("啟動密碼:"); if(p!=="0320") return;
