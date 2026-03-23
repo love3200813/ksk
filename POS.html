@@ -576,7 +576,15 @@ async function triggerManagerAction(row, op, encOrder) {
   
   if (op === 'void') {
     const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
-    if (res.success) { alert(res.msg); fetchOrders(); } else { alert(res.msg); }
+    if (res.success) { 
+      alert(res.msg); 
+      fetchOrders(); // 刷新主畫面
+      
+      // 🌟 關鍵新增：如果宅配面板開著，作廢後立刻刷新讓單子消失！
+      if (document.getElementById("deliveryModal").classList.contains("show")) {
+        refreshDeliveryOrders();
+      }
+    } else { alert(res.msg); }
   } else if (op === 'edit') {
     if (encOrder) currentEditingOrder = JSON.parse(decodeURIComponent(encOrder));
 
@@ -592,7 +600,6 @@ async function triggerManagerAction(row, op, encOrder) {
       const pickupStr = String(res.pickup || "");
       if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDel = true;
       if (isDel) {
-          // 初始化文字提示
           document.getElementById("editTotalInfo").innerText = " (請利用左側加減以自動重算運費)";
       }
 
@@ -619,8 +626,6 @@ async function triggerManagerAction(row, op, encOrder) {
   }
 }
 
-function closeEditModal() { document.getElementById("editModal").classList.remove("show"); }
-
 async function saveOrderEdit() {
   const row = document.getElementById("editRow").value;
   const pwd = document.getElementById("editPwd").value;
@@ -637,7 +642,13 @@ async function saveOrderEdit() {
     if(res.success) {
       alert("儲存成功！準備自動列印修改單。");
       closeEditModal();
-      fetchOrders(); 
+      fetchOrders(); // 刷新主畫面
+      
+      // 🌟 關鍵新增：如果宅配面板開著，修改後立刻刷新讓畫面顯示最新字串！
+      if (document.getElementById("deliveryModal").classList.contains("show")) {
+        refreshDeliveryOrders();
+      }
+      
       if (currentEditingOrder) {
          let printObj = Object.assign({}, currentEditingOrder);
          printObj.content = content; 
