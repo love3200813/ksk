@@ -48,6 +48,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
     <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
+    <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單設計管理</button>
     
     <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
     <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
@@ -159,6 +160,35 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       </div>
       
       <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存所有設定與密碼</button>
+    </div>
+  </div>
+</div>
+<div id="menuModal" class="modal">
+  <div class="modal-card" style="width:min(100%, 1000px); max-height:95vh;">
+    <div class="modal-header">
+      <h3>📝 菜單設計與管理 <span style="font-size:14px; color:#e74c3c; font-weight:normal;">(修改後將即時同步至客人手機)</span></h3>
+      <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
+      <button onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
+      
+      <div style="overflow-y:auto; border:1px solid #EAE8E3; border-radius:10px;">
+        <table style="width:100%; border-collapse:collapse; text-align:left;">
+          <thead style="background:#f4f6f8; position:sticky; top:0; z-index:1;">
+            <tr>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">類別</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">品名</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">單點價 ($)</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">套餐價 ($) <small style="color:#888;">選填</small></th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">可低溫宅配</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="menuTbody"></tbody>
+        </table>
+      </div>
+      
+      <button id="saveMenuBtn" class="btn btn-start" style="background:#2ecc71; font-size:18px; padding:15px;" onclick="saveMenuData()">💾 儲存並發布新菜單</button>
     </div>
   </div>
 </div>
@@ -667,6 +697,113 @@ async function initSystem() {
   } catch(e) {
      alert("連線失敗，請檢查網路狀態");
      document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統";
+  }
+}
+// ==========================================
+// 🌟 菜單設計管理中心邏輯
+// ==========================================
+let rawMenuData = [];
+
+async function openMenuPanel() {
+  const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
+  const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
+  if (String(pwd) !== currentSettingsPwd) { if(pwd) alert("❌ 密碼錯誤"); return; }
+
+  document.getElementById("menuModal").classList.add("show");
+  document.getElementById("menuTbody").innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
+
+  try {
+    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now());
+    rawMenuData = await res.json();
+    renderMenuTable();
+  } catch (e) { alert("讀取菜單失敗！"); }
+}
+
+function closeMenuPanel() { document.getElementById("menuModal").classList.remove("show"); }
+
+function renderMenuTable() {
+  const tbody = document.getElementById("menuTbody");
+  if (rawMenuData.length === 0) {
+     tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>";
+     return;
+  }
+  tbody.innerHTML = rawMenuData.map((row, idx) => `
+    <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
+      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚 主餐</option>
+        <option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲 飲料/燉湯</option>
+        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗 副餐</option>
+        <option value="加料" ${row[0]==='加料'?'selected':''}>➕ 加料</option>
+      </select></td>
+      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:160px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" placeholder="例如: 滷肉飯"></td>
+      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+        <option value="Y" ${row[6]==='Y'?'selected':''}>是 (Y)</option>
+        <option value="N" ${row[6]==='N'?'selected':''}>否 (N)</option>
+      </select></td>
+      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
+    </tr>
+  `).join("");
+}
+
+function addMenuRow() {
+  // 預設給一個空資料列：[類別, 代號, 品名, 套餐價, 單點價, 圖片, 宅配]
+  rawMenuData.push(["主餐", "", "", 0, 0, "", "Y"]);
+  renderMenuTable();
+  // 自動滾動到最底方便編輯
+  const modalBody = document.querySelector("#menuModal .modal-body");
+  modalBody.scrollTop = modalBody.scrollHeight;
+}
+
+function deleteMenuRow(idx) {
+  if(confirm("確定要刪除這道餐點嗎？（按下最底下的儲存後才會正式生效）")) {
+    rawMenuData.splice(idx, 1);
+    renderMenuTable();
+  }
+}
+
+async function saveMenuData() {
+  const btn = document.getElementById("saveMenuBtn");
+  btn.disabled = true; btn.innerText = "儲存中，請勿關閉視窗...";
+
+  const tbody = document.getElementById("menuTbody");
+  const rows = tbody.querySelectorAll("tr");
+  const newData = [];
+  
+  rows.forEach(tr => {
+     const cat = tr.querySelector(".m-cat")?.value;
+     if(!cat) return; // 略過空行
+     const name = tr.querySelector(".m-name").value.trim();
+     const sprice = Number(tr.querySelector(".m-sprice").value);
+     const cprice = Number(tr.querySelector(".m-cprice").value);
+     const del = tr.querySelector(".m-del").value;
+     const code = "M" + Math.floor(Math.random() * 10000); // 系統自動配發亂數代號
+     
+     if(name !== "") {
+       newData.push([cat, code, name, cprice, sprice, "", del]);
+     }
+  });
+
+  const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
+  
+  // ⚠️ 菜單資料量大，自動改用 POST 表單封裝傳送，避免當機
+  const formData = new URLSearchParams();
+  formData.append("action", "saveMenu");
+  formData.append("pwd", currentSettingsPwd);
+  formData.append("menuData", JSON.stringify(newData));
+
+  try {
+    const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
+    if(res.success) {
+       alert(res.msg);
+       closeMenuPanel();
+       fetchMenuData(); // 儲存成功後，自動幫 POS 現場畫面也刷新成新菜單
+    } else { alert(res.msg); }
+  } catch (e) {
+    alert("儲存失敗，請檢查網路：" + e.message);
+  } finally {
+    btn.disabled = false; btn.innerText = "💾 儲存並發布新菜單";
   }
 }
 </script>
