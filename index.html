@@ -94,7 +94,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
       🚚 低溫宅配到府
     </button>
     
-    <p style="margin-top:40px; font-size:14px; color:#999;">(宅配運費固定 $190，滿額享免運優惠)</p>
+    <p id="deliveryFeeHint" style="margin-top:40px; font-size:14px; color:#999; font-weight:bold;">(載入運費設定中...)</p>
   </div>
 
   <div class="topbar">
@@ -249,9 +249,32 @@ const BUSINESS_OPEN = { h:17, m:0 };
 const BUSINESS_CLOSE = { h:23, m:0 };
 const MIN_RESERVE_MINUTES = 60;
 
+// 🌟 新增：全域存放運費設定
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500 };
+
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
 let curCombo = { main: null, drink: null, side: null, addons: [] };
+
+// 🌟 新增：自動抓取後台運費設定
+async function fetchSysConfig() {
+  try {
+    const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
+    const conf = await res.json();
+    sysConfig.DELIVERY_FEE = Number(conf.DELIVERY_FEE || 190);
+    sysConfig.FREE_SHIPPING_LIMIT = Number(conf.FREE_SHIPPING_LIMIT || 2500);
+    
+    // 更新首頁提示文字
+    const hintEl = document.getElementById("deliveryFeeHint");
+    if (hintEl) {
+      if (sysConfig.FREE_SHIPPING_LIMIT >= 99999) {
+         hintEl.innerText = `(低溫宅配運費固定 $${sysConfig.DELIVERY_FEE})`;
+      } else {
+         hintEl.innerText = `(宅配運費 $${sysConfig.DELIVERY_FEE}，滿 $${sysConfig.FREE_SHIPPING_LIMIT} 享免運優惠)`;
+      }
+    }
+  } catch(err) { console.error("設定載入失敗:", err); }
+}
 
 function chooseServiceMode(mode) {
   serviceMode = mode;
@@ -267,7 +290,6 @@ function chooseServiceMode(mode) {
   }
 }
 
-// 🛑 【重大修復】：強制抓取後台來的 singlePrice 屬性，確保金額不再是 $0
 function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
@@ -294,7 +316,13 @@ function renderSingleUI() {
 
 function showCheckout() {
   let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
-  let shippingFee = (serviceMode === 'delivery') ? 190 : 0; 
+  
+  // 🌟 核心升級：動態判斷免運與運費
+  let shippingFee = 0;
+  if (serviceMode === 'delivery') {
+    shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
+  }
+  
   let finalTotal = subtotal + shippingFee;
 
   const addrSec = document.getElementById("deliveryAddressSection");
@@ -309,7 +337,14 @@ function showCheckout() {
   }
 
   let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
-  if (shippingFee > 0) listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
+  
+  // 🌟 顯示運費明細或免運歡呼
+  if (shippingFee > 0) {
+    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
+  } else if (serviceMode === 'delivery') {
+    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#1f8f55; font-weight:bold;"><span>🎉 達免運門檻</span> <span>$0</span></div>`;
+  }
+  
   listHtml += `<div style="text-align:right; font-size:22px; font-weight:900; margin-top:10px; border-top:2px solid #111; padding-top:10px;">總計：$${finalTotal}</div>`;
   document.getElementById("checkoutItemsDisplay").innerHTML = listHtml;
 
@@ -341,9 +376,16 @@ async function submitOrder() {
   if(serviceMode === 'delivery') pickup = "delivery_cold";
   else if(document.getElementById("pickupMode").value === 'reserve') pickup = document.getElementById("pickupDate").value + " " + document.getElementById("pickupTime").value;
 
+  // 🌟 核心升級：送出給後台的總價，精準計算動態運費
+  let subtotal = basket.reduce((s,i) => s + i.price, 0);
+  let shippingFee = 0;
+  if (serviceMode === 'delivery') {
+    shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
+  }
+
   const orderData = {
     items: basket.map(i=>i.desc + " x" + i.qty).join(" | "),
-    total: basket.reduce((s,i)=>s+i.price, 0) + (serviceMode === 'delivery' ? 190 : 0),
+    total: subtotal + shippingFee,
     pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId
   };
 
@@ -511,7 +553,8 @@ async function checkLinePayReturn() {
   }
 }
 
-initializeLiff(); fetchMenuData(); checkLinePayReturn();
+// 🌟 新增呼叫：載入設定
+initializeLiff(); fetchSysConfig(); fetchMenuData(); checkLinePayReturn();
 
 window.addEventListener('load', function() {
   const lastOrderStr = localStorage.getItem("ksk_last_order");
