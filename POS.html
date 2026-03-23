@@ -142,7 +142,26 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
           </div>
         </div>
       </div>
+      
+      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
+        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
 
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
+        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 修改/作廢授權密碼 <span style="font-weight:normal;color:#e74c3c;">(多組請用逗號 , 隔開)</span></label>
+        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-family:monospace;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">4. ⚙️ 本設定面板專屬密碼 (老闆最高權限)</label>
+        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; background:#fdf0ed;">
+      </div>
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存所有設定與密碼</button>
+    </div>
+  </div>
+</div>
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
