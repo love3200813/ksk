@@ -48,6 +48,9 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
+    
+    <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
+    
     <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
     <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
     <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:14px;"></div>
@@ -95,16 +98,33 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       
       <div style="flex:1;">
         <h4 style="margin-top:0; color:#e74c3c;">👉 實際儲存內容 (可手動修改)</h4>
-        
         <label style="font-size:14px; font-weight:bold; color:#666;">餐點內容字串</label>
         <textarea id="editContent" rows="6" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:16px; margin-bottom:15px; font-family:inherit; box-sizing:border-box; background:#FAFAFA;"></textarea>
         
-        <label style="font-size:14px; font-weight:bold; color:#666;">總金額</label>
+        <label style="font-size:14px; font-weight:bold; color:#666;">總金額 <span id="editTotalInfo" style="font-size:14px; color:#e74c3c;"></span></label>
         <input type="number" id="editTotal" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:24px; font-weight:900; color:#d9534f; margin-bottom:25px; box-sizing:border-box; background:#FAFAFA;">
         
         <button id="saveEditBtn" class="btn btn-start" style="background:#17a2b8; width:100%; font-size:18px; padding:15px;" onclick="saveOrderEdit()">💾 確認並儲存修改</button>
-        <p style="font-size:12px; color:#999; margin-top:10px;">提示：系統會以右側輸入框的內容為最終儲存依據。儲存成功後將自動印出「修改單」。</p>
+        <p style="font-size:12px; color:#999; margin-top:10px;">提示：系統會以右側輸入框的內容為最終儲存依據。</p>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="settingsModal" class="modal">
+  <div class="modal-card" style="width: 400px;">
+    <div class="modal-header">
+      <h3>⚙️ POS 系統設定</h3>
+      <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+      <label style="font-weight:bold;display:block;margin-bottom:8px;">單筆宅配運費 ($)</label>
+      <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box; font-size:18px;">
+      
+      <label style="font-weight:bold;display:block;margin-bottom:8px;">免運門檻 ($) <br><span style="font-size:12px;color:#e74c3c;font-weight:normal;">(如果不想要免運，請設定 99999)</span></label>
+      <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:25px; box-sizing:border-box; font-size:18px;">
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71;" onclick="saveSettings()">💾 儲存設定</button>
     </div>
   </div>
 </div>
@@ -132,10 +152,13 @@ let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpo
 let MAINS=[], DRINKS=[], SIDES=[];
 let singleSel = {}; 
 let editSel = {};   
-let currentEditingOrder = null; // 🌟 紀錄正在修改的訂單原始資料，用來自動列印
+let currentEditingOrder = null; 
 
 let printedOrders = new Set();
 let printingOrders = new Set();
+
+// 🌟 儲存動態的運費設定
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500 };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -437,7 +460,6 @@ async function submitCashOrder() {
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
 
-// 🌟 修改：按鈕綁定傳送完整訂單物件 `${enc}`，供自動列印使用
 async function fetchOrders() {
   try {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now());
@@ -473,7 +495,7 @@ async function fetchOrders() {
 }
 
 // ==========================================
-// 🌟 混合式修改邏輯 + 自動列印
+// 🌟 核心進化：動態運費計算與設定系統
 // ==========================================
 function findItemPrice(name) {
   const allItems = [...MAINS, ...DRINKS, ...SIDES];
@@ -482,21 +504,15 @@ function findItemPrice(name) {
 }
 
 function renderEditUI() {
-  // 🌟 1. 判斷目前正在修改的單，是不是「宅配單」
   let isDeliveryOrder = false;
   if (currentEditingOrder) {
     const pickupStr = String(currentEditingOrder.rawPickup || currentEditingOrder.pickup || "");
-    if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
-      isDeliveryOrder = true;
-    }
+    if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDeliveryOrder = true;
   }
 
   const draw = (list, id) => {
-    // 🌟 2. 如果是宅配單，就只顯示後台設定為「可宅配 (isDelivery === 'Y')」的品項
     let displayList = list;
-    if (isDeliveryOrder) {
-      displayList = list.filter(i => i.isDelivery === "Y");
-    }
+    if (isDeliveryOrder) displayList = list.filter(i => i.isDelivery === "Y");
 
     document.getElementById(id).innerHTML = displayList.map(i => {
       let p = Number(i.singlePrice) || Number(i.sp) || 0;
@@ -506,10 +522,7 @@ function renderEditUI() {
         <button class="sbtn" style="width:30px;padding:5px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div>`;
     }).join("");
   };
-  
-  draw(MAINS, "editMainGrid"); 
-  draw(DRINKS, "editDrinkGrid"); 
-  draw(SIDES, "editSideGrid");
+  draw(MAINS, "editMainGrid"); draw(DRINKS, "editDrinkGrid"); draw(SIDES, "editSideGrid");
 }
 
 function changeEditSingle(n, d, p) {
@@ -519,15 +532,33 @@ function changeEditSingle(n, d, p) {
   
   renderEditUI();
   
-  let total = 0;
+  let subtotal = 0;
   let newContent = Object.keys(editSel).map(k => `${k} x ${editSel[k].q}`).join(", ");
-  Object.keys(editSel).forEach(k => { total += editSel[k].p * editSel[k].q; });
+  Object.keys(editSel).forEach(k => { subtotal += editSel[k].p * editSel[k].q; });
+  
+  let finalShipping = 0;
+  let isDeliveryOrder = false;
+  if (currentEditingOrder) {
+     const pickupStr = String(currentEditingOrder.rawPickup || currentEditingOrder.pickup || "");
+     if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDeliveryOrder = true;
+  }
+  
+  // 💡 動態把運費加回去
+  if (isDeliveryOrder) {
+     finalShipping = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
+  }
   
   document.getElementById("editContent").value = newContent;
-  document.getElementById("editTotal").value = total;
+  document.getElementById("editTotal").value = subtotal + finalShipping;
+  
+  if (isDeliveryOrder) {
+      const info = finalShipping === 0 ? " (已達免運門檻)" : ` (已含運費 $${finalShipping})`;
+      document.getElementById("editTotalInfo").innerText = info;
+  } else {
+      document.getElementById("editTotalInfo").innerText = "";
+  }
 }
 
-// 🌟 修改：接收第三個參數 encOrder 來保留原始訂單，以便稍後印出
 async function triggerManagerAction(row, op, encOrder) {
   const pwd = prompt("請輸入管理密碼：");
   if (!pwd) return;
@@ -536,19 +567,24 @@ async function triggerManagerAction(row, op, encOrder) {
     const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
     if (res.success) { alert(res.msg); fetchOrders(); } else { alert(res.msg); }
   } else if (op === 'edit') {
-    if (encOrder) {
-       currentEditingOrder = JSON.parse(decodeURIComponent(encOrder));
-    }
+    if (encOrder) currentEditingOrder = JSON.parse(decodeURIComponent(encOrder));
 
     const res = await (await fetch(`${GAS_API}?action=getOrderForEdit&row=${row}&pwd=${pwd}`)).json();
     if (res.success) {
       document.getElementById("editRow").value = row;
       document.getElementById("editPwd").value = pwd;
       document.getElementById("editSeq").innerText = res.seq;
-      
       document.getElementById("editContent").value = res.content;
       document.getElementById("editTotal").value = res.total;
       
+      let isDel = false;
+      const pickupStr = String(res.pickup || "");
+      if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDel = true;
+      if (isDel) {
+          // 初始化文字提示
+          document.getElementById("editTotalInfo").innerText = " (請利用左側加減以自動重算運費)";
+      }
+
       editSel = {};
       const items = String(res.content).split(/[,|]/);
       items.forEach(itemStr => {
@@ -574,7 +610,6 @@ async function triggerManagerAction(row, op, encOrder) {
 
 function closeEditModal() { document.getElementById("editModal").classList.remove("show"); }
 
-// 🌟 修改：成功存檔後觸發自動列印機制
 async function saveOrderEdit() {
   const row = document.getElementById("editRow").value;
   const pwd = document.getElementById("editPwd").value;
@@ -592,21 +627,16 @@ async function saveOrderEdit() {
       alert("儲存成功！準備自動列印修改單。");
       closeEditModal();
       fetchOrders(); 
-      
-      // 👉 自動列印修改單邏輯
       if (currentEditingOrder) {
          let printObj = Object.assign({}, currentEditingOrder);
          printObj.content = content; 
          printObj.total = total;
          printObj.seq = printObj.seq + " (修改單)"; 
-         
          setMsg(`正在自動列印：${printObj.seq}...`);
          try {
              await executeDualPrint(printObj);
              setMsg(`${printObj.seq} 修改單列印完成`);
-         } catch(err) {
-             console.log("未連線印表機，跳過自動列印", err);
-         }
+         } catch(err) { console.log("未連線印表機", err); }
       }
     } else { alert(res.msg); }
   } catch(e) { alert("儲存失敗: " + e.message); } 
@@ -619,7 +649,35 @@ async function triggerNotify(row) {
   alert(res.msg);
 }
 
-// 輔助與其他功能
+// 🌟 系統設定面板操作邏輯
+async function openSettingsPanel() {
+  const pwd = prompt("請輸入系統設定密碼:");
+  if (pwd !== "1988") { if(pwd) alert("❌ 密碼錯誤"); return; }
+  
+  document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
+  document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
+  document.getElementById("settingsModal").classList.add("show");
+}
+
+function closeSettingsPanel() {
+  document.getElementById("settingsModal").classList.remove("show");
+}
+
+async function saveSettings() {
+  const fee = document.getElementById("settingFee").value;
+  const limit = document.getElementById("settingLimit").value;
+  
+  const res = await (await fetch(`${GAS_API}?action=updateConfig&pwd=1988&fee=${fee}&limit=${limit}`)).json();
+  if (res.success) {
+    alert(res.msg);
+    sysConfig.DELIVERY_FEE = Number(fee);
+    sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
+    closeSettingsPanel();
+  } else {
+    alert(res.msg);
+  }
+}
+
 async function executeSearch() {
   const key = document.getElementById("searchInput").value;
   const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`);
@@ -629,9 +687,7 @@ async function executeSearch() {
 
 async function openDeliveryPanel() {
   const pwd = prompt("請輸入宅配管理專用密碼:");
-  if (!pwd) return; // 如果按取消就退出
-  
-  // 專門為宅配設定的獨立密碼 0926
+  if (!pwd) return; 
   if (pwd === "0926") { 
     document.getElementById("deliveryModal").classList.add("show"); 
     refreshDeliveryOrders(); 
@@ -639,28 +695,17 @@ async function openDeliveryPanel() {
     alert("❌ 密碼錯誤，無法進入宅配管理面板！");
   }
 }
-  
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
+
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
-  div.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>載入中...</div>"; // 貼心的載入提示
-  
-  // 從後台抓資料
+  div.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>載入中...</div>";
   const data = await (await fetch(GAS_API + "?action=getOrders")).json();
-  
-  // 🌟 關鍵修改：過濾出宅配單，並且【排除狀態是「已出貨」的訂單】
-  const list = data.filter(o => 
-    (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && 
-    o.status !== "已出貨"
-  );
-  
-  // 如果清單空了（都出貨完了），顯示提示文字
+  const list = data.filter(o => (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && o.status !== "已出貨");
   if (list.length === 0) {
     div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>";
     return;
   }
-  
-  // 重新排版並加入 📞電話、修改與作廢按鈕
   div.innerHTML = list.map(o => {
     const enc = encodeURIComponent(JSON.stringify(o));
     return `
@@ -668,11 +713,8 @@ async function refreshDeliveryOrders() {
       <div style="flex:1; padding-right:15px;">
         <b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br>
         <b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br>
-        <div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">
-          📍 ${o.deliveryAddress || '未填寫地址'}
-        </div>
+        <div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div>
       </div>
-      
       <div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;">
         <button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button>
         <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
@@ -681,7 +723,6 @@ async function refreshDeliveryOrders() {
     </div>`;
   }).join("");
 }
-  
 async function shipOrder(row, seq) {
   const track = prompt("單號:"); if(!track) return;
   await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`);
@@ -732,6 +773,14 @@ async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&r
 async function initSystem() {
   const p = prompt("啟動密碼:"); if(p!=="0320") return;
   document.getElementById("startOverlay").style.display="none";
+  
+  // 初始化抓取運費設定
+  try {
+     const res = await (await fetch(GAS_API + "?action=getConfig")).json();
+     sysConfig.DELIVERY_FEE = Number(res.DELIVERY_FEE || 190);
+     sysConfig.FREE_SHIPPING_LIMIT = Number(res.FREE_SHIPPING_LIMIT || 2500);
+  } catch(e){}
+
   await fetchMenuData(); fetchCurrentShift(); fetchOrders();
   setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
 }
