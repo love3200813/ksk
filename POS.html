@@ -518,38 +518,65 @@ async function openSettingsPanel() {
 }
 
 async function saveSettings() {
-  const fee = document.getElementById("settingFee").value;
-  const limit = document.getElementById("settingLimit").value;
-  const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
-  const enableDelivery = document.getElementById("settingDelivery").checked ? 'Y' : 'N';
+  const btn = document.querySelector("#settingsModal .btn-start"); 
+  if (btn.disabled) return; // 🛡️ 防連點機制：如果按鈕已經按下去，就直接擋掉第二次點擊
   
-  // 🌟 獲取時間設定
-  const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
-  const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
-  
-  const pwdStartup = document.getElementById("settingPwdStartup").value.trim();
-  const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
-  const pwdManager = document.getElementById("settingPwdManager").value.trim();
-  const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
-  
-  if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) return alert("❌ 密碼欄位不可空白！");
-  
-  const currentSettingsPwd = sysConfig.PWD_SETTINGS || "1988";
-  const btn = document.querySelector("#settingsModal .btn-start"); btn.disabled = true; btn.innerText = "儲存中...";
+  btn.disabled = true; 
+  btn.innerText = "儲存中...";
   
   try {
+    const fee = document.getElementById("settingFee").value;
+    const limit = document.getElementById("settingLimit").value;
+    const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
+    const enableDelivery = document.getElementById("settingDelivery").checked ? 'Y' : 'N';
+    
+    const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
+    const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
+    
+    const pwdStartup = document.getElementById("settingPwdStartup").value.trim();
+    const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
+    const pwdManager = document.getElementById("settingPwdManager").value.trim();
+    const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
+    
+    if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) {
+      alert("❌ 密碼欄位不可空白！");
+      btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼";
+      return;
+    }
+    
+    const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
+    
     const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}`;
+    
     const res = await (await fetch(url)).json();
+    
     if (res.success) {
-      alert(res.msg);
-      sysConfig.DELIVERY_FEE = Number(fee); sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
-      sysConfig.ENABLE_ONSITE = enableOnsite; sysConfig.ENABLE_DELIVERY = enableDelivery;
-      sysConfig.RESERVE_START = reserveStart; sysConfig.RESERVE_END = reserveEnd;
-      sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
-      sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings;
-      closeSettingsPanel();
-    } else { alert(res.msg); }
-  } catch (e) { alert("連線失敗"); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
+      alert(res.msg); // 顯示成功
+      
+      // 更新本地記憶
+      sysConfig.DELIVERY_FEE = Number(fee); 
+      sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
+      sysConfig.ENABLE_ONSITE = enableOnsite; 
+      sysConfig.ENABLE_DELIVERY = enableDelivery;
+      sysConfig.RESERVE_START = reserveStart; 
+      sysConfig.RESERVE_END = reserveEnd;
+      sysConfig.PWD_STARTUP = pwdStartup; 
+      sysConfig.PWD_DELIVERY = pwdDelivery;
+      sysConfig.PWD_MANAGER = pwdManager; 
+      sysConfig.PWD_SETTINGS = pwdSettings;
+      
+      closeSettingsPanel(); // 關閉面板
+    } else { 
+      alert(res.msg); 
+    }
+  } catch (e) { 
+    // 🛡️ 把真正的錯誤印出來，而不是只顯示連線失敗
+    alert("錯誤提示 (請截圖)：" + e.message); 
+    console.error("詳細錯誤:", e);
+  } finally { 
+    btn.disabled = false; 
+    btn.innerText = "💾 儲存所有設定與密碼"; 
+  }
 }
 
 async function executeSearch() {
