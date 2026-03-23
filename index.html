@@ -363,7 +363,7 @@ async function submitOrder() {
 
 async function initializeLiff() {
   try {
-    await liff.init({ liffId: "2009556012-RFm3NtRY" }); 
+    await liff.init({ liffId: "2009537238-tAvQM97u" }); 
     const profile = await liff.getProfile(); customerLineId = profile.userId;
     if(document.getElementById("customerName")) document.getElementById("customerName").value = profile.displayName;
   } catch (err) { console.error("LIFF 失敗:", err); }
