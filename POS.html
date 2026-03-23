@@ -610,11 +610,18 @@ async function executeSearch() {
 }
 
 async function openDeliveryPanel() {
-  const pwd = prompt("密碼:");
-  const config = await (await fetch(GAS_API + "?action=getConfig")).json();
-  if (pwd === String(config.ADMIN_PWD || "0320")) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); }
-  else if(pwd) alert("錯誤");
+  const pwd = prompt("請輸入宅配管理專用密碼:");
+  if (!pwd) return; // 如果按取消就退出
+  
+  // 專門為宅配設定的獨立密碼 0926
+  if (pwd === "0926") { 
+    document.getElementById("deliveryModal").classList.add("show"); 
+    refreshDeliveryOrders(); 
+  } else {
+    alert("❌ 密碼錯誤，無法進入宅配管理面板！");
+  }
 }
+  
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList");
