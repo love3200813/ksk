@@ -482,8 +482,23 @@ function findItemPrice(name) {
 }
 
 function renderEditUI() {
+  // 🌟 1. 判斷目前正在修改的單，是不是「宅配單」
+  let isDeliveryOrder = false;
+  if (currentEditingOrder) {
+    const pickupStr = String(currentEditingOrder.rawPickup || currentEditingOrder.pickup || "");
+    if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
+      isDeliveryOrder = true;
+    }
+  }
+
   const draw = (list, id) => {
-    document.getElementById(id).innerHTML = list.map(i => {
+    // 🌟 2. 如果是宅配單，就只顯示後台設定為「可宅配 (isDelivery === 'Y')」的品項
+    let displayList = list;
+    if (isDeliveryOrder) {
+      displayList = list.filter(i => i.isDelivery === "Y");
+    }
+
+    document.getElementById(id).innerHTML = displayList.map(i => {
       let p = Number(i.singlePrice) || Number(i.sp) || 0;
       return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br>
         <button class="sbtn" style="width:30px;padding:5px;" onclick="changeEditSingle('${i.n}', -1, ${p})">-</button>
@@ -491,7 +506,10 @@ function renderEditUI() {
         <button class="sbtn" style="width:30px;padding:5px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div>`;
     }).join("");
   };
-  draw(MAINS, "editMainGrid"); draw(DRINKS, "editDrinkGrid"); draw(SIDES, "editSideGrid");
+  
+  draw(MAINS, "editMainGrid"); 
+  draw(DRINKS, "editDrinkGrid"); 
+  draw(SIDES, "editSideGrid");
 }
 
 function changeEditSingle(n, d, p) {
