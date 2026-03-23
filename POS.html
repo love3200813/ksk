@@ -112,7 +112,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 </div>
 
 <div id="settingsModal" class="modal">
-  <div class="modal-card" style="width: 400px;">
+  <div class="modal-card" style="width: 450px;">
     <div class="modal-header">
       <h3>⚙️ POS 系統設定</h3>
       <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
@@ -122,13 +122,24 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box; font-size:18px;">
       
       <label style="font-weight:bold;display:block;margin-bottom:8px;">免運門檻 ($) <br><span style="font-size:12px;color:#e74c3c;font-weight:normal;">(如果不想要免運，請設定 99999)</span></label>
-      <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:25px; box-sizing:border-box; font-size:18px;">
+      <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:20px; box-sizing:border-box; font-size:18px;">
       
-      <button class="btn btn-start" style="width:100%; background:#2ecc71;" onclick="saveSettings()">💾 儲存設定</button>
+      <hr style="border:0; border-top:1px dashed #ccc; margin:15px 0 20px 0;">
+      
+      <label style="font-weight:bold;display:block;margin-bottom:12px; color:#2980b9;">🌍 前台點餐入口開關</label>
+      <div style="display:flex; flex-direction:column; gap:15px; margin-bottom:25px; background:#f9f9f9; padding:15px; border-radius:10px;">
+        <label style="cursor:pointer; font-size:18px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="settingOnsite" style="width:24px; height:24px; margin:0 10px 0 0;"> 🏠 開放「門市現場/預約自取」
+        </label>
+        <label style="cursor:pointer; font-size:18px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="settingDelivery" style="width:24px; height:24px; margin:0 10px 0 0;"> 🚚 開放「低溫宅配到府」
+        </label>
+      </div>
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存設定並同步至前台</button>
     </div>
   </div>
 </div>
-
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
