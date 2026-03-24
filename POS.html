@@ -105,12 +105,31 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 </div>
 
 <div id="settingsModal" class="modal">
-  <div class="modal-card" style="width: 500px; max-height:90vh;">
+  <div class="modal-card" style="width: 600px; max-height:90vh;">
     <div class="modal-header">
       <h3>⚙️ POS 系統綜合設定</h3>
       <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;">
+
+      <div style="background:#fdf2e9; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e67e22;">
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰 (非工程師請勿亂動)</h4>
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
+        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;" placeholder="https://love3200813.github.io/ksk/index.html">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel ID</label>
+        <input type="text" id="settingLinePayId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel Secret</label>
+        <input type="text" id="settingLinePaySecret" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Channel Access Token (超長字串)</label>
+        <textarea id="settingLineBotToken" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-family:monospace;"></textarea>
+
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆個人 LINE User ID (接單通知用)</label>
+        <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
+      </div>
 
       <div style="background:#fff9f0; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#d35400;">🖨️ 列印單據客製化</h4>
@@ -183,7 +202,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
         <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
 
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 員工修改/作廢/菜單授權密碼 <span style="font-weight:normal;color:#e74c3c;">(多組請用逗號 , 隔開)</span></label>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 修改/作廢授權密碼 <span style="font-weight:normal;color:#e74c3c;">(多組請用逗號 , 隔開)</span></label>
         <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-family:monospace;">
 
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">4. ⚙️ 本設定面板專屬密碼 (老闆最高權限)</label>
@@ -332,7 +351,7 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '' };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html' };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -438,14 +457,12 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
-// 🌟 升級：客製化明細抬頭與頁尾
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
   
-  // 抓取設定的店名，如果太長就自動縮小縮排
   const storeName = sysConfig.STORE_NAME || "加山記";
   if(storeName.length > 5) {
       ctx.font = "bold 36px sans-serif";
@@ -467,7 +484,6 @@ function buildCustomerReceiptCanvas(o){
   for(const item of items){ y = drawWrappedText(ctx, "・" + item, 10, y, 360, lineHeight); y += 5; }
   ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 46px sans-serif"; ctx.fillText("總計 $" + String(o.total || 0), 10, y); y += 60;
   
-  // 🌟 繪製底部廣告標語
   if (sysConfig.RECEIPT_FOOTER && sysConfig.RECEIPT_FOOTER.trim() !== "") {
       ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
       ctx.font = "bold 24px sans-serif";
@@ -728,7 +744,13 @@ async function openSettingsPanel() {
   if (!pwd) return; 
   if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
-  // 🌟 讀取店名與廣告語
+  // 🌟 讀取所有金鑰
+  document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
+  document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
+  document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
+  document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
+  document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
+
   document.getElementById("settingStoreName").value = sysConfig.STORE_NAME || "加山記";
   document.getElementById("settingReceiptFooter").value = sysConfig.RECEIPT_FOOTER || "";
 
@@ -755,6 +777,7 @@ async function openSettingsPanel() {
 }
 function closeSettingsPanel() { document.getElementById("settingsModal").classList.remove("show"); }
   
+// 🌟 升級：採用 FormData 的 POST 傳輸方式，突破網址長度極限！
 async function saveSettings() {
   const btn = document.querySelector("#settingsModal .btn-start"); 
   if (btn.disabled) return; 
@@ -783,6 +806,13 @@ async function saveSettings() {
     const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
+
+    // 🌟 抓取核心金鑰
+    const linePayId = document.getElementById("settingLinePayId").value.trim();
+    const linePaySecret = document.getElementById("settingLinePaySecret").value.trim();
+    const lineBotToken = document.getElementById("settingLineBotToken").value.trim();
+    const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
+    const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
     
     if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) {
       alert("❌ 密碼欄位不可空白！"); btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; return;
@@ -790,9 +820,35 @@ async function saveSettings() {
     
     const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
     
-    const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}&autoCloseEnable=${autoCloseEnable}&autoCloseTime=${autoCloseTime}&announcement=${encodeURIComponent(announcement)}&reserveLeadTime=${reserveLeadTime}&reserveInterval=${reserveInterval}&storeName=${encodeURIComponent(storeName)}&receiptFooter=${encodeURIComponent(receiptFooter)}`;
+    // 使用 FormData 進行 POST 傳輸，確保長 token 不會把網址塞爆
+    const formData = new URLSearchParams();
+    formData.append("action", "updateConfig");
+    formData.append("pwd", currentSettingsPwd);
+    formData.append("fee", fee);
+    formData.append("limit", limit);
+    formData.append("enableOnsite", enableOnsite);
+    formData.append("enableDelivery", enableDelivery);
+    formData.append("reserveStart", reserveStart);
+    formData.append("reserveEnd", reserveEnd);
+    formData.append("reserveLeadTime", reserveLeadTime);
+    formData.append("reserveInterval", reserveInterval);
+    formData.append("autoCloseEnable", autoCloseEnable);
+    formData.append("autoCloseTime", autoCloseTime);
+    formData.append("announcement", encodeURIComponent(announcement));
+    formData.append("storeName", encodeURIComponent(storeName));
+    formData.append("receiptFooter", encodeURIComponent(receiptFooter));
+    formData.append("pwdStartup", pwdStartup);
+    formData.append("pwdDelivery", pwdDelivery);
+    formData.append("pwdManager", encodeURIComponent(pwdManager));
+    formData.append("pwdSettings", pwdSettings);
+    // 🌟 把金鑰送給後台
+    formData.append("linePayId", linePayId);
+    formData.append("linePaySecret", linePaySecret);
+    formData.append("lineBotToken", lineBotToken);
+    formData.append("lineBotUser", lineBotUser);
+    formData.append("frontendUrl", encodeURIComponent(frontendUrl));
     
-    const res = await (await fetch(url)).json();
+    const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
     
     if (res.success) {
       alert(res.msg); 
@@ -806,6 +862,13 @@ async function saveSettings() {
       sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
       sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings;
       sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
+      // 🌟 更新前端記憶
+      sysConfig.LINEPAY_CHANNEL_ID = linePayId;
+      sysConfig.LINEPAY_SECRET = linePaySecret;
+      sysConfig.LINEBOT_TOKEN = lineBotToken;
+      sysConfig.LINEBOT_USER = lineBotUser;
+      sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
+
       closeSettingsPanel(); 
     } else { alert(res.msg); }
   } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
