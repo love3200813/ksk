@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v38.0 隱形通道自動列印版</title>
+<title>加山記 POS v39.0 HTTP穩定傳輸版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -39,7 +39,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <h1>加山記</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結安卓隱形通道出單</button>
+    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結安卓背景出單通道</button>
     
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
     <div id="usbStatus" class="usb-status">本機出單：未連線</div>
@@ -478,25 +478,14 @@ async function connectUSB(){
   }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// 🌟 終極隱形通道連線：徹底繞過 Chrome 防護
+// 🌟 V39 終極連線：不使用 WebSocket 測試，直接強制定義模式為 LAN
 async function connectLAN() {
-  setMsg("測試 RawBT 隱形通道...");
-  try {
-      let ws = new WebSocket("ws://127.0.0.1:40213/");
-      ws.onopen = function() {
-          currentPrinterMode = 'lan'; 
-          document.getElementById("usbStatus").innerText = `本機出單：無聲背景列印 (RawBT)`;
-          setMsg("✅ 成功連接 RawBT 隱形通道！");
-          ws.close(); 
-      };
-      ws.onerror = function() {
-          alert("❌ 無法連線！\n請確認已開啟「Server for RawBT」(綠色拼圖APP) 的 Websocket API。");
-          document.getElementById("usbStatus").innerText = "本機出單：連線失敗";
-          setMsg("RawBT 代理連線失敗");
-      };
-  } catch(e) {
-      alert("連線發生錯誤：" + e.message);
+  if (!confirm("⚠️ 請確認：\n1. 綠色 Server APP 已打開並運作中。\n2. 已設定為 RAW Mode 與 network printer。")) {
+      return;
   }
+  currentPrinterMode = 'lan'; 
+  document.getElementById("usbStatus").innerText = `本機出單：無聲背景列印 (RawBT)`;
+  setMsg("✅ 成功啟用 HTTP 背景列印通道！");
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
@@ -668,17 +657,24 @@ function createPrinterBuffer(canvas, protocol) {
   return buf;
 }
 
-// 🌟 隱形通道發射器 (無彈出視窗)
-function sendToRawBTWS(bufferData) {
+// 🌟 V39 終極殺手鐧：HTTP POST (AJAX) 傳輸引擎，不再使用容易漏信的 WebSocket
+function sendToRawBTLocal(bufferData) {
     return new Promise((resolve, reject) => {
-        let ws = new WebSocket("ws://127.0.0.1:40213/");
-        ws.onopen = function() {
-            ws.send(bufferData);
-            setTimeout(() => { ws.close(); resolve(); }, 800);
-        };
-        ws.onerror = function(err) {
-            reject(new Error("RawBT 背景通道被阻擋或未開啟"));
-        };
+        // 將 ArrayBuffer 轉換為 Blob 物件，這是綠色 APP 最喜歡吃的格式
+        const blob = new Blob([bufferData], { type: "application/octet-stream" });
+        
+        // 透過標準的 HTTP POST 將包裹直接射給綠色 APP
+        fetch("http://127.0.0.1:40213/", {
+            method: "POST",
+            mode: "no-cors",
+            cache: "no-cache",
+            body: blob
+        }).then(() => {
+            // 給予綠色 APP 與印表機處理資料的時間
+            setTimeout(resolve, 800);
+        }).catch((err) => {
+            reject(new Error("無法發送資料，請確認綠色 APP 已開啟"));
+        });
     });
 }
 
@@ -783,14 +779,15 @@ async function printOrderLabel(o){
   const protocol = printerConf.usbProtocol || 'TSPL';
 
   if (currentPrinterMode === 'lan') {
-      // 🌟 雙單合一技術：將客單與廚房單接在一起，只發送一次隱形通道請求
+      // 🌟 雙單合一技術：將客單與廚房單接在一起，只發送一次包裹
       const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
       const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
       const combinedBuf = new Uint8Array(buf1.length + buf2.length);
       combinedBuf.set(buf1, 0);
       combinedBuf.set(buf2, buf1.length);
       
-      await sendToRawBTWS(combinedBuf.buffer);
+      // 使用 HTTP POST 引擎穩定發送
+      await sendToRawBTLocal(combinedBuf.buffer);
   } else {
       await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
       await new Promise(resolve => setTimeout(resolve, 1500)); 
@@ -1167,7 +1164,7 @@ async function handleCloseShift() {
         
         if (currentPrinterMode === 'lan') {
             const buf = createPrinterBuffer(receipt.canvas, printerConf.usbProtocol || 'TSPL');
-            await sendToRawBTWS(buf.buffer);
+            await sendToRawBTLocal(buf.buffer);
         } else {
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight); 
         }
