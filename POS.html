@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v36.0 網口一波流旗艦版</title>
+<title>加山記 POS v37.0 安卓 App 喚醒旗艦版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -39,7 +39,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <h1>加山記</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結網路出單機 (安卓專用)</button>
+    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結安卓 RawBT 出單</button>
     
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
     <div id="usbStatus" class="usb-status">本機出單：未連線</div>
@@ -130,7 +130,6 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
       <div style="background:#f9ebff; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad;">
         <h4 style="margin:0 0 10px 0; color:#8e44ad;">💰 商業防呆與品牌行銷</h4>
-        
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">品牌 Logo 圖片網址 (留白則顯示文字)</label>
         <input type="text" id="settingLogoUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;" placeholder="例如: https://imgur.com/.../logo.jpg">
         
@@ -479,32 +478,10 @@ async function connectUSB(){
 }
 
 async function connectLAN() {
-  const ip = prompt("請輸入廚房網路出單機的 IP 位址 (例如 192.168.1.200)：", "192.168.1.200");
-  if (!ip) return;
-  
-  if (!confirm("⚠️ 重要提示 ⚠️\n\n請確認安卓平板上的「Server for RawBT」(綠色APP) 的 Websocket API 已經設定為 Running 狀態。\n\n按下確定後將嘗試建立本地代理連線...")) {
-      return;
-  }
-
-  setMsg("正在透過 RawBT 建立網路連線...");
-  try {
-      let ws = new WebSocket("ws://127.0.0.1:40213/");
-      
-      ws.onopen = function() {
-          currentPrinterMode = 'lan'; 
-          document.getElementById("usbStatus").innerText = `本機出單(LAN)：經由 RawBT -> ${ip}`;
-          setMsg("✅ 成功連線至 RawBT 本地代理伺服器！");
-          ws.close(); 
-      };
-      
-      ws.onerror = function() {
-          alert("❌ 無法連線！\n\n請確認：\n「Server for RawBT」(綠色拼圖APP) 內的 Websocket API 已經開啟並顯示 Running。");
-          document.getElementById("usbStatus").innerText = "本機出單：RawBT 連線失敗";
-          setMsg("RawBT 代理連線失敗");
-      };
-  } catch(e) {
-      alert("連線設定發生錯誤：" + e.message);
-  }
+  currentPrinterMode = 'lan'; 
+  document.getElementById("usbStatus").innerText = `本機出單：透過 RawBT 喚醒`;
+  setMsg("✅ 已切換為 RawBT 喚醒模式！");
+  alert("✅ 成功啟用安卓 App 喚醒模式！\n\n稍後列印時，系統會自動喚醒藍色的 RawBT 進行列印。請確保已在 RawBT 設定中開啟「成功後返回」。");
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
@@ -654,16 +631,21 @@ async function printSingleLabelToBLE(canvas) {
   }
 }
 
+// 🌟 終極升級：透過 Android Intent 瞬間喚醒 App
 function sendToRawBT(bufferData) {
-    return new Promise((resolve, reject) => {
-        let ws = new WebSocket("ws://127.0.0.1:40213/");
-        ws.onopen = function() {
-            ws.send(bufferData);
-            setTimeout(() => { ws.close(); resolve(); }, 500); 
-        };
-        ws.onerror = function(err) {
-            reject(new Error("無法連線到 RawBT 服務"));
-        };
+    return new Promise((resolve) => {
+        let binary = '';
+        let bytes = new Uint8Array(bufferData);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        let base64Data = window.btoa(binary);
+        
+        let intentUrl = "intent:base64," + base64Data + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.ws=1;end;";
+        
+        window.location.href = intentUrl;
+        
+        setTimeout(resolve, 1500); 
     });
 }
 
@@ -713,7 +695,7 @@ async function printCanvasToPrinter(canvas, finalHeight) {
         buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
       }
       
-      await sendToRawBT(buf);
+      await sendToRawBT(buf.buffer);
       return; 
   }
 
@@ -1181,7 +1163,7 @@ async function initSystem() {
   const p = prompt("請輸入系統啟動密碼:"); if(!p) return; document.querySelector("#startOverlay button").innerText = "驗證連線中...";
   try {
      const res = await (await fetch(GAS_API + "?action=getConfig")).json(); Object.assign(sysConfig, res);
-     if (String(p) !== String(sysConfig.PWD_STARTUP || "0320")) { alert("❌ 啟動密碼錯誤！"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; return; }
+     if (String(p) !== String(sysConfig.PWD_STARTUP || "0320")) { alert("❌ 啟怒密碼錯誤！"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; return; }
      document.getElementById("startOverlay").style.display="none"; await fetchMenuData(); fetchCurrentShift(); fetchOrders(); setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
   } catch(e) { alert("連線失敗，請檢查網路狀態"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; }
 }
