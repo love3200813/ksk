@@ -48,7 +48,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
     <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
     <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
-    <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單設計管理</button>
+    <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單管理 (上/下架)</button>
     <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機設定</button>
     
     <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
@@ -186,15 +186,15 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   </div>
 </div>
 
-<div id="menuModal" class="modal">
+<div id="menuModal" class="modal" data-pwd="" data-role="">
   <div class="modal-card" style="width:min(100%, 1100px); max-height:95vh;">
     <div class="modal-header">
-      <h3>📝 菜單設計與管理 <span style="font-size:14px; color:#e74c3c; font-weight:normal;">(修改後將即時同步至客人手機)</span></h3>
+      <h3>📝 菜單管理 <span id="menuModalTitleRole" style="font-size:16px; color:#e74c3c; font-weight:bold; margin-left:10px;"></span></h3>
       <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
       
-      <div style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center;">
+      <div id="menuComboSettingsArea" style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center;">
         <h4 style="margin:0; color:#d35400;">🍔 客人點餐模式：</h4>
         <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
           <input type="checkbox" id="menuEnableCombo" style="width:20px; height:20px; margin:0 8px 0 0;"> 🍱 開放「超值套餐」
@@ -204,7 +204,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </label>
       </div>
 
-      <button onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
+      <button id="addMenuRowBtn" onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
       
       <div style="overflow-y:auto; border:1px solid #EAE8E3; border-radius:10px;">
         <table style="width:100%; border-collapse:collapse; text-align:left;">
@@ -223,7 +223,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </table>
       </div>
       
-      <button id="saveMenuBtn" class="btn btn-start" style="background:#2ecc71; font-size:18px; padding:15px;" onclick="saveMenuData()">💾 儲存並發布新菜單</button>
+      <button id="saveMenuBtn" class="btn btn-start" style="background:#2ecc71; font-size:18px; padding:15px;" onclick="saveMenuData()">💾 儲存最新菜單狀態</button>
     </div>
   </div>
 </div>
@@ -710,7 +710,6 @@ async function openSettingsPanel() {
   document.getElementById("settingReserveStart").value = sysConfig.RESERVE_START || "17:00";
   document.getElementById("settingReserveEnd").value = sysConfig.RESERVE_END || "23:00";
   document.getElementById("settingReserveLeadTime").value = sysConfig.RESERVE_LEAD_TIME || 60;
-  // 🌟 讀取「班次間隔」填入欄位
   document.getElementById("settingReserveInterval").value = sysConfig.RESERVE_INTERVAL || 30;
   
   document.getElementById("settingPwdStartup").value = sysConfig.PWD_STARTUP || "0320";
@@ -740,7 +739,6 @@ async function saveSettings() {
     const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
     const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
     const reserveLeadTime = document.getElementById("settingReserveLeadTime").value || 60;
-    // 🌟 取得你填寫的「班次間隔」數字
     const reserveInterval = document.getElementById("settingReserveInterval").value || 30;
     
     const autoCloseEnable = document.getElementById("settingAutoClose").checked ? 'Y' : 'N';
@@ -846,40 +844,75 @@ async function initSystem() {
 
 let rawMenuData = [];
 
+// 🌟 升級：雙權限密碼驗證與畫面切換
 async function openMenuPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-  const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
-  if (String(pwd) !== currentSettingsPwd) { if(pwd) alert("❌ 密碼錯誤"); return; }
+  const rawManagerPwds = String(sysConfig.PWD_MANAGER || "1111,2222").replace(/，/g, ",");
+  const managerPwds = rawManagerPwds.split(",").map(s => s.trim());
+
+  const pwd = prompt("請輸入權限密碼 (老闆 或 店員):");
+  if (!pwd) return; 
+
+  let role = "";
+  if (String(pwd) === currentSettingsPwd) {
+     role = "boss";
+  } else if (managerPwds.includes(String(pwd))) {
+     role = "employee";
+  } else {
+     alert("❌ 密碼錯誤，權限不足"); return;
+  }
+
+  // 將角色和密碼藏在 HTML 標籤裡，等等儲存要用
+  document.getElementById("menuModal").dataset.pwd = pwd;
+  document.getElementById("menuModal").dataset.role = role;
+
+  // 根據角色隱藏/顯示功能
+  document.getElementById("menuComboSettingsArea").style.display = (role === 'boss') ? 'flex' : 'none';
+  document.getElementById("addMenuRowBtn").style.display = (role === 'boss') ? 'inline-block' : 'none';
+  document.getElementById("menuModalTitleRole").innerText = (role === 'boss') ? "(老闆模式：完整權限)" : "(店員模式：僅開放狀態切換)";
+
   document.getElementById("menuEnableCombo").checked = (sysConfig.ENABLE_COMBO === 'Y');
   document.getElementById("menuEnableSingle").checked = (sysConfig.ENABLE_SINGLE !== 'N');
+  
   document.getElementById("menuModal").classList.add("show");
   document.getElementById("menuTbody").innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
+  
   try {
-    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now()); rawMenuData = await res.json(); renderMenuTable(); 
+    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now()); 
+    rawMenuData = await res.json(); 
+    renderMenuTable(); 
   } catch (e) { alert("讀取菜單失敗！錯誤原因：" + e.message); }
 }
 
 function closeMenuPanel() { document.getElementById("menuModal").classList.remove("show"); }
 
 function renderMenuTable() {
+  const role = document.getElementById("menuModal").dataset.role || 'employee';
+  const isEmp = (role === 'employee');
+  const disStr = isEmp ? 'disabled' : '';
+  const readStr = isEmp ? 'readonly style="background:#f0f0f0; pointer-events:none;"' : '';
+
   const tbody = document.getElementById("menuTbody");
   if (rawMenuData.length === 0) { tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>"; return; }
+  
   tbody.innerHTML = rawMenuData.map((row, idx) => `
     <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
-      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px;">
+      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; ${isEmp?'background:#f0f0f0;':''}" ${disStr}>
         <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚主餐</option><option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲飲料/燉湯</option>
         <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗副餐</option><option value="加料" ${row[0]==='加料'?'selected':''}>➕加料</option>
       </select></td>
-      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:140px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px;">
+      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:140px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
+      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
+      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
+      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; ${isEmp?'background:#f0f0f0;':''}" ${disStr}>
         <option value="Y" ${row[6]==='Y'?'selected':''}>Y</option><option value="N" ${row[6]==='N'?'selected':''}>N</option>
       </select></td>
-      <td style="padding:10px;"><select class="m-status" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; font-weight:bold; color:${row[7]==='N'?'#e74c3c':'#27ae60'};">
+      <td style="padding:10px;"><select class="m-status" style="padding:8px; border-radius:5px; border:2px solid ${row[7]==='N'?'#e74c3c':'#27ae60'}; font-size:14px; font-weight:bold; color:${row[7]==='N'?'#e74c3c':'#27ae60'}; background:#fff;" onchange="this.style.borderColor = this.value==='N'?'#e74c3c':'#27ae60'; this.style.color = this.value==='N'?'#e74c3c':'#27ae60';">
         <option value="Y" ${row[7]!=='N'?'selected':''}>🟢 正常</option><option value="N" ${row[7]==='N'?'selected':''}>❌ 售完</option>
       </select></td>
-      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
+      <td style="padding:10px;">
+        ${isEmp ? `<span style="color:#999; font-size:13px; font-weight:bold;">無權限</span>` : `<button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button>`}
+      </td>
     </tr>
   `).join("");
 }
@@ -888,8 +921,12 @@ function addMenuRow() { rawMenuData.push(["主餐", "", "", 0, 0, "", "Y", "Y"])
 function deleteMenuRow(idx) { if(confirm("確定要刪除這道餐點嗎？")) { rawMenuData.splice(idx, 1); renderMenuTable(); } }
 
 async function saveMenuData() {
+  const pwd = document.getElementById("menuModal").dataset.pwd;
+  const role = document.getElementById("menuModal").dataset.role;
+
   const btn = document.getElementById("saveMenuBtn"); btn.disabled = true; btn.innerText = "儲存中...";
   const tbody = document.getElementById("menuTbody"); const rows = tbody.querySelectorAll("tr"); const newData = [];
+  
   rows.forEach(tr => {
      const cat = tr.querySelector(".m-cat")?.value; if(!cat) return; 
      const name = tr.querySelector(".m-name").value.trim(); const sprice = Number(tr.querySelector(".m-sprice").value);
@@ -897,13 +934,16 @@ async function saveMenuData() {
      const status = tr.querySelector(".m-status").value; const code = "M" + Math.floor(Math.random() * 10000); 
      if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del, status]);
   });
-  const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-  const enableCombo = document.getElementById("menuEnableCombo").checked ? 'Y' : 'N'; const enableSingle = document.getElementById("menuEnableSingle").checked ? 'Y' : 'N';
-  const formData = new URLSearchParams(); formData.append("action", "saveMenu"); formData.append("pwd", currentSettingsPwd); formData.append("menuData", JSON.stringify(newData)); formData.append("enableCombo", enableCombo); formData.append("enableSingle", enableSingle);
+  
+  // 如果是員工模式，不改動點餐模式設定，強制送出原始設定
+  const enableCombo = (role === 'boss') ? (document.getElementById("menuEnableCombo").checked ? 'Y' : 'N') : sysConfig.ENABLE_COMBO; 
+  const enableSingle = (role === 'boss') ? (document.getElementById("menuEnableSingle").checked ? 'Y' : 'N') : sysConfig.ENABLE_SINGLE;
+  
+  const formData = new URLSearchParams(); formData.append("action", "saveMenu"); formData.append("pwd", pwd); formData.append("menuData", JSON.stringify(newData)); formData.append("enableCombo", enableCombo); formData.append("enableSingle", enableSingle);
   try {
     const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
     if(res.success) { alert(res.msg); sysConfig.ENABLE_COMBO = enableCombo; sysConfig.ENABLE_SINGLE = enableSingle; closeMenuPanel(); fetchMenuData(); } else { alert(res.msg); }
-  } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存並發布新菜單"; }
+  } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
 }
 </script>
 </body>
