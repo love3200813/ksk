@@ -113,6 +113,12 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <div class="modal-body" style="padding:20px;">
       
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 顧客首頁緊急公告</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">顯示於點餐首頁的跑馬燈 (留白代表不顯示)</label>
+        <input type="text" id="settingAnnouncement" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;" placeholder="例如：今日寒流來襲，訂單較多請耐心等候">
+      </div>
+
+      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2c3e50;">💰 宅配運費設定</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">單筆宅配運費 ($)</label>
         <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-size:16px;">
@@ -142,7 +148,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
       <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間設定</h4>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
           <div style="flex:1;">
             <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">開始時間</label>
             <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;">
@@ -152,6 +158,8 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
             <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;">
           </div>
         </div>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">要求客人預約需「提前準備分鐘數」</label>
+        <input type="number" id="settingReserveLeadTime" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; font-size:16px;" placeholder="例如: 60">
       </div>
       
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
@@ -175,7 +183,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 </div>
 
 <div id="menuModal" class="modal">
-  <div class="modal-card" style="width:min(100%, 1000px); max-height:95vh;">
+  <div class="modal-card" style="width:min(100%, 1100px); max-height:95vh;">
     <div class="modal-header">
       <h3>📝 菜單設計與管理 <span style="font-size:14px; color:#e74c3c; font-weight:normal;">(修改後將即時同步至客人手機)</span></h3>
       <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
@@ -200,9 +208,10 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
             <tr>
               <th style="padding:12px; border-bottom:2px solid #ddd;">類別</th>
               <th style="padding:12px; border-bottom:2px solid #ddd;">品名</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">單點價 ($)</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">套餐價 ($) <small style="color:#888;">選填</small></th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">可低溫宅配</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">單點($)</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">套餐($)</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd;">宅配</th>
+              <th style="padding:12px; border-bottom:2px solid #ddd; color:#e74c3c;">狀態</th>
               <th style="padding:12px; border-bottom:2px solid #ddd;">操作</th>
             </tr>
           </thead>
@@ -310,7 +319,7 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988' };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '' };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -682,22 +691,23 @@ async function openSettingsPanel() {
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
   if (!pwd) return; 
   
-  if (String(pwd) !== currentSettingsPwd) { 
-    alert("❌ 密碼錯誤"); 
-    return; 
-  }
+  if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
+  // 🌟 寫入最新抓取的「首頁公告」
+  document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
+
   document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
   document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
   document.getElementById("settingOnsite").checked = (sysConfig.ENABLE_ONSITE !== 'N');
   document.getElementById("settingDelivery").checked = (sysConfig.ENABLE_DELIVERY !== 'N');
   
-  // 🌟 讀取自動打烊設定
   document.getElementById("settingAutoClose").checked = (sysConfig.AUTO_CLOSE_ENABLE === 'Y');
   document.getElementById("settingCloseTime").value = sysConfig.AUTO_CLOSE_TIME || "22:00";
   
   document.getElementById("settingReserveStart").value = sysConfig.RESERVE_START || "17:00";
   document.getElementById("settingReserveEnd").value = sysConfig.RESERVE_END || "23:00";
+  // 🌟 寫入最新抓取的「預約準備時間」
+  document.getElementById("settingReserveLeadTime").value = sysConfig.RESERVE_LEAD_TIME || 60;
   
   document.getElementById("settingPwdStartup").value = sysConfig.PWD_STARTUP || "0320";
   document.getElementById("settingPwdDelivery").value = sysConfig.PWD_DELIVERY || "0926";
@@ -716,6 +726,8 @@ async function saveSettings() {
   btn.innerText = "儲存中...";
   
   try {
+    const announcement = document.getElementById("settingAnnouncement").value.trim();
+    
     const fee = document.getElementById("settingFee").value;
     const limit = document.getElementById("settingLimit").value;
     const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
@@ -723,8 +735,8 @@ async function saveSettings() {
     
     const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
     const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
+    const reserveLeadTime = document.getElementById("settingReserveLeadTime").value || 60;
     
-    // 🌟 抓取打烊開關狀態
     const autoCloseEnable = document.getElementById("settingAutoClose").checked ? 'Y' : 'N';
     const autoCloseTime = document.getElementById("settingCloseTime").value || "22:00";
     
@@ -734,45 +746,27 @@ async function saveSettings() {
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
     
     if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) {
-      alert("❌ 密碼欄位不可空白！");
-      btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼";
-      return;
+      alert("❌ 密碼欄位不可空白！"); btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; return;
     }
     
     const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
     
-    // 將 autoClose 參數一起送出
-    const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}&autoCloseEnable=${autoCloseEnable}&autoCloseTime=${autoCloseTime}`;
+    const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}&autoCloseEnable=${autoCloseEnable}&autoCloseTime=${autoCloseTime}&announcement=${encodeURIComponent(announcement)}&reserveLeadTime=${reserveLeadTime}`;
     
     const res = await (await fetch(url)).json();
     
     if (res.success) {
       alert(res.msg); 
-      sysConfig.DELIVERY_FEE = Number(fee); 
-      sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
-      sysConfig.ENABLE_ONSITE = enableOnsite; 
-      sysConfig.ENABLE_DELIVERY = enableDelivery;
-      sysConfig.RESERVE_START = reserveStart; 
-      sysConfig.RESERVE_END = reserveEnd;
-      sysConfig.PWD_STARTUP = pwdStartup; 
-      sysConfig.PWD_DELIVERY = pwdDelivery;
-      sysConfig.PWD_MANAGER = pwdManager; 
-      sysConfig.PWD_SETTINGS = pwdSettings;
-      // 更新本地記憶
-      sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable;
-      sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
-      
+      sysConfig.ANNOUNCEMENT = announcement;
+      sysConfig.DELIVERY_FEE = Number(fee); sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
+      sysConfig.ENABLE_ONSITE = enableOnsite; sysConfig.ENABLE_DELIVERY = enableDelivery;
+      sysConfig.RESERVE_START = reserveStart; sysConfig.RESERVE_END = reserveEnd; sysConfig.RESERVE_LEAD_TIME = Number(reserveLeadTime);
+      sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
+      sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings;
+      sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
       closeSettingsPanel(); 
-    } else { 
-      alert(res.msg); 
-    }
-  } catch (e) { 
-    alert("錯誤提示 (請截圖)：" + e.message); 
-    console.error("詳細錯誤:", e);
-  } finally { 
-    btn.disabled = false; 
-    btn.innerText = "💾 儲存所有設定與密碼"; 
-  }
+    } else { alert(res.msg); }
+  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
 }
 
 async function executeSearch() {
@@ -783,14 +777,7 @@ async function executeSearch() {
 async function openDeliveryPanel() {
   const currentDeliveryPwd = String(sysConfig.PWD_DELIVERY || "0926");
   const pwd = prompt("請輸入宅配管理專屬密碼:");
-  if (!pwd) return; 
-  
-  if (String(pwd) === currentDeliveryPwd) { 
-    document.getElementById("deliveryModal").classList.add("show"); 
-    refreshDeliveryOrders(); 
-  } else { 
-    alert("❌ 密碼錯誤，無法進入宅配管理面板！"); 
-  }
+  if (String(pwd) === currentDeliveryPwd) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); } else { if(pwd) alert("❌ 密碼錯誤"); }
 }
 function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
 
@@ -803,10 +790,7 @@ async function refreshDeliveryOrders() {
     return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
   }).join("");
 }
-async function shipOrder(row, seq) {
-  const track = prompt("單號:"); if(!track) return;
-  await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders();
-}
+async function shipOrder(row, seq) { const track = prompt("單號:"); if(!track) return; await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders(); }
 
 async function fetchCurrentShift() {
   const data = await (await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now())).json(); const summary = await (await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now())).json();
@@ -816,29 +800,12 @@ async function fetchCurrentShift() {
 async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
 async function handleCloseShift() { 
   if(!confirm("確定要進行交班結算嗎？\n(若有連線 USB 出單機，將會自動列印交班單據)")) return; 
-
   try {
-    const infoRes = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now());
-    const info = await infoRes.json();
-    const sumRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now());
-    const summary = await sumRes.json();
-
-    if (printerDevice && endpointOut) {
-      setMsg("正在列印交班單據...");
-      const receipt = buildShiftReceiptCanvas(info, summary);
-      await printCanvasToPrinter(receipt.canvas, receipt.finalHeight);
-    } else {
-      alert("⚠️ 注意：目前未連線 USB 出單機，本次交班將只會記錄到雲端，不會列印實體紙本！");
-    }
-
-    await fetch(`${GAS_API}?action=closeShift`); 
-    fetchCurrentShift(); 
-    setMsg("✅ 交班結算完成");
-    
-    if(printerDevice && endpointOut) alert("✅ 交班完成！單據已成功列印。");
-  } catch (e) {
-    alert("交班處理失敗：" + e.message);
-  }
+    const infoRes = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now()); const info = await infoRes.json();
+    const sumRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now()); const summary = await sumRes.json();
+    if (printerDevice && endpointOut) { setMsg("正在列印交班單據..."); const receipt = buildShiftReceiptCanvas(info, summary); await printCanvasToPrinter(receipt.canvas, receipt.finalHeight); } else { alert("⚠️ 注意：目前未連線 USB 出單機，本次交班將只會記錄到雲端，不會列印實體紙本！"); }
+    await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); setMsg("✅ 交班結算完成"); if(printerDevice && endpointOut) alert("✅ 交班完成！單據已成功列印。");
+  } catch (e) { alert("交班處理失敗：" + e.message); }
 }
 
 function renderPosUI() {
@@ -856,35 +823,18 @@ function updatePosBasket() {
   document.getElementById("posBasketList").innerHTML=html; document.getElementById("posTotal").innerText=total; document.getElementById("cashSubmitBtn").disabled=(total===0);
 }
 
-async function fetchMenuData() { 
-  const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); 
-}
-
+async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
 function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
 function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
 async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
 async function initSystem() {
-  const p = prompt("請輸入系統啟動密碼:"); if(!p) return;
-  document.querySelector("#startOverlay button").innerText = "驗證連線中...";
-  
+  const p = prompt("請輸入系統啟動密碼:"); if(!p) return; document.querySelector("#startOverlay button").innerText = "驗證連線中...";
   try {
-     const res = await (await fetch(GAS_API + "?action=getConfig")).json();
-     Object.assign(sysConfig, res);
-     
-     if (String(p) !== String(sysConfig.PWD_STARTUP || "0320")) {
-        alert("❌ 啟動密碼錯誤！");
-        document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統";
-        return;
-     }
-
-     document.getElementById("startOverlay").style.display="none";
-     await fetchMenuData(); fetchCurrentShift(); fetchOrders();
-     setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
-  } catch(e) {
-     alert("連線失敗，請檢查網路狀態");
-     document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統";
-  }
+     const res = await (await fetch(GAS_API + "?action=getConfig")).json(); Object.assign(sysConfig, res);
+     if (String(p) !== String(sysConfig.PWD_STARTUP || "0320")) { alert("❌ 啟錠密碼錯誤！"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; return; }
+     document.getElementById("startOverlay").style.display="none"; await fetchMenuData(); fetchCurrentShift(); fetchOrders(); setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
+  } catch(e) { alert("連線失敗，請檢查網路狀態"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; }
 }
 
 let rawMenuData = [];
@@ -893,114 +843,60 @@ async function openMenuPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
   if (String(pwd) !== currentSettingsPwd) { if(pwd) alert("❌ 密碼錯誤"); return; }
-
-  // 🌟 回復原本單純的菜單開關
   document.getElementById("menuEnableCombo").checked = (sysConfig.ENABLE_COMBO === 'Y');
   document.getElementById("menuEnableSingle").checked = (sysConfig.ENABLE_SINGLE !== 'N');
-
   document.getElementById("menuModal").classList.add("show");
-  document.getElementById("menuTbody").innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
-
+  document.getElementById("menuTbody").innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
   try {
-    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now());
-    rawMenuData = await res.json();
-    renderMenuTable(); 
-  } catch (e) { 
-    alert("讀取菜單失敗！錯誤原因：" + e.message); 
-    console.error(e);
-  }
+    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now()); rawMenuData = await res.json(); renderMenuTable(); 
+  } catch (e) { alert("讀取菜單失敗！錯誤原因：" + e.message); }
 }
 
-function closeMenuPanel() { 
-  document.getElementById("menuModal").classList.remove("show"); 
-}
+function closeMenuPanel() { document.getElementById("menuModal").classList.remove("show"); }
 
 function renderMenuTable() {
   const tbody = document.getElementById("menuTbody");
-  if (rawMenuData.length === 0) {
-     tbody.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>";
-     return;
-  }
+  if (rawMenuData.length === 0) { tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>"; return; }
   tbody.innerHTML = rawMenuData.map((row, idx) => `
     <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
-      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚 主餐</option>
-        <option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲 飲料/燉湯</option>
-        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗 副餐</option>
-        <option value="加料" ${row[0]==='加料'?'selected':''}>➕ 加料</option>
+      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px;">
+        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚主餐</option><option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲飲料/燉湯</option>
+        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗副餐</option><option value="加料" ${row[0]==='加料'?'selected':''}>➕加料</option>
       </select></td>
-      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:160px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" placeholder="例如: 滷肉飯"></td>
-      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:80px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
-      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-        <option value="Y" ${row[6]==='Y'?'selected':''}>是 (Y)</option>
-        <option value="N" ${row[6]==='N'?'selected':''}>否 (N)</option>
+      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:140px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;"></td>
+      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px;">
+        <option value="Y" ${row[6]==='Y'?'selected':''}>Y</option><option value="N" ${row[6]==='N'?'selected':''}>N</option>
       </select></td>
-      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
+      <td style="padding:10px;"><select class="m-status" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; font-weight:bold; color:${row[7]==='N'?'#e74c3c':'#27ae60'};">
+        <option value="Y" ${row[7]!=='N'?'selected':''}>🟢 正常</option><option value="N" ${row[7]==='N'?'selected':''}>❌ 售完</option>
+      </select></td>
+      <td style="padding:10px;"><button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button></td>
     </tr>
   `).join("");
 }
 
-function addMenuRow() {
-  rawMenuData.push(["主餐", "", "", 0, 0, "", "Y"]);
-  renderMenuTable();
-  const modalBody = document.querySelector("#menuModal .modal-body");
-  modalBody.scrollTop = modalBody.scrollHeight;
-}
-
-function deleteMenuRow(idx) {
-  if(confirm("確定要刪除這道餐點嗎？（按下最底下的儲存後才會正式生效）")) {
-    rawMenuData.splice(idx, 1);
-    renderMenuTable();
-  }
-}
+function addMenuRow() { rawMenuData.push(["主餐", "", "", 0, 0, "", "Y", "Y"]); renderMenuTable(); const modalBody = document.querySelector("#menuModal .modal-body"); modalBody.scrollTop = modalBody.scrollHeight; }
+function deleteMenuRow(idx) { if(confirm("確定要刪除這道餐點嗎？")) { rawMenuData.splice(idx, 1); renderMenuTable(); } }
 
 async function saveMenuData() {
-  const btn = document.getElementById("saveMenuBtn");
-  btn.disabled = true; btn.innerText = "儲存中，請勿關閉視窗...";
-
-  const tbody = document.getElementById("menuTbody");
-  const rows = tbody.querySelectorAll("tr");
-  const newData = [];
-  
+  const btn = document.getElementById("saveMenuBtn"); btn.disabled = true; btn.innerText = "儲存中...";
+  const tbody = document.getElementById("menuTbody"); const rows = tbody.querySelectorAll("tr"); const newData = [];
   rows.forEach(tr => {
-     const cat = tr.querySelector(".m-cat")?.value;
-     if(!cat) return; 
-     const name = tr.querySelector(".m-name").value.trim();
-     const sprice = Number(tr.querySelector(".m-sprice").value);
-     const cprice = Number(tr.querySelector(".m-cprice").value);
-     const del = tr.querySelector(".m-del").value;
-     const code = "M" + Math.floor(Math.random() * 10000); 
-     
-     if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del]);
+     const cat = tr.querySelector(".m-cat")?.value; if(!cat) return; 
+     const name = tr.querySelector(".m-name").value.trim(); const sprice = Number(tr.querySelector(".m-sprice").value);
+     const cprice = Number(tr.querySelector(".m-cprice").value); const del = tr.querySelector(".m-del").value;
+     const status = tr.querySelector(".m-status").value; const code = "M" + Math.floor(Math.random() * 10000); 
+     if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del, status]);
   });
-
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-  
-  const enableCombo = document.getElementById("menuEnableCombo").checked ? 'Y' : 'N';
-  const enableSingle = document.getElementById("menuEnableSingle").checked ? 'Y' : 'N';
-  
-  const formData = new URLSearchParams();
-  formData.append("action", "saveMenu");
-  formData.append("pwd", currentSettingsPwd);
-  formData.append("menuData", JSON.stringify(newData));
-  formData.append("enableCombo", enableCombo);
-  formData.append("enableSingle", enableSingle);
-
+  const enableCombo = document.getElementById("menuEnableCombo").checked ? 'Y' : 'N'; const enableSingle = document.getElementById("menuEnableSingle").checked ? 'Y' : 'N';
+  const formData = new URLSearchParams(); formData.append("action", "saveMenu"); formData.append("pwd", currentSettingsPwd); formData.append("menuData", JSON.stringify(newData)); formData.append("enableCombo", enableCombo); formData.append("enableSingle", enableSingle);
   try {
     const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
-    if(res.success) {
-       alert(res.msg);
-       sysConfig.ENABLE_COMBO = enableCombo;
-       sysConfig.ENABLE_SINGLE = enableSingle;
-       closeMenuPanel();
-       fetchMenuData(); 
-    } else { alert(res.msg); }
-  } catch (e) {
-    alert("儲存失敗，請檢查網路：" + e.message);
-  } finally {
-    btn.disabled = false; btn.innerText = "💾 儲存並發布新菜單";
-  }
+    if(res.success) { alert(res.msg); sysConfig.ENABLE_COMBO = enableCombo; sysConfig.ENABLE_SINGLE = enableSingle; closeMenuPanel(); fetchMenuData(); } else { alert(res.msg); }
+  } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存並發布新菜單"; }
 }
 </script>
 </body>
