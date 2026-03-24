@@ -105,7 +105,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 </div>
 
 <div id="settingsModal" class="modal">
-  <div class="modal-card" style="width: 600px; max-height:90vh;">
+  <div class="modal-card" style="width: 700px; max-height:90vh;">
     <div class="modal-header">
       <h3>⚙️ POS 系統綜合設定</h3>
       <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
@@ -115,14 +115,14 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <div style="background:#fdf2e9; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e67e22;">
         <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
-        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel ID</label>
-        <input type="text" id="settingLinePayId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <input type="text" id="settingLinePayId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel Secret</label>
-        <input type="text" id="settingLinePaySecret" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Token</label>
-        <textarea id="settingLineBotToken" rows="2" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;"></textarea>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆 LINE User ID</label>
+        <input type="text" id="settingLinePaySecret" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Channel Access Token (超長字串)</label>
+        <textarea id="settingLineBotToken" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;"></textarea>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆個人 LINE User ID (接單通知用)</label>
         <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
       </div>
 
@@ -144,7 +144,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </div>
 
         <label style="font-weight:bold;display:block;margin-bottom:10px;font-size:14px;">允許客端使用的付款方式：</label>
-        <div style="display:flex; gap:20px; margin-bottom:15px;">
+        <div style="display:flex; gap:20px; margin-bottom:15px; padding:10px; background:#fff; border-radius:8px; border:1px solid #ccc;">
           <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
             <input type="checkbox" id="settingEnableLinePay" style="width:18px; height:18px; margin:0 8px 0 0;"> 🟢 LINE Pay
           </label>
@@ -168,53 +168,84 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <div style="background:#fff9f0; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#d35400;">🖨️ 列印單據客製化</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據抬頭店名</label>
-        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據底部廣告/問候語</label>
         <textarea id="settingReceiptFooter" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></textarea>
       </div>
       
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 首頁緊急公告</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">顯示於點餐首頁的跑馬燈 (留白代表不顯示)</label>
         <input type="text" id="settingAnnouncement" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
       </div>
 
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2c3e50;">💰 宅配運費設定</h4>
-        <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">單筆宅配運費 ($)</label>
+            <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">免運門檻 ($) <small style="color:#e74c3c;">(無免運請設99999)</small></label>
+            <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+          </div>
+        </div>
       </div>
 
       <div style="background:#fff5e6; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#d35400;">🌍 前台開關與防呆</h4>
         <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:10px;">
-          <input type="checkbox" id="settingOnsite" style="width:20px; height:20px; margin:0 10px 0 0;"> 🏠 顯示門市取餐
+          <input type="checkbox" id="settingOnsite" style="width:20px; height:20px; margin:0 10px 0 0;"> 🏠 顯示門市現場/預約自取
         </label>
         <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:15px;">
-          <input type="checkbox" id="settingDelivery" style="width:20px; height:20px; margin:0 10px 0 0;"> 🚚 顯示低溫宅配
+          <input type="checkbox" id="settingDelivery" style="width:20px; height:20px; margin:0 10px 0 0;"> 🚚 顯示低溫宅配到府
         </label>
+        <hr style="border:0; border-top:1px dashed #f3cbab; margin:15px 0;">
         <div style="display:flex; gap:10px; align-items:center;">
-          <input type="checkbox" id="settingAutoClose" style="width:20px; height:20px;"> 自動打烊
-          <input type="time" id="settingCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; width:auto;">
+          <h4 style="margin:0; color:#2c3e50;">🌙 夜間防呆自動打烊：</h4>
+          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="settingAutoClose" style="width:20px; height:20px; margin:0 8px 0 0;"> 啟用設定
+          </label>
+          <span style="font-size:15px; font-weight:bold; margin-left:10px;">打烊時間</span>
+          <input type="time" id="settingCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; width:auto; margin-bottom:0;">
         </div>
       </div>
 
       <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間</h4>
-        <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:5px;">
-        <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:5px;">
-        <input type="number" id="settingReserveInterval" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; box-sizing:border-box; margin-bottom:5px;">
+        <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間設定</h4>
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">開始時間</label>
+            <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">結束時間</label>
+            <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+          </div>
+        </div>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#2980b9;">預約時段班次間隔 (分鐘)</label>
+        <input type="number" id="settingReserveInterval" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; box-sizing:border-box; margin-bottom:15px;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">要求客人預約需「提前準備分鐘數」</label>
         <input type="number" id="settingReserveLeadTime" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box;">
       </div>
       
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 密碼設定</h4>
-        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
-        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
-        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
-        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
+        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
+        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 修改/作廢授權密碼 <small style="color:#e74c3c;">(多組請用逗號 , 隔開)</small></label>
+        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-family:monospace;">
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">4. ⚙️ 本設定面板專屬密碼 (老闆最高權限)</label>
+        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; background:#fdf0ed;">
       </div>
       
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存所有設定</button>
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px; margin-top:10px;" onclick="saveSettings()">💾 儲存所有設定與密碼</button>
     </div>
   </div>
 </div>
@@ -356,7 +387,6 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-// 🌟 新增對應預設值
 let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0 };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
