@@ -173,14 +173,25 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
     <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
       
-      <div style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center;">
-        <h4 style="margin:0; color:#d35400;">🍔 客人點餐模式：</h4>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="menuEnableCombo" style="width:20px; height:20px; margin:0 8px 0 0;"> 🍱 開放「超值套餐」
-        </label>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="menuEnableSingle" style="width:20px; height:20px; margin:0 8px 0 0;" checked> 🍜 開放「輕鬆單點」
-        </label>
+      <div style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; gap:15px; align-items:center; border-right:2px solid #f3cbab; padding-right:15px;">
+          <h4 style="margin:0; color:#d35400;">🍔 客人點餐模式：</h4>
+          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="menuEnableCombo" style="width:20px; height:20px; margin:0 8px 0 0;"> 🍱 開放「超值套餐」
+          </label>
+          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="menuEnableSingle" style="width:20px; height:20px; margin:0 8px 0 0;" checked> 🍜 開放「輕鬆單點」
+          </label>
+        </div>
+        
+        <div style="display:flex; gap:10px; align-items:center;">
+          <h4 style="margin:0; color:#2c3e50;">🌙 夜間防呆自動打烊：</h4>
+          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="menuAutoClose" style="width:20px; height:20px; margin:0 8px 0 0;"> 啟用設定
+          </label>
+          <span style="font-size:15px; font-weight:bold;">打烊時間</span>
+          <input type="time" id="menuCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+        </div>
       </div>
 
       <button onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
@@ -952,7 +963,14 @@ async function openMenuPanel() {
 
   document.getElementById("menuModal").classList.add("show");
   document.getElementById("menuTbody").innerHTML = "<tr><td colspan='6' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
-
+  // 🌟 讀取開關狀態 (預設隱藏套餐，開啟單點)
+  document.getElementById("menuEnableCombo").checked = (sysConfig.ENABLE_COMBO === 'Y');
+  document.getElementById("menuEnableSingle").checked = (sysConfig.ENABLE_SINGLE !== 'N');
+  
+  // 🌟 讀取自動打烊設定
+  document.getElementById("menuAutoClose").checked = (sysConfig.AUTO_CLOSE_ENABLE === 'Y');
+  document.getElementById("menuCloseTime").value = sysConfig.AUTO_CLOSE_TIME || "22:00";
+  
   try {
     const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now());
     rawMenuData = await res.json();
@@ -1036,6 +1054,8 @@ async function saveMenuData() {
   // 🌟 抓取開關狀態
   const enableCombo = document.getElementById("menuEnableCombo").checked ? 'Y' : 'N';
   const enableSingle = document.getElementById("menuEnableSingle").checked ? 'Y' : 'N';
+  const autoCloseEnable = document.getElementById("menuAutoClose").checked ? 'Y' : 'N';
+  const autoCloseTime = document.getElementById("menuCloseTime").value || "22:00";
   
   const formData = new URLSearchParams();
   formData.append("action", "saveMenu");
@@ -1043,6 +1063,9 @@ async function saveMenuData() {
   formData.append("menuData", JSON.stringify(newData));
   formData.append("enableCombo", enableCombo);
   formData.append("enableSingle", enableSingle);
+  // 把新參數包進去
+  formData.append("autoCloseEnable", autoCloseEnable);
+  formData.append("autoCloseTime", autoCloseTime);
 
   try {
     const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
@@ -1050,6 +1073,8 @@ async function saveMenuData() {
        alert(res.msg);
        sysConfig.ENABLE_COMBO = enableCombo;
        sysConfig.ENABLE_SINGLE = enableSingle;
+       sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; // 新增這行
+       sysConfig.AUTO_CLOSE_TIME = autoCloseTime;     // 新增這行
        closeMenuPanel();
        fetchMenuData(); // 刷新 POS 本地菜單
     } else { alert(res.msg); }
