@@ -55,7 +55,7 @@ html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; bac
 .combo-step{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:var(--shadow); margin-bottom:16px; }
 .step-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
-.menu-card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; cursor:pointer; transition:.18s; }
+.menu-card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; cursor:pointer; transition:.18s; position:relative; overflow:hidden;}
 .menu-card.active{ border-color:#111; background:#f9f9f9; box-shadow: inset 0 0 0 1px #111; }
 .menu-img { width:100%; height:130px; object-fit:cover; border-radius:12px; margin-bottom:10px; background:#f0f0f0; }
 .step-lock{ opacity:.4; pointer-events:none; }
@@ -69,6 +69,7 @@ html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; bac
 .modal-card{ width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; }
 .toast{ position:fixed; left:50%; top:20px; transform:translateX(-50%); background:#111; color:#fff; padding:12px 16px; border-radius:14px; z-index:500; display:none; }
 input, select { width:100%; border:1px solid var(--line); border-radius:14px; padding:14px; font-size:16px; margin-bottom:10px; }
+.sold-out-badge { color:#fff; background:#e74c3c; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:6px; display:inline-block; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -83,6 +84,11 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 
 <div id="orderPage" class="page active">
   <div id="entryPortal" style="position:fixed; inset:0; background:#f5f5f2; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    
+    <div id="portalAnnouncementBar" style="display:none; width:100%; max-width:600px; background:#fff3cd; color:#d35400; padding:12px; border-radius:12px; border:2px solid #ffc107; font-weight:900; font-size:16px; margin-bottom:20px; box-shadow:var(--shadow);">
+      <marquee scrollamount="5" id="portalAnnouncementText"></marquee>
+    </div>
+
     <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
     
     <p id="portalSubtitle" style="margin-bottom:40px; color:#666; font-size:18px; font-weight:bold;">正在為您確認門市營業狀態...</p>
@@ -96,6 +102,10 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     </button>
     
     <p id="deliveryFeeHint" style="margin-top:40px; font-size:14px; color:#999; font-weight:bold;">(系統連線中，請稍候...)</p>
+  </div>
+
+  <div id="mainAnnouncementBar" style="display:none; background:#fff3cd; color:#d35400; padding:10px 15px; border-radius:12px; border:2px solid #ffc107; font-weight:900; font-size:15px; margin-bottom:15px;">
+    <marquee scrollamount="5" id="mainAnnouncementText"></marquee>
   </div>
 
   <div class="topbar">
@@ -250,18 +260,15 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 <script>
 let serviceMode = "pickup"; 
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
-const BUSINESS_OPEN = { h:17, m:0 };
-const BUSINESS_CLOSE = { h:23, m:0 };
-const MIN_RESERVE_MINUTES = 60;
 
-// 🌟 全域存放運費設定與夜間打烊設定
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00' };
+// 🌟 全域存放運費、時間與各式開關設定
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '' };
 
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
 let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
-// 🌟 自動抓取後台運費與開關設定 (防閃爍優化版 + 終極夜間防呆版)
+// 🌟 自動抓取後台最新設定 (包含跑馬燈與預約時間)
 async function fetchSysConfig() {
   try {
     const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
@@ -269,17 +276,19 @@ async function fetchSysConfig() {
     sysConfig.DELIVERY_FEE = Number(conf.DELIVERY_FEE || 190);
     sysConfig.FREE_SHIPPING_LIMIT = Number(conf.FREE_SHIPPING_LIMIT || 2500);
     
-    // 讀取營業時間
+    // 讀取營業時間與提前準備時間
     sysConfig.RESERVE_START = conf.RESERVE_START || "17:00";
     sysConfig.RESERVE_END = conf.RESERVE_END || "23:00";
+    sysConfig.RESERVE_LEAD_TIME = Number(conf.RESERVE_LEAD_TIME) || 60; // 🌟 接收你後台填的數字！
     
-    // 讀取點餐模式開關
     sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
     sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; 
 
-    // 🌟 新增：讀取自動打烊設定
     sysConfig.AUTO_CLOSE_ENABLE = conf.AUTO_CLOSE_ENABLE || 'N';
     sysConfig.AUTO_CLOSE_TIME = conf.AUTO_CLOSE_TIME || "22:00";
+    
+    // 🌟 接收跑馬燈公告
+    sysConfig.ANNOUNCEMENT = conf.ANNOUNCEMENT || "";
 
     const modeComboBtn = document.getElementById("modeComboBtn");
     const modeSingleBtn = document.getElementById("modeSingleBtn");
@@ -293,31 +302,40 @@ async function fetchSysConfig() {
         setOrderMode('single');
     }
     
+    // 🌟 顯示跑馬燈
+    const annTextStr = "📢 公告：" + sysConfig.ANNOUNCEMENT;
+    if (sysConfig.ANNOUNCEMENT && sysConfig.ANNOUNCEMENT.trim() !== "") {
+        document.getElementById("portalAnnouncementBar").style.display = "block";
+        document.getElementById("portalAnnouncementText").innerText = annTextStr;
+        document.getElementById("mainAnnouncementBar").style.display = "block";
+        document.getElementById("mainAnnouncementText").innerText = annTextStr;
+    } else {
+        document.getElementById("portalAnnouncementBar").style.display = "none";
+        document.getElementById("mainAnnouncementBar").style.display = "none";
+    }
+
     let enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
     let enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
     
-    // 🌟 核心防護：夜間自動打烊判斷邏輯
     let isAutoClosed = false;
     if (sysConfig.AUTO_CLOSE_ENABLE === 'Y' && sysConfig.AUTO_CLOSE_TIME) {
         const [cH, cM] = sysConfig.AUTO_CLOSE_TIME.split(':').map(Number);
         const now = getTaipeiNow();
         const nowMins = now.getHours() * 60 + now.getMinutes();
         const closeMins = cH * 60 + cM;
-        const openMins = 8 * 60; // 設定早上 08:00 之前都算是昨天的打烊時間
+        const openMins = 8 * 60; 
 
         if (closeMins >= openMins) {
-            // 打烊時間在晚上 (例如 22:00) -> 如果現在大於 22:00 或是凌晨 00~08，都算打烊
             if (nowMins >= closeMins || nowMins < openMins) isAutoClosed = true;
         } else {
-            // 打烊時間在凌晨 (例如 02:00) -> 如果現在介於 02:00 到 08:00 之間，算打烊
             if (nowMins >= closeMins && nowMins < openMins) isAutoClosed = true;
         }
     }
 
-    // 若觸發自動打烊，強制把按鈕關掉（修改後：只關門市，保留宅配）
     if (isAutoClosed) {
         enableOnsite = false;
-        // enableDelivery = false; 
+        // 如果你需要宅配 24H 開放，把下面這行加上 // 變成註解
+        enableDelivery = false; 
     }
     
     const btnOnsite = document.getElementById("btnOnsite");
@@ -326,7 +344,6 @@ async function fetchSysConfig() {
     const subtitle = document.getElementById("portalSubtitle");
     
     if (!enableOnsite && !enableDelivery) {
-       // 如果是因為打烊觸發的，顯示專屬的打烊訊息
        subtitle.innerText = isAutoClosed ? "🌙 本店已打烊，明日請早 🌙" : "⚠️ 目前暫停接單 ⚠️";
        subtitle.style.color = "var(--danger)";
        subtitle.style.fontSize = "24px";
@@ -377,27 +394,38 @@ function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
+    // 🌟 保留 status 狀態以供判斷
     categories = [{ 
       name: "🚚 低溫宅配專區", 
-      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img })) 
+      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img, status: d.status })) 
     }];
   } else {
     categories = [
-      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img })) },
-      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || 0, img: d.img })) },
-      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || 0, img: s.img })) },
-      { name: "➕ 其他加料", list: COMBO_ADDONS.map(a => ({ n: a.n, p: Number(a.singlePrice) || 0, img: a.img })) }
+      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img, status: m.status })) },
+      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || 0, img: d.img, status: d.status })) },
+      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || 0, img: s.img, status: s.status })) },
+      { name: "➕ 其他加料", list: COMBO_ADDONS.map(a => ({ n: a.n, p: Number(a.singlePrice) || 0, img: a.img, status: a.status })) }
     ];
   }
   
   categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0));
   categories = categories.filter(cat => cat.list.length > 0);
 
+  // 🌟 升級：繪製畫面時判斷是否售完，加上反灰與 badge，並鎖死點擊按鈕
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
-        ${cat.list.map(i => `<div class="menu-card">${i.img ? `<img src="${i.img}" class="menu-img">` : ''}<b>${i.n}</b><br><span style="color:var(--danger); font-weight:900;">$${i.p}</span>
-            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;"><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button><b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b><button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button></div>
-          </div>`).join("")}
+        ${cat.list.map(i => `
+          <div class="menu-card" style="${i.status === 'N' ? 'opacity:0.5; pointer-events:none;' : ''}">
+            ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
+            <b>${i.n}</b> ${i.status === 'N' ? '<span class="sold-out-badge">已售完</span>' : ''}<br>
+            <span style="color:var(--danger); font-weight:900;">$${i.p}</span>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
+              <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
+            </div>
+          </div>
+        `).join("")}
       </div></div>`).join("");
 }
 
@@ -550,11 +578,16 @@ function initDateOptions() {
   s.innerHTML = [0,1,2].map(i => { const d = new Date(now.getTime() + i*24*60*60*1000); const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return `<option value="${val}">${i===0?'今天':(i===1?'明天':'後天')} (${val})</option>`; }).join("");
   updatePickupTimeOptions();
 }
+
+// 🌟 升級：套用你後台動態設定的「預約緩衝時間」
 function updatePickupTimeOptions() {
   const dateStr = document.getElementById("pickupDate").value; 
   const s = document.getElementById("pickupTime"); 
   const now = getTaipeiNow(); 
-  const minT = new Date(now.getTime() + MIN_RESERVE_MINUTES*60000); 
+  
+  // 利用動態的 sysConfig.RESERVE_LEAD_TIME 取代原本寫死的 60
+  const leadTimeMins = sysConfig.RESERVE_LEAD_TIME || 60; 
+  const minT = new Date(now.getTime() + leadTimeMins * 60000); 
   
   let options = []; 
   
@@ -571,6 +604,7 @@ function updatePickupTimeOptions() {
   
   s.innerHTML = options.length ? options.map(t=>`<option value="${t}">${t}</option>`).join("") : `<option value="">無可用時段 (已超過預約時間)</option>`;
 }
+
 function getTaipeiNow() { return new Date(new Date().toLocaleString("en-US", {timeZone:"Asia/Taipei"})); }
 function pad(n) { return String(n).padStart(2,'0'); }
 function showToast(m) { const t = document.getElementById("toast"); t.innerText = m; t.style.display = "block"; setTimeout(() => t.style.display = "none", 2500); }
@@ -650,15 +684,26 @@ function autoQueryLastOrder() {
   if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
 
+// 🌟 升級：套餐區域的售完判斷，鎖死點擊與勾選
 function renderComboUI() {
-  document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
+  document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `
+    <div class="menu-card" onclick="${m.status === 'N' ? '' : `selectMain('${m.code}')`}" style="${m.status === 'N' ? 'opacity:0.5; cursor:not-allowed;' : ''}">
+      ${m.img ? `<img src="${m.img}" class="menu-img">` : ''}
+      <b>${m.code}. ${m.n}</b> ${m.status === 'N' ? '<span class="sold-out-badge">售完</span>' : ''}<br>
+      <small>套餐起跳價 $${m.comboPrice}</small>
+    </div>
+  `).join("");
   
   const makeCheckbox = (item, type, priceKey) => {
     const p = Number(item[priceKey]) || 0;
     const priceStr = p > 0 ? `(+ $${p})` : (type === 'addon' ? '' : '(內含)');
-    return `<label style="background:#fcfcfc; padding:12px; border-radius:10px; border:1px solid #ccc; display:flex; align-items:center; cursor:pointer; gap:8px;">
-              <input type="checkbox" class="chk-${type}" data-name="${item.n}" data-price="${p}" onchange="syncComboSelection()" style="width:22px; height:22px; margin:0; flex-shrink:0;">
-              <span style="font-size:15px; font-weight:bold; line-height:1.3;">${item.n} <br><span style="color:#e74c3c; font-size:13px;">${priceStr}</span></span>
+    const isSoldOut = item.status === 'N';
+    return `<label style="background:#fcfcfc; padding:12px; border-radius:10px; border:1px solid #ccc; display:flex; align-items:center; ${isSoldOut ? 'opacity:0.4; cursor:not-allowed;' : 'cursor:pointer;'} gap:8px;">
+              <input type="checkbox" class="chk-${type}" data-name="${item.n}" data-price="${p}" onchange="syncComboSelection()" style="width:22px; height:22px; margin:0; flex-shrink:0;" ${isSoldOut ? 'disabled' : ''}>
+              <span style="font-size:15px; font-weight:bold; line-height:1.3;">
+                ${item.n} ${isSoldOut ? '<span class="sold-out-badge" style="font-size:10px;">售完</span>' : ''} <br>
+                <span style="color:#e74c3c; font-size:13px;">${priceStr}</span>
+              </span>
             </label>`;
   };
 
