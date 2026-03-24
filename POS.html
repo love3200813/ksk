@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v32.0 列印佇列防護版</title>
+<title>加山記 POS v33.0 雙軌列印旗艦版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -300,6 +300,16 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
     <div class="modal-body" style="padding:20px;">
       
+      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB 列印機指令協議</label>
+        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
+          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
+          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
+        </select>
+        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項並重新連線。</div>
+      </div>
+
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
         
@@ -356,15 +366,15 @@ let currentEditingOrder = null;
 
 let printedOrders = new Set();
 let printingOrders = new Set();
-
-// 🌟 終極防護：印表機紅綠燈鎖 (Printer Lock)
 let isPrinterBusy = false;
 
+// 🌟 新增 usbProtocol 記憶體預設值
 let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
-  bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384
+  usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384
 };
 
 function openPrinterSettings() {
+  document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
   document.getElementById("p_bleMmW").value = printerConf.bleMmW;
   document.getElementById("p_bleMmH").value = printerConf.bleMmH;
   document.getElementById("p_blePxW").value = printerConf.blePxW;
@@ -378,6 +388,7 @@ function closePrinterSettings() { document.getElementById("printerModal").classL
 
 function savePrinterSettings() {
   printerConf = {
+    usbProtocol: document.getElementById("p_usbProtocol").value,
     bleMmW: Number(document.getElementById("p_bleMmW").value),
     bleMmH: Number(document.getElementById("p_bleMmH").value),
     blePxW: Number(document.getElementById("p_blePxW").value),
@@ -386,7 +397,7 @@ function savePrinterSettings() {
     usbPxW: Number(document.getElementById("p_usbPxW").value)
   };
   localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
-  alert("✅ 列印機參數已儲存！下一次列印將立即套用新設定。");
+  alert("✅ 列印機參數與語言切換已儲存！");
   closePrinterSettings();
 }
 
@@ -613,17 +624,78 @@ async function printSingleLabelToBLE(canvas) {
       }
   }
 }
-async function printCanvasToPrinter(canvas, finalHeight){
-  const width = canvas.width; const totalHeight = Math.ceil(finalHeight); const ctx = canvas.getContext("2d"); const widthBytes = 48; const MAX_CHUNK_HEIGHT = 1000;
+
+// 🌟 核心翻譯引擎：雙協議翻譯器 (支援 TSPL 與 ESC/POS)
+async function printCanvasToPrinter(canvas, finalHeight) {
+  const width = canvas.width; 
+  const totalHeight = Math.ceil(finalHeight); 
+  const ctx = canvas.getContext("2d"); 
+  const protocol = printerConf.usbProtocol || 'TSPL'; 
+
+  // 如果是 ESC/POS，為了安全起見，每次切的塊稍微短一點，防止印表機緩衝區爆掉
+  const MAX_CHUNK_HEIGHT = protocol === 'TSPL' ? 1000 : 500; 
+
   for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
-    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY); const img = ctx.getImageData(0, startY, width, currentHeight).data; const bitmap = new Uint8Array(widthBytes * currentHeight); bitmap.fill(255);
-    for(let py = 0; py < currentHeight; py++){ for(let px = 0; px < width; px++){ const idx = (py * width + px) * 4; const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); } } }
-    const mmHeight = Math.max(10, Math.ceil(currentHeight / 8)); const header = new TextEncoder().encode(`SIZE 48 mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,48,${currentHeight},0,`);
-    const isLastChunk = (startY + currentHeight >= totalHeight); const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`; const footer = new TextEncoder().encode(footerStr);
-    const buf = new Uint8Array(header.length + bitmap.length + footer.length); buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-    const CHUNK_SIZE = 8192; for (let i = 0; i < buf.length; i += CHUNK_SIZE) { await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); } await new Promise(resolve => setTimeout(resolve, 600));
+    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY); 
+    const img = ctx.getImageData(0, startY, width, currentHeight).data; 
+    
+    // 計算一行需要幾個 bytes (必須為 8 的倍數)
+    const widthBytes = Math.ceil(width / 8); 
+    const bitmap = new Uint8Array(widthBytes * currentHeight); 
+
+    if (protocol === 'TSPL') {
+      bitmap.fill(255); // TSPL 白底是 255
+      for(let py = 0; py < currentHeight; py++){ 
+        for(let px = 0; px < width; px++){ 
+          const idx = (py * width + px) * 4; 
+          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+          if(img[idx+3] > 128 && gray < 180) { 
+             bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); 
+          } 
+        } 
+      }
+      const mmHeight = Math.max(10, Math.ceil(currentHeight / 8)); 
+      const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${currentHeight},0,`);
+      const isLastChunk = (startY + currentHeight >= totalHeight); 
+      const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`; 
+      const footer = new TextEncoder().encode(footerStr);
+      const buf = new Uint8Array(header.length + bitmap.length + footer.length); 
+      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+      const CHUNK_SIZE = 8192; 
+      for (let i = 0; i < buf.length; i += CHUNK_SIZE) { 
+          await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
+      }
+    } else {
+      // 🌟 新增：XP-Q90EC 專用的 ESC/POS 協議翻譯
+      bitmap.fill(0); // ESC/POS 白底是 0，黑點是 1
+      for(let py = 0; py < currentHeight; py++){ 
+        for(let px = 0; px < width; px++){ 
+          const idx = (py * width + px) * 4; 
+          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+          if(img[idx+3] > 128 && gray < 180) { 
+             bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8))); 
+          } 
+        } 
+      }
+      // ESC/POS GS v 0 點陣圖指令
+      const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, currentHeight & 0xFF, (currentHeight >> 8) & 0xFF]);
+      const isLastChunk = (startY + currentHeight >= totalHeight); 
+      // 印到最後一塊時，吐出幾行空白然後裁紙 (GS V A 0)
+      const footer = isLastChunk ? new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]) : new Uint8Array([]);
+      const buf = new Uint8Array(header.length + bitmap.length + footer.length);
+      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+      
+      const CHUNK_SIZE = 8192; 
+      for (let i = 0; i < buf.length; i += CHUNK_SIZE) { 
+          await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
+      }
+    }
+    
+    // 每印完一個段落休息一下，避免緩衝區爆掉
+    await new Promise(resolve => setTimeout(resolve, 600));
   }
 }
+
 async function printOrderToBLE(o, titleHeader) {
   let rawItems = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); let labelItems = [];
   for (let item of rawItems) {
@@ -638,22 +710,19 @@ async function printOrderLabel(o){
   await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); await new Promise(resolve => setTimeout(resolve, 1500)); await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
 
-// 🌟 核心防護機制：印表機非同步互斥鎖 (Async Lock)
+// 非同步互斥鎖
 async function safeExecuteDualPrint(o) {
-  // 如果印表機正在忙碌（紅燈），就在這裡無限排隊等待
   while (isPrinterBusy) {
     setMsg(`印表機忙碌中，單號 ${o.seq} 正在排隊等待...`);
-    await new Promise(r => setTimeout(r, 1000)); // 每秒檢查一次綠燈亮了沒
+    await new Promise(r => setTimeout(r, 1000)); 
   }
   
-  // 綠燈亮了！把自己設為忙碌（亮紅燈），開始佔用印表機
   isPrinterBusy = true;
   try {
     if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) { throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線"); }
     if (printerDevice && endpointOut) { printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e)); }
     if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
   } finally {
-    // 印完了，釋放印表機（亮綠燈），讓下一張單進來
     isPrinterBusy = false;
   }
 }
@@ -665,7 +734,6 @@ async function autoPrint(list){
     if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; 
     if(!shouldPrintNow(o)) continue;
 
-    // 宅配單直接跳過，不自動列印
     const pickupStr = String(o.rawPickup || o.pickup || "");
     if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
        continue;
@@ -675,7 +743,7 @@ async function autoPrint(list){
       printingOrders.add(o.id); 
       setMsg(`提醒：${o.seq} 正在列印...`); 
       playBeep(); 
-      await safeExecuteDualPrint(o); // 🌟 改用排隊防護機制列印
+      await safeExecuteDualPrint(o); 
       printedOrders.add(o.id); 
       await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`); 
       setMsg(`${o.seq} 已送出列印`); 
@@ -693,7 +761,7 @@ async function manualPrint(encoded){
     const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); 
     if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
     setMsg(`準備手動列印：${o.seq}...`);
-    await safeExecuteDualPrint(o); // 🌟 改用排隊防護機制列印
+    await safeExecuteDualPrint(o); 
     setMsg(`${o.seq} 補印/宅配列印完成`); 
   }catch(err){ 
     alert("列印失敗：" + err.message); 
@@ -816,7 +884,7 @@ async function saveOrderEdit() {
       if (currentEditingOrder) {
          let printObj = Object.assign({}, currentEditingOrder); printObj.content = content; printObj.total = total; printObj.seq = printObj.seq + " (修改單)"; 
          setMsg(`正在自動列印：${printObj.seq}...`);
-         try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } // 🌟 改用排隊防護機制列印
+         try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } 
       }
     } else { alert(res.msg); }
   } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認並儲存修改"; }
