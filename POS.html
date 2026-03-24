@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v30.0 SaaS旗艦版</title>
+<title>加山記 POS v31.0 現場宅配分離版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -639,13 +639,36 @@ async function executeDualPrint(o) {
   if (printerDevice && endpointOut) { printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e)); }
   if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
 }
+
 async function autoPrint(list){
   if(!blePrintCharacteristic && (!printerDevice || !endpointOut)) return;
   for(const o of list){
-    if(o.status !== "待列印") continue; if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; if(!shouldPrintNow(o)) continue;
-    try{ printingOrders.add(o.id); setMsg(`提醒：${o.seq} 正在列印...`); playBeep(); await executeDualPrint(o); printedOrders.add(o.id); await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`); setMsg(`${o.seq} 已送出列印`); }catch(err){ setMsg(`列印失敗：${err.message}`); }finally{ printingOrders.delete(o.id); }
+    if(o.status !== "待列印") continue; 
+    if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; 
+    if(!shouldPrintNow(o)) continue;
+
+    // 🌟 核心修改：如果是宅配單，直接跳過，絕對不自動列印！
+    const pickupStr = String(o.rawPickup || o.pickup || "");
+    if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
+       continue;
+    }
+
+    try{ 
+      printingOrders.add(o.id); 
+      setMsg(`提醒：${o.seq} 正在列印...`); 
+      playBeep(); 
+      await executeDualPrint(o); 
+      printedOrders.add(o.id); 
+      await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`); 
+      setMsg(`${o.seq} 已送出列印`); 
+    }catch(err){ 
+      setMsg(`列印失敗：${err.message}`); 
+    }finally{ 
+      printingOrders.delete(o.id); 
+    }
   }
 }
+
 async function manualPrint(encoded){
   try{ const o = JSON.parse(decodeURIComponent(encoded)); const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } await executeDualPrint(o); setMsg(`${o.seq} 補印完成`); }catch(err){ alert("補印失敗：" + err.message); }
 }
@@ -787,7 +810,7 @@ async function openSettingsPanel() {
   document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
 
-  // 🌟 SaaS 商業設定寫入面板
+  // SaaS 商業設定
   document.getElementById("settingLogoUrl").value = sysConfig.LOGO_URL || "";
   document.getElementById("settingMinOnsite").value = sysConfig.MIN_ORDER_ONSITE || 0;
   document.getElementById("settingMinDelivery").value = sysConfig.MIN_ORDER_DELIVERY || 0;
@@ -848,7 +871,6 @@ async function saveSettings() {
     const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
     const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
 
-    // 🌟 SaaS 商業設定擷取
     const logoUrl = document.getElementById("settingLogoUrl").value.trim();
     const minOnsite = document.getElementById("settingMinOnsite").value || 0;
     const minDelivery = document.getElementById("settingMinDelivery").value || 0;
@@ -889,7 +911,6 @@ async function saveSettings() {
     formData.append("lineBotUser", lineBotUser);
     formData.append("frontendUrl", encodeURIComponent(frontendUrl));
     
-    // 🌟 送出 SaaS 商業設定
     formData.append("logoUrl", encodeURIComponent(logoUrl));
     formData.append("minOnsite", minOnsite);
     formData.append("minDelivery", minDelivery);
@@ -910,7 +931,6 @@ async function saveSettings() {
       sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings; sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
       sysConfig.LINEPAY_CHANNEL_ID = linePayId; sysConfig.LINEPAY_SECRET = linePaySecret; sysConfig.LINEBOT_TOKEN = lineBotToken;
       sysConfig.LINEBOT_USER = lineBotUser; sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
-      // 🌟 同步更新本地記憶體
       sysConfig.LOGO_URL = logoUrl; sysConfig.MIN_ORDER_ONSITE = Number(minOnsite); sysConfig.MIN_ORDER_DELIVERY = Number(minDelivery);
       sysConfig.ENABLE_LINEPAY_PAYMENT = enableLinePayPayment; sysConfig.ENABLE_CASH_PAYMENT = enableCashPayment;
       sysConfig.PROMO_CODE = promoCode; sysConfig.PROMO_DISCOUNT = Number(promoDiscount);
@@ -938,7 +958,8 @@ async function refreshDeliveryOrders() {
   if (list.length === 0) { div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>"; return; }
   div.innerHTML = list.map(o => {
     const enc = encodeURIComponent(JSON.stringify(o));
-    return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
+    // 🌟 核心修改：加入了「🖨️ 列印」按鈕在修改按鈕的前面
+    return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">🖨️ 列印</button><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
   }).join("");
 }
 async function shipOrder(row, seq) { const track = prompt("單號:"); if(!track) return; await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders(); }
