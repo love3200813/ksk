@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v31.0 現場宅配分離版</title>
+<title>加山記 POS v32.0 列印佇列防護版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -357,6 +357,9 @@ let currentEditingOrder = null;
 let printedOrders = new Set();
 let printingOrders = new Set();
 
+// 🌟 終極防護：印表機紅綠燈鎖 (Printer Lock)
+let isPrinterBusy = false;
+
 let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
   bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384
 };
@@ -634,10 +637,25 @@ async function printOrderLabel(o){
   const customerReceipt = buildCustomerReceiptCanvas(o); const kitchenReceipt = buildKitchenReceiptCanvas(o);
   await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); await new Promise(resolve => setTimeout(resolve, 1500)); await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
-async function executeDualPrint(o) {
-  if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) { throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線"); }
-  if (printerDevice && endpointOut) { printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e)); }
-  if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
+
+// 🌟 核心防護機制：印表機非同步互斥鎖 (Async Lock)
+async function safeExecuteDualPrint(o) {
+  // 如果印表機正在忙碌（紅燈），就在這裡無限排隊等待
+  while (isPrinterBusy) {
+    setMsg(`印表機忙碌中，單號 ${o.seq} 正在排隊等待...`);
+    await new Promise(r => setTimeout(r, 1000)); // 每秒檢查一次綠燈亮了沒
+  }
+  
+  // 綠燈亮了！把自己設為忙碌（亮紅燈），開始佔用印表機
+  isPrinterBusy = true;
+  try {
+    if (!blePrintCharacteristic && (!printerDevice || !endpointOut)) { throw new Error("請先建立藍牙(標籤) 或 USB(明細) 連線"); }
+    if (printerDevice && endpointOut) { printOrderLabel(o).catch(e => console.error("USB 列印錯誤", e)); }
+    if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
+  } finally {
+    // 印完了，釋放印表機（亮綠燈），讓下一張單進來
+    isPrinterBusy = false;
+  }
 }
 
 async function autoPrint(list){
@@ -647,7 +665,7 @@ async function autoPrint(list){
     if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; 
     if(!shouldPrintNow(o)) continue;
 
-    // 🌟 核心修改：如果是宅配單，直接跳過，絕對不自動列印！
+    // 宅配單直接跳過，不自動列印
     const pickupStr = String(o.rawPickup || o.pickup || "");
     if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
        continue;
@@ -657,7 +675,7 @@ async function autoPrint(list){
       printingOrders.add(o.id); 
       setMsg(`提醒：${o.seq} 正在列印...`); 
       playBeep(); 
-      await executeDualPrint(o); 
+      await safeExecuteDualPrint(o); // 🌟 改用排隊防護機制列印
       printedOrders.add(o.id); 
       await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`); 
       setMsg(`${o.seq} 已送出列印`); 
@@ -670,7 +688,16 @@ async function autoPrint(list){
 }
 
 async function manualPrint(encoded){
-  try{ const o = JSON.parse(decodeURIComponent(encoded)); const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } await executeDualPrint(o); setMsg(`${o.seq} 補印完成`); }catch(err){ alert("補印失敗：" + err.message); }
+  try{ 
+    const o = JSON.parse(decodeURIComponent(encoded)); 
+    const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); 
+    if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
+    setMsg(`準備手動列印：${o.seq}...`);
+    await safeExecuteDualPrint(o); // 🌟 改用排隊防護機制列印
+    setMsg(`${o.seq} 補印/宅配列印完成`); 
+  }catch(err){ 
+    alert("列印失敗：" + err.message); 
+  }
 }
 
 async function submitCashOrder() {
@@ -789,7 +816,7 @@ async function saveOrderEdit() {
       if (currentEditingOrder) {
          let printObj = Object.assign({}, currentEditingOrder); printObj.content = content; printObj.total = total; printObj.seq = printObj.seq + " (修改單)"; 
          setMsg(`正在自動列印：${printObj.seq}...`);
-         try { await executeDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); }
+         try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } // 🌟 改用排隊防護機制列印
       }
     } else { alert(res.msg); }
   } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認並儲存修改"; }
@@ -803,14 +830,12 @@ async function openSettingsPanel() {
   if (!pwd) return; 
   if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
-  // 核心金鑰
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
   document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
   document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
 
-  // SaaS 商業設定
   document.getElementById("settingLogoUrl").value = sysConfig.LOGO_URL || "";
   document.getElementById("settingMinOnsite").value = sysConfig.MIN_ORDER_ONSITE || 0;
   document.getElementById("settingMinDelivery").value = sysConfig.MIN_ORDER_DELIVERY || 0;
@@ -819,7 +844,6 @@ async function openSettingsPanel() {
   document.getElementById("settingPromoCode").value = sysConfig.PROMO_CODE || "";
   document.getElementById("settingPromoDiscount").value = sysConfig.PROMO_DISCOUNT || 0;
 
-  // 一般設定
   document.getElementById("settingStoreName").value = sysConfig.STORE_NAME || "加山記";
   document.getElementById("settingReceiptFooter").value = sysConfig.RECEIPT_FOOTER || "";
   document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
@@ -958,7 +982,6 @@ async function refreshDeliveryOrders() {
   if (list.length === 0) { div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>"; return; }
   div.innerHTML = list.map(o => {
     const enc = encodeURIComponent(JSON.stringify(o));
-    // 🌟 核心修改：加入了「🖨️ 列印」按鈕在修改按鈕的前面
     return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">🖨️ 列印</button><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
   }).join("");
 }
