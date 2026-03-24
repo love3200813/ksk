@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v39.0 HTTP穩定傳輸版</title>
+<title>加山記 POS v39.2 隱形通道除錯版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -478,14 +478,25 @@ async function connectUSB(){
   }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// 🌟 V39 終極連線：不使用 WebSocket 測試，直接強制定義模式為 LAN
+// 🌟 最終隱形通道連線：徹底繞過 Chrome 防護
 async function connectLAN() {
-  if (!confirm("⚠️ 請確認：\n1. 綠色 Server APP 已打開並運作中。\n2. 已設定為 RAW Mode 與 network printer。")) {
-      return;
+  setMsg("測試 RawBT 隱形通道...");
+  try {
+      let ws = new WebSocket("ws://127.0.0.1:40213/");
+      ws.onopen = function() {
+          currentPrinterMode = 'lan'; 
+          document.getElementById("usbStatus").innerText = `本機出單：無聲背景列印 (RawBT)`;
+          setMsg("✅ 成功連接 RawBT 隱形通道！");
+          ws.close(); 
+      };
+      ws.onerror = function() {
+          alert("❌ 無法連線！\n請確認已開啟「Server for RawBT」(綠色拼圖APP) 的 Websocket API。");
+          document.getElementById("usbStatus").innerText = "本機出單：連線失敗";
+          setMsg("RawBT 代理連線失敗");
+      };
+  } catch(e) {
+      alert("連線發生錯誤：" + e.message);
   }
-  currentPrinterMode = 'lan'; 
-  document.getElementById("usbStatus").innerText = `本機出單：無聲背景列印 (RawBT)`;
-  setMsg("✅ 成功啟用 HTTP 背景列印通道！");
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
@@ -657,24 +668,19 @@ function createPrinterBuffer(canvas, protocol) {
   return buf;
 }
 
-// 🌟 V39 終極殺手鐧：HTTP POST (AJAX) 傳輸引擎，不再使用容易漏信的 WebSocket
+// 🌟 隱形通道發射器 (無彈出視窗)
 function sendToRawBTLocal(bufferData) {
     return new Promise((resolve, reject) => {
-        // 將 ArrayBuffer 轉換為 Blob 物件，這是綠色 APP 最喜歡吃的格式
-        const blob = new Blob([bufferData], { type: "application/octet-stream" });
-        
-        // 透過標準的 HTTP POST 將包裹直接射給綠色 APP
-        fetch("http://127.0.0.1:40213/", {
-            method: "POST",
-            mode: "no-cors",
-            cache: "no-cache",
-            body: blob
-        }).then(() => {
-            // 給予綠色 APP 與印表機處理資料的時間
-            setTimeout(resolve, 800);
-        }).catch((err) => {
-            reject(new Error("無法發送資料，請確認綠色 APP 已開啟"));
-        });
+        let ws = new WebSocket("ws://127.0.0.1:40213/");
+        ws.onopen = function() {
+            // 使用 Blob 保護二進位資料不被截斷
+            const blob = new Blob([bufferData], { type: "application/octet-stream" });
+            ws.send(blob);
+            setTimeout(() => { ws.close(); resolve(); }, 1000);
+        };
+        ws.onerror = function(err) {
+            reject(new Error("RawBT 隱形通道連線失敗"));
+        };
     });
 }
 
@@ -786,7 +792,7 @@ async function printOrderLabel(o){
       combinedBuf.set(buf1, 0);
       combinedBuf.set(buf2, buf1.length);
       
-      // 使用 HTTP POST 引擎穩定發送
+      // 使用 WebSocket 引擎穩定發送 Blob
       await sendToRawBTLocal(combinedBuf.buffer);
   } else {
       await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
