@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v29.5 終極列印解鎖版</title>
+<title>加山記 POS v30.0 SaaS旗艦版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -113,103 +113,108 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <div class="modal-body" style="padding:20px;">
 
       <div style="background:#fdf2e9; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e67e22;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰 (非工程師請勿亂動)</h4>
-        
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
-        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;" placeholder="https://love3200813.github.io/ksk/index.html">
-
+        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel ID</label>
         <input type="text" id="settingLinePayId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel Secret</label>
         <input type="text" id="settingLinePaySecret" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Token</label>
+        <textarea id="settingLineBotToken" rows="2" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;"></textarea>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆 LINE User ID</label>
+        <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
 
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Channel Access Token (超長字串)</label>
-        <textarea id="settingLineBotToken" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-family:monospace;"></textarea>
+      <div style="background:#f9ebff; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad;">
+        <h4 style="margin:0 0 10px 0; color:#8e44ad;">💰 商業防呆與品牌行銷</h4>
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">品牌 Logo 圖片網址 (留白則顯示文字)</label>
+        <input type="text" id="settingLogoUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;" placeholder="例如: https://imgur.com/.../logo.jpg">
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">最低消費：現場 ($)</label>
+            <input type="number" id="settingMinOnsite" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: 0">
+          </div>
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">最低消費：宅配 ($)</label>
+            <input type="number" id="settingMinDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: 500">
+          </div>
+        </div>
 
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆個人 LINE User ID (接單通知用)</label>
-        <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:10px;font-size:14px;">允許客端使用的付款方式：</label>
+        <div style="display:flex; gap:20px; margin-bottom:15px;">
+          <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="settingEnableLinePay" style="width:18px; height:18px; margin:0 8px 0 0;"> 🟢 LINE Pay
+          </label>
+          <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
+            <input type="checkbox" id="settingEnableCash" style="width:18px; height:18px; margin:0 8px 0 0;"> 💵 現場現金
+          </label>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:flex-end;">
+          <div style="flex:2;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">發行折扣碼 (不使用請留白)</label>
+            <input type="text" id="settingPromoCode" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: VIP2026">
+          </div>
+          <div style="flex:1;">
+            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">折抵金額 ($)</label>
+            <input type="number" id="settingPromoDiscount" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="50">
+          </div>
+        </div>
       </div>
 
       <div style="background:#fff9f0; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#d35400;">🖨️ 列印單據客製化</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據抬頭店名</label>
-        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-size:16px;" placeholder="例如：加山記-嘉義民族店">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據底部廣告/問候語 <span style="color:#999;font-weight:normal;">(多行可直接換行)</span></label>
-        <textarea id="settingReceiptFooter" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;" placeholder="例如：憑此單據下次消費送滷蛋\n歡迎追蹤 IG: kashan_kee"></textarea>
+        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據底部廣告/問候語</label>
+        <textarea id="settingReceiptFooter" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></textarea>
       </div>
       
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 顧客首頁緊急公告</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">顯示於點餐首頁的跑馬燈 (留白代表不顯示)</label>
-        <input type="text" id="settingAnnouncement" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;" placeholder="例如：今日寒流來襲，訂單較多請耐心等候">
+        <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 首頁緊急公告</h4>
+        <input type="text" id="settingAnnouncement" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
       </div>
 
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2c3e50;">💰 宅配運費設定</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">單筆宅配運費 ($)</label>
-        <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-size:16px;">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">免運門檻 ($) <span style="font-weight:normal;color:#e74c3c;">(無免運請設99999)</span></label>
-        <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;">
+        <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
       </div>
 
       <div style="background:#fff5e6; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🌍 前台點餐入口開關</h4>
+        <h4 style="margin:0 0 10px 0; color:#d35400;">🌍 前台開關與防呆</h4>
         <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:10px;">
-          <input type="checkbox" id="settingOnsite" style="width:20px; height:20px; margin:0 10px 0 0;"> 🏠 顯示「門市現場/預約自取」
+          <input type="checkbox" id="settingOnsite" style="width:20px; height:20px; margin:0 10px 0 0;"> 🏠 顯示門市取餐
         </label>
         <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:15px;">
-          <input type="checkbox" id="settingDelivery" style="width:20px; height:20px; margin:0 10px 0 0;"> 🚚 顯示「低溫宅配到府」
+          <input type="checkbox" id="settingDelivery" style="width:20px; height:20px; margin:0 10px 0 0;"> 🚚 顯示低溫宅配
         </label>
-        <hr style="border:0; border-top:1px dashed #f3cbab; margin:15px 0;">
         <div style="display:flex; gap:10px; align-items:center;">
-          <h4 style="margin:0; color:#2c3e50;">🌙 夜間防呆自動打烊：</h4>
-          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-            <input type="checkbox" id="settingAutoClose" style="width:20px; height:20px; margin:0 8px 0 0;"> 啟用設定
-          </label>
-          <span style="font-size:15px; font-weight:bold; margin-left:10px;">打烊時間</span>
-          <input type="time" id="settingCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; font-size:16px; width:auto; margin-bottom:0;">
+          <input type="checkbox" id="settingAutoClose" style="width:20px; height:20px;"> 自動打烊
+          <input type="time" id="settingCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; width:auto;">
         </div>
       </div>
 
       <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間設定</h4>
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">開始時間</label>
-            <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;">
-          </div>
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">結束時間</label>
-            <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;">
-          </div>
-        </div>
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#2980b9;">預約時段班次間隔 (分鐘)</label>
-        <input type="number" id="settingReserveInterval" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; box-sizing:border-box; font-size:16px; margin-bottom:15px;" placeholder="建議設定 15 或 30">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">要求客人預約需「提前準備分鐘數」</label>
-        <input type="number" id="settingReserveLeadTime" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; font-size:16px;" placeholder="例如: 60">
+        <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間</h4>
+        <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:5px;">
+        <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:5px;">
+        <input type="number" id="settingReserveInterval" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; box-sizing:border-box; margin-bottom:5px;">
+        <input type="number" id="settingReserveLeadTime" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box;">
       </div>
       
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
-        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
-        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 修改/作廢授權密碼 <span style="font-weight:normal;color:#e74c3c;">(多組請用逗號 , 隔開)</span></label>
-        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-family:monospace;">
-
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">4. ⚙️ 本設定面板專屬密碼 (老闆最高權限)</label>
-        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; background:#fdf0ed;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 密碼設定</h4>
+        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
+        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
+        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px;">
+        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box;">
       </div>
       
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存所有設定與密碼</button>
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="saveSettings()">💾 儲存所有設定</button>
     </div>
   </div>
 </div>
@@ -351,7 +356,8 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html' };
+// 🌟 新增對應預設值
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0 };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -744,75 +750,82 @@ async function openSettingsPanel() {
   if (!pwd) return; 
   if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
-  // 🌟 讀取所有金鑰
+  // 核心金鑰
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
   document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
   document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
 
+  // 🌟 SaaS 商業設定寫入面板
+  document.getElementById("settingLogoUrl").value = sysConfig.LOGO_URL || "";
+  document.getElementById("settingMinOnsite").value = sysConfig.MIN_ORDER_ONSITE || 0;
+  document.getElementById("settingMinDelivery").value = sysConfig.MIN_ORDER_DELIVERY || 0;
+  document.getElementById("settingEnableLinePay").checked = (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N');
+  document.getElementById("settingEnableCash").checked = (sysConfig.ENABLE_CASH_PAYMENT !== 'N');
+  document.getElementById("settingPromoCode").value = sysConfig.PROMO_CODE || "";
+  document.getElementById("settingPromoDiscount").value = sysConfig.PROMO_DISCOUNT || 0;
+
+  // 一般設定
   document.getElementById("settingStoreName").value = sysConfig.STORE_NAME || "加山記";
   document.getElementById("settingReceiptFooter").value = sysConfig.RECEIPT_FOOTER || "";
-
   document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
   document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
   document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
   document.getElementById("settingOnsite").checked = (sysConfig.ENABLE_ONSITE !== 'N');
   document.getElementById("settingDelivery").checked = (sysConfig.ENABLE_DELIVERY !== 'N');
-  
   document.getElementById("settingAutoClose").checked = (sysConfig.AUTO_CLOSE_ENABLE === 'Y');
   document.getElementById("settingCloseTime").value = sysConfig.AUTO_CLOSE_TIME || "22:00";
-  
   document.getElementById("settingReserveStart").value = sysConfig.RESERVE_START || "17:00";
   document.getElementById("settingReserveEnd").value = sysConfig.RESERVE_END || "23:00";
   document.getElementById("settingReserveLeadTime").value = sysConfig.RESERVE_LEAD_TIME || 60;
   document.getElementById("settingReserveInterval").value = sysConfig.RESERVE_INTERVAL || 30;
-  
   document.getElementById("settingPwdStartup").value = sysConfig.PWD_STARTUP || "0320";
   document.getElementById("settingPwdDelivery").value = sysConfig.PWD_DELIVERY || "0926";
-  document.getElementById("settingPwdManager").value = sysConfig.PWD_MANAGER || "1111,2222,3333,4444,5555,6666,7777,8888";
+  document.getElementById("settingPwdManager").value = sysConfig.PWD_MANAGER || "1111,2222";
   document.getElementById("settingPwdSettings").value = currentSettingsPwd;
   
   document.getElementById("settingsModal").classList.add("show");
 }
 function closeSettingsPanel() { document.getElementById("settingsModal").classList.remove("show"); }
   
-// 🌟 升級：採用 FormData 的 POST 傳輸方式，突破網址長度極限！
 async function saveSettings() {
   const btn = document.querySelector("#settingsModal .btn-start"); 
   if (btn.disabled) return; 
-  
   btn.disabled = true; btn.innerText = "儲存中...";
   
   try {
     const storeName = document.getElementById("settingStoreName").value.trim();
     const receiptFooter = document.getElementById("settingReceiptFooter").value;
     const announcement = document.getElementById("settingAnnouncement").value.trim();
-    
     const fee = document.getElementById("settingFee").value;
     const limit = document.getElementById("settingLimit").value;
     const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
     const enableDelivery = document.getElementById("settingDelivery").checked ? 'Y' : 'N';
-    
     const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
     const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
     const reserveLeadTime = document.getElementById("settingReserveLeadTime").value || 60;
     const reserveInterval = document.getElementById("settingReserveInterval").value || 30;
-    
     const autoCloseEnable = document.getElementById("settingAutoClose").checked ? 'Y' : 'N';
     const autoCloseTime = document.getElementById("settingCloseTime").value || "22:00";
-    
     const pwdStartup = document.getElementById("settingPwdStartup").value.trim();
     const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
-
-    // 🌟 抓取核心金鑰
     const linePayId = document.getElementById("settingLinePayId").value.trim();
     const linePaySecret = document.getElementById("settingLinePaySecret").value.trim();
     const lineBotToken = document.getElementById("settingLineBotToken").value.trim();
     const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
     const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
+
+    // 🌟 SaaS 商業設定擷取
+    const logoUrl = document.getElementById("settingLogoUrl").value.trim();
+    const minOnsite = document.getElementById("settingMinOnsite").value || 0;
+    const minDelivery = document.getElementById("settingMinDelivery").value || 0;
+    const enableLinePayPayment = document.getElementById("settingEnableLinePay").checked ? 'Y' : 'N';
+    const enableCashPayment = document.getElementById("settingEnableCash").checked ? 'Y' : 'N';
+    const promoCode = document.getElementById("settingPromoCode").value.trim();
+    const promoDiscount = document.getElementById("settingPromoDiscount").value || 0;
     
     if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) {
       alert("❌ 密碼欄位不可空白！"); btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; return;
@@ -820,7 +833,6 @@ async function saveSettings() {
     
     const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
     
-    // 使用 FormData 進行 POST 傳輸，確保長 token 不會把網址塞爆
     const formData = new URLSearchParams();
     formData.append("action", "updateConfig");
     formData.append("pwd", currentSettingsPwd);
@@ -841,37 +853,41 @@ async function saveSettings() {
     formData.append("pwdDelivery", pwdDelivery);
     formData.append("pwdManager", encodeURIComponent(pwdManager));
     formData.append("pwdSettings", pwdSettings);
-    // 🌟 把金鑰送給後台
     formData.append("linePayId", linePayId);
     formData.append("linePaySecret", linePaySecret);
     formData.append("lineBotToken", lineBotToken);
     formData.append("lineBotUser", lineBotUser);
     formData.append("frontendUrl", encodeURIComponent(frontendUrl));
     
+    // 🌟 送出 SaaS 商業設定
+    formData.append("logoUrl", encodeURIComponent(logoUrl));
+    formData.append("minOnsite", minOnsite);
+    formData.append("minDelivery", minDelivery);
+    formData.append("enableLinePayPayment", enableLinePayPayment);
+    formData.append("enableCashPayment", enableCashPayment);
+    formData.append("promoCode", encodeURIComponent(promoCode));
+    formData.append("promoDiscount", promoDiscount);
+    
     const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
     
     if (res.success) {
       alert(res.msg); 
-      sysConfig.STORE_NAME = storeName;
-      sysConfig.RECEIPT_FOOTER = receiptFooter;
-      sysConfig.ANNOUNCEMENT = announcement;
+      sysConfig.STORE_NAME = storeName; sysConfig.RECEIPT_FOOTER = receiptFooter; sysConfig.ANNOUNCEMENT = announcement;
       sysConfig.DELIVERY_FEE = Number(fee); sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
       sysConfig.ENABLE_ONSITE = enableOnsite; sysConfig.ENABLE_DELIVERY = enableDelivery;
       sysConfig.RESERVE_START = reserveStart; sysConfig.RESERVE_END = reserveEnd; sysConfig.RESERVE_LEAD_TIME = Number(reserveLeadTime);
-      sysConfig.RESERVE_INTERVAL = Number(reserveInterval);
-      sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
-      sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings;
-      sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
-      // 🌟 更新前端記憶
-      sysConfig.LINEPAY_CHANNEL_ID = linePayId;
-      sysConfig.LINEPAY_SECRET = linePaySecret;
-      sysConfig.LINEBOT_TOKEN = lineBotToken;
-      sysConfig.LINEBOT_USER = lineBotUser;
-      sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
+      sysConfig.RESERVE_INTERVAL = Number(reserveInterval); sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
+      sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings; sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
+      sysConfig.LINEPAY_CHANNEL_ID = linePayId; sysConfig.LINEPAY_SECRET = linePaySecret; sysConfig.LINEBOT_TOKEN = lineBotToken;
+      sysConfig.LINEBOT_USER = lineBotUser; sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
+      // 🌟 同步更新本地記憶體
+      sysConfig.LOGO_URL = logoUrl; sysConfig.MIN_ORDER_ONSITE = Number(minOnsite); sysConfig.MIN_ORDER_DELIVERY = Number(minDelivery);
+      sysConfig.ENABLE_LINEPAY_PAYMENT = enableLinePayPayment; sysConfig.ENABLE_CASH_PAYMENT = enableCashPayment;
+      sysConfig.PROMO_CODE = promoCode; sysConfig.PROMO_DISCOUNT = Number(promoDiscount);
 
       closeSettingsPanel(); 
     } else { alert(res.msg); }
-  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
+  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定"; }
 }
 
 async function executeSearch() {
