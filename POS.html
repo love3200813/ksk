@@ -111,6 +111,15 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;">
+
+      <div style="background:#fff9f0; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#d35400;">🖨️ 列印單據客製化</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據抬頭店名</label>
+        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; font-size:16px;" placeholder="例如：加山記-嘉義民族店">
+        
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據底部廣告/問候語 <span style="color:#999;font-weight:normal;">(多行可直接換行)</span></label>
+        <textarea id="settingReceiptFooter" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; font-size:16px;" placeholder="例如：憑此單據下次消費送滷蛋\n歡迎追蹤 IG: kashan_kee"></textarea>
+      </div>
       
       <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 顧客首頁緊急公告</h4>
@@ -323,7 +332,7 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30 };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222,3333,4444,5555,6666,7777,8888', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '' };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -429,12 +438,23 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
+// 🌟 升級：客製化明細抬頭與頁尾
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
-  ctx.font = "bold 50px sans-serif"; ctx.fillText("加山記", 10, y); y += 62;
+  
+  // 抓取設定的店名，如果太長就自動縮小縮排
+  const storeName = sysConfig.STORE_NAME || "加山記";
+  if(storeName.length > 5) {
+      ctx.font = "bold 36px sans-serif";
+      y = drawWrappedText(ctx, storeName, 10, y, width - 20, 46);
+      y += 16;
+  } else {
+      ctx.font = "bold 50px sans-serif"; ctx.fillText(storeName, 10, y); y += 62;
+  }
+
   ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 58; 
   ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42; 
   ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
@@ -446,6 +466,18 @@ function buildCustomerReceiptCanvas(o){
   ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 30px sans-serif";
   for(const item of items){ y = drawWrappedText(ctx, "・" + item, 10, y, 360, lineHeight); y += 5; }
   ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 46px sans-serif"; ctx.fillText("總計 $" + String(o.total || 0), 10, y); y += 60;
+  
+  // 🌟 繪製底部廣告標語
+  if (sysConfig.RECEIPT_FOOTER && sysConfig.RECEIPT_FOOTER.trim() !== "") {
+      ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
+      ctx.font = "bold 24px sans-serif";
+      const footers = sysConfig.RECEIPT_FOOTER.split('\n');
+      for(let fLine of footers) {
+          y = drawWrappedText(ctx, fLine, 10, y, width - 20, 34); y += 5;
+      }
+      y += 20;
+  }
+
   const bottomPadding = 96; const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
@@ -694,11 +726,13 @@ async function openSettingsPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
   if (!pwd) return; 
-  
   if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
-  document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
+  // 🌟 讀取店名與廣告語
+  document.getElementById("settingStoreName").value = sysConfig.STORE_NAME || "加山記";
+  document.getElementById("settingReceiptFooter").value = sysConfig.RECEIPT_FOOTER || "";
 
+  document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
   document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
   document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
   document.getElementById("settingOnsite").checked = (sysConfig.ENABLE_ONSITE !== 'N');
@@ -725,10 +759,11 @@ async function saveSettings() {
   const btn = document.querySelector("#settingsModal .btn-start"); 
   if (btn.disabled) return; 
   
-  btn.disabled = true; 
-  btn.innerText = "儲存中...";
+  btn.disabled = true; btn.innerText = "儲存中...";
   
   try {
+    const storeName = document.getElementById("settingStoreName").value.trim();
+    const receiptFooter = document.getElementById("settingReceiptFooter").value;
     const announcement = document.getElementById("settingAnnouncement").value.trim();
     
     const fee = document.getElementById("settingFee").value;
@@ -755,12 +790,14 @@ async function saveSettings() {
     
     const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
     
-    const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}&autoCloseEnable=${autoCloseEnable}&autoCloseTime=${autoCloseTime}&announcement=${encodeURIComponent(announcement)}&reserveLeadTime=${reserveLeadTime}&reserveInterval=${reserveInterval}`;
+    const url = `${GAS_API}?action=updateConfig&pwd=${currentSettingsPwd}&fee=${fee}&limit=${limit}&enableOnsite=${enableOnsite}&enableDelivery=${enableDelivery}&reserveStart=${reserveStart}&reserveEnd=${reserveEnd}&pwdStartup=${pwdStartup}&pwdDelivery=${pwdDelivery}&pwdManager=${encodeURIComponent(pwdManager)}&pwdSettings=${pwdSettings}&autoCloseEnable=${autoCloseEnable}&autoCloseTime=${autoCloseTime}&announcement=${encodeURIComponent(announcement)}&reserveLeadTime=${reserveLeadTime}&reserveInterval=${reserveInterval}&storeName=${encodeURIComponent(storeName)}&receiptFooter=${encodeURIComponent(receiptFooter)}`;
     
     const res = await (await fetch(url)).json();
     
     if (res.success) {
       alert(res.msg); 
+      sysConfig.STORE_NAME = storeName;
+      sysConfig.RECEIPT_FOOTER = receiptFooter;
       sysConfig.ANNOUNCEMENT = announcement;
       sysConfig.DELIVERY_FEE = Number(fee); sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
       sysConfig.ENABLE_ONSITE = enableOnsite; sysConfig.ENABLE_DELIVERY = enableDelivery;
@@ -844,7 +881,6 @@ async function initSystem() {
 
 let rawMenuData = [];
 
-// 🌟 升級：雙權限密碼驗證與畫面切換
 async function openMenuPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const rawManagerPwds = String(sysConfig.PWD_MANAGER || "1111,2222").replace(/，/g, ",");
@@ -862,11 +898,9 @@ async function openMenuPanel() {
      alert("❌ 密碼錯誤，權限不足"); return;
   }
 
-  // 將角色和密碼藏在 HTML 標籤裡，等等儲存要用
   document.getElementById("menuModal").dataset.pwd = pwd;
   document.getElementById("menuModal").dataset.role = role;
 
-  // 根據角色隱藏/顯示功能
   document.getElementById("menuComboSettingsArea").style.display = (role === 'boss') ? 'flex' : 'none';
   document.getElementById("addMenuRowBtn").style.display = (role === 'boss') ? 'inline-block' : 'none';
   document.getElementById("menuModalTitleRole").innerText = (role === 'boss') ? "(老闆模式：完整權限)" : "(店員模式：僅開放狀態切換)";
@@ -935,7 +969,6 @@ async function saveMenuData() {
      if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del, status]);
   });
   
-  // 如果是員工模式，不改動點餐模式設定，強制送出原始設定
   const enableCombo = (role === 'boss') ? (document.getElementById("menuEnableCombo").checked ? 'Y' : 'N') : sysConfig.ENABLE_COMBO; 
   const enableSingle = (role === 'boss') ? (document.getElementById("menuEnableSingle").checked ? 'Y' : 'N') : sysConfig.ENABLE_SINGLE;
   
