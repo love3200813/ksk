@@ -5,35 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加山記點餐</title>
 <style>
-/* 🌟 終極稽核：雙平台完美防滑走置頂設定 */
 #orderTrackerBar {
   background-color: #FFF9E6; 
   border-bottom: 2px solid #F3E5AB;
   padding: 15px;
   text-align: center;
-  position: -webkit-sticky; /* 🍎 蘋果 iOS 專用防滑走指令 */
-  position: sticky;         /* 📱 安卓/電腦 標準指令 */
+  position: -webkit-sticky; 
+  position: sticky;         
   top: 0;                   
-  z-index: 99999;           /* 🌟 強制在螢幕最上層，絕對不被菜單蓋住 */
+  z-index: 99999;           
   font-family: "Microsoft JhengHei", sans-serif;
   display: none; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
 }
-#orderTrackerBar span {
-  color: #5D4037;
-  font-weight: bold;
-  font-size: 15px;
-}
+#orderTrackerBar span { color: #5D4037; font-weight: bold; font-size: 15px; }
 #orderTrackerBar .track-btn {
-  background-color: #111;
-  color: white;
-  padding: 6px 15px;
-  border-radius: 20px;
-  margin-left: 10px;
-  font-size: 13px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
+  background-color: #111; color: white; padding: 6px 15px;
+  border-radius: 20px; margin-left: 10px; font-size: 13px;
+  border: none; cursor: pointer; font-weight: bold;
 }
 :root{
   --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b;
@@ -92,7 +81,9 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
       <marquee scrollamount="5" id="portalAnnouncementText"></marquee>
     </div>
 
-    <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
+    <div id="portalLogoArea" style="text-align:center;">
+      <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
+    </div>
     
     <p id="portalSubtitle" style="margin-bottom:40px; color:#666; font-size:18px; font-weight:bold;">正在為您確認門市營業狀態...</p>
     
@@ -199,6 +190,15 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     <h2 class="brand-title" style="margin-bottom:15px;">步驟 2：確認資料</h2>
     <div id="checkoutItemsDisplay" style="margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; border:1px solid var(--line);"></div>
     
+    <div id="promoSection" style="background:#f4f6f8; padding:15px; border-radius:12px; margin-bottom:15px; border:1px dashed #ccc;">
+      <label style="font-weight:900; color:#2c3e50; margin-bottom:8px; display:block;">🎟️ 專屬折扣碼</label>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="promoInput" placeholder="請輸入折扣碼" style="margin-bottom:0; flex:1;">
+        <button class="btn btn-secondary" onclick="applyPromoCode()" style="padding:10px 20px; flex:none; width:auto; border:1px solid #ccc;">套用</button>
+      </div>
+      <div id="promoMsg" style="font-size:14px; font-weight:bold; margin-top:8px;"></div>
+    </div>
+
     <label style="font-weight:900;">取餐方式</label>
     <select id="pickupMode" onchange="handlePickupModeChange()">
       <option value="onsite">現場取餐（盡快）</option>
@@ -213,10 +213,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     </div>
 
     <label style="font-weight:900;">付款方式</label>
-    <select id="payMethod">
-      <option value="LINEPAY">LINE Pay</option>
-      <option value="現金">現場付款</option>
-    </select>
+    <select id="payMethod"></select>
 
     <label style="font-weight:900;">聯絡姓名</label>
     <input type="text" id="customerName" placeholder="請輸入姓名">
@@ -264,76 +261,59 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 let serviceMode = "pickup"; 
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30 };
+// 🌟 SaaS 參數預設值
+let sysConfig = { 
+  DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30,
+  LOGO_URL: '', MIN_ORDER_ONSITE: 0, MIN_ORDER_DELIVERY: 0, ENABLE_LINEPAY_PAYMENT: 'Y', ENABLE_CASH_PAYMENT: 'Y', PROMO_CODE: '', PROMO_DISCOUNT: 0 
+};
 
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
 let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
+// 🌟 折扣碼狀態變數
+let appliedPromoDiscount = 0;
+
 async function fetchSysConfig() {
   try {
     const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
     const conf = await res.json();
-    sysConfig.DELIVERY_FEE = Number(conf.DELIVERY_FEE || 190);
-    sysConfig.FREE_SHIPPING_LIMIT = Number(conf.FREE_SHIPPING_LIMIT || 2500);
     
-    sysConfig.RESERVE_START = conf.RESERVE_START || "17:00";
-    sysConfig.RESERVE_END = conf.RESERVE_END || "23:00";
-    sysConfig.RESERVE_LEAD_TIME = Number(conf.RESERVE_LEAD_TIME) || 60;
-    sysConfig.RESERVE_INTERVAL = Number(conf.RESERVE_INTERVAL) || 30; 
+    Object.assign(sysConfig, conf); // 將抓取到的設定全部寫入預設變數
     
-    sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
-    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; 
-
-    sysConfig.AUTO_CLOSE_ENABLE = conf.AUTO_CLOSE_ENABLE || 'N';
-    sysConfig.AUTO_CLOSE_TIME = conf.AUTO_CLOSE_TIME || "22:00";
-    sysConfig.ANNOUNCEMENT = conf.ANNOUNCEMENT || "";
+    // 🌟 SaaS：替換 Logo
+    if (sysConfig.LOGO_URL && sysConfig.LOGO_URL.trim() !== "") {
+      document.getElementById("portalLogoArea").innerHTML = `<img src="${sysConfig.LOGO_URL}" style="max-height:100px; max-width:90%; object-fit:contain; margin-bottom:20px; border-radius:12px;">`;
+    }
 
     const modeComboBtn = document.getElementById("modeComboBtn");
     const modeSingleBtn = document.getElementById("modeSingleBtn");
-    
     if (modeComboBtn) modeComboBtn.style.display = (sysConfig.ENABLE_COMBO === 'Y') ? "block" : "none";
     if (modeSingleBtn) modeSingleBtn.style.display = (sysConfig.ENABLE_SINGLE === 'Y') ? "block" : "none";
 
-    if (sysConfig.ENABLE_COMBO === 'Y' && sysConfig.ENABLE_SINGLE !== 'Y') {
-        setOrderMode('combo');
-    } else if (sysConfig.ENABLE_SINGLE === 'Y') {
-        setOrderMode('single');
-    }
+    if (sysConfig.ENABLE_COMBO === 'Y' && sysConfig.ENABLE_SINGLE !== 'Y') setOrderMode('combo');
+    else if (sysConfig.ENABLE_SINGLE === 'Y') setOrderMode('single');
     
     const annTextStr = "📢 公告：" + sysConfig.ANNOUNCEMENT;
     if (sysConfig.ANNOUNCEMENT && sysConfig.ANNOUNCEMENT.trim() !== "") {
-        document.getElementById("portalAnnouncementBar").style.display = "block";
-        document.getElementById("portalAnnouncementText").innerText = annTextStr;
-        document.getElementById("mainAnnouncementBar").style.display = "block";
-        document.getElementById("mainAnnouncementText").innerText = annTextStr;
+        document.getElementById("portalAnnouncementBar").style.display = "block"; document.getElementById("portalAnnouncementText").innerText = annTextStr;
+        document.getElementById("mainAnnouncementBar").style.display = "block"; document.getElementById("mainAnnouncementText").innerText = annTextStr;
     } else {
-        document.getElementById("portalAnnouncementBar").style.display = "none";
-        document.getElementById("mainAnnouncementBar").style.display = "none";
+        document.getElementById("portalAnnouncementBar").style.display = "none"; document.getElementById("mainAnnouncementBar").style.display = "none";
     }
 
     let enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
     let enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
-    
     let isAutoClosed = false;
+    
     if (sysConfig.AUTO_CLOSE_ENABLE === 'Y' && sysConfig.AUTO_CLOSE_TIME) {
         const [cH, cM] = sysConfig.AUTO_CLOSE_TIME.split(':').map(Number);
-        const now = getTaipeiNow();
-        const nowMins = now.getHours() * 60 + now.getMinutes();
-        const closeMins = cH * 60 + cM;
-        const openMins = 8 * 60; 
-
-        if (closeMins >= openMins) {
-            if (nowMins >= closeMins || nowMins < openMins) isAutoClosed = true;
-        } else {
-            if (nowMins >= closeMins && nowMins < openMins) isAutoClosed = true;
-        }
+        const now = getTaipeiNow(); const nowMins = now.getHours() * 60 + now.getMinutes(); const closeMins = cH * 60 + cM; const openMins = 8 * 60; 
+        if (closeMins >= openMins) { if (nowMins >= closeMins || nowMins < openMins) isAutoClosed = true; } 
+        else { if (nowMins >= closeMins && nowMins < openMins) isAutoClosed = true; }
     }
 
-    if (isAutoClosed) {
-        enableOnsite = false;
-        enableDelivery = false; 
-    }
+    if (isAutoClosed) { enableOnsite = false; enableDelivery = false; }
     
     const btnOnsite = document.getElementById("btnOnsite");
     const btnDelivery = document.getElementById("btnDelivery");
@@ -342,59 +322,38 @@ async function fetchSysConfig() {
     
     if (!enableOnsite && !enableDelivery) {
        subtitle.innerText = isAutoClosed ? "🌙 本店已打烊，明日請早 🌙" : "⚠️ 目前暫停接單 ⚠️";
-       subtitle.style.color = "var(--danger)";
-       subtitle.style.fontSize = "24px";
+       subtitle.style.color = "var(--danger)"; subtitle.style.fontSize = "24px";
        hintEl.innerText = isAutoClosed ? `(每日 ${sysConfig.AUTO_CLOSE_TIME} 後系統會自動拉下鐵門)` : "店面休息中或已售完，請稍後再試！";
        hintEl.style.fontSize = "16px";
     } else {
-       subtitle.innerText = "請選擇您的點餐方式";
-       subtitle.style.color = "#666";
-       subtitle.style.fontSize = "18px";
-       
+       subtitle.innerText = "請選擇您的點餐方式"; subtitle.style.color = "#666"; subtitle.style.fontSize = "18px";
        if(btnOnsite) btnOnsite.style.display = enableOnsite ? "block" : "none";
        if(btnDelivery) btnDelivery.style.display = enableDelivery ? "block" : "none";
        
        if (enableDelivery) {
-         if (sysConfig.FREE_SHIPPING_LIMIT >= 99999) {
-            hintEl.innerText = `(低溫宅配運費固定 $${sysConfig.DELIVERY_FEE})`;
-         } else {
-            hintEl.innerText = `(宅配運費 $${sysConfig.DELIVERY_FEE}，滿 $${sysConfig.FREE_SHIPPING_LIMIT} 享免運優惠)`;
-         }
-       } else {
-         hintEl.innerText = "(目前宅配服務暫停中)";
-       }
+         if (sysConfig.FREE_SHIPPING_LIMIT >= 99999) hintEl.innerText = `(低溫宅配運費固定 $${sysConfig.DELIVERY_FEE})`;
+         else hintEl.innerText = `(宅配運費 $${sysConfig.DELIVERY_FEE}，滿 $${sysConfig.FREE_SHIPPING_LIMIT} 享免運優惠)`;
+       } else { hintEl.innerText = "(目前宅配服務暫停中)"; }
     }
   } catch(err) { 
     console.error("設定載入失敗:", err); 
-    document.getElementById("btnOnsite").style.display = "block";
-    document.getElementById("btnDelivery").style.display = "block";
-    document.getElementById("portalSubtitle").innerText = "請選擇您的點餐方式";
-    document.getElementById("deliveryFeeHint").innerText = "(無法讀取最新設定，套用預設運費)";
+    document.getElementById("btnOnsite").style.display = "block"; document.getElementById("btnDelivery").style.display = "block";
+    document.getElementById("portalSubtitle").innerText = "請選擇您的點餐方式"; document.getElementById("deliveryFeeHint").innerText = "(無法讀取最新設定，套用預設運費)";
   }
 }
 
 function chooseServiceMode(mode) {
   serviceMode = mode;
   document.getElementById("entryPortal").style.display = "none";
-  if (mode === 'delivery') {
-    setOrderMode('single'); 
-    document.querySelector(".mode-switch").style.display = "none"; 
-    renderSingleUI(); 
-    showToast("已進入宅配專區");
-  } else {
-    document.querySelector(".mode-switch").style.display = "flex"; 
-    renderSingleUI(); 
-  }
+  if (mode === 'delivery') { setOrderMode('single'); document.querySelector(".mode-switch").style.display = "none"; renderSingleUI(); showToast("已進入宅配專區"); } 
+  else { document.querySelector(".mode-switch").style.display = "flex"; renderSingleUI(); }
 }
 
 function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
-    categories = [{ 
-      name: "🚚 低溫宅配專區", 
-      list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img, status: d.status })) 
-    }];
+    categories = [{ name: "🚚 低溫宅配專區", list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img, status: d.status })) }];
   } else {
     categories = [
       { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img, status: m.status })) },
@@ -404,8 +363,7 @@ function renderSingleUI() {
     ];
   }
   
-  categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0));
-  categories = categories.filter(cat => cat.list.length > 0);
+  categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0)); categories = categories.filter(cat => cat.list.length > 0);
 
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
@@ -424,15 +382,64 @@ function renderSingleUI() {
       </div></div>`).join("");
 }
 
+// 🌟 SaaS：折扣碼套用邏輯
+function applyPromoCode() {
+  const code = document.getElementById("promoInput").value.trim();
+  const msg = document.getElementById("promoMsg");
+  if (!code) return;
+  if (sysConfig.PROMO_CODE && code === String(sysConfig.PROMO_CODE)) {
+      appliedPromoDiscount = Number(sysConfig.PROMO_DISCOUNT) || 0;
+      msg.innerText = `✅ 折扣碼套用成功！已為您折抵 $${appliedPromoDiscount}`;
+      msg.style.color = "var(--success)";
+      renderCheckoutSummary(); 
+  } else {
+      appliedPromoDiscount = 0;
+      msg.innerText = `❌ 無效的折扣碼或已過期`;
+      msg.style.color = "var(--danger)";
+      renderCheckoutSummary();
+  }
+}
+
+// 🌟 SaaS：分離結算渲染邏輯，支援折扣碼即時更新
+function renderCheckoutSummary() {
+  let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
+  let shippingFee = 0;
+  if (serviceMode === 'delivery') shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
+  
+  // 總計不低於 0
+  let finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
+
+  let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
+  
+  if (shippingFee > 0) listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
+  else if (serviceMode === 'delivery') listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#1f8f55; font-weight:bold;"><span>🎉 達免運門檻</span> <span>$0</span></div>`;
+  
+  // 顯示折扣明細
+  if (appliedPromoDiscount > 0) {
+    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:var(--success); font-weight:bold;"><span>🎟️ 折扣碼折抵</span> <span>-$${appliedPromoDiscount}</span></div>`;
+  }
+  
+  listHtml += `<div style="text-align:right; font-size:22px; font-weight:900; margin-top:10px; border-top:2px solid #111; padding-top:10px;">總計：$${finalTotal}</div>`;
+  document.getElementById("checkoutItemsDisplay").innerHTML = listHtml;
+}
+
 function showCheckout() {
   let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
   
-  let shippingFee = 0;
-  if (serviceMode === 'delivery') {
-    shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
+  // 🌟 SaaS：檢查低消門檻阻擋機制
+  let minReq = (serviceMode === 'delivery') ? Number(sysConfig.MIN_ORDER_DELIVERY) : Number(sysConfig.MIN_ORDER_ONSITE);
+  if (subtotal < minReq) {
+      alert(`目前差 $${minReq - subtotal} 才能結帳！\n此服務模式最低消費門檻為 $${minReq}`);
+      return;
   }
   
-  let finalTotal = subtotal + shippingFee;
+  // 進入結帳頁重置折扣碼
+  appliedPromoDiscount = 0;
+  if(document.getElementById("promoInput")) document.getElementById("promoInput").value = "";
+  if(document.getElementById("promoMsg")) document.getElementById("promoMsg").innerText = "";
+  
+  // 呼叫結算渲染
+  renderCheckoutSummary();
 
   const addrSec = document.getElementById("deliveryAddressSection");
   if (serviceMode === 'delivery') {
@@ -444,17 +451,14 @@ function showCheckout() {
     document.getElementById("pickupMode").innerHTML = `<option value="onsite">現場取餐（盡快）</option><option value="reserve">預約取餐</option>`;
     document.getElementById("pickupMode").disabled = false;
   }
-
-  let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
   
-  if (shippingFee > 0) {
-    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
-  } else if (serviceMode === 'delivery') {
-    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#1f8f55; font-weight:bold;"><span>🎉 達免運門檻</span> <span>$0</span></div>`;
-  }
-  
-  listHtml += `<div style="text-align:right; font-size:22px; font-weight:900; margin-top:10px; border-top:2px solid #111; padding-top:10px;">總計：$${finalTotal}</div>`;
-  document.getElementById("checkoutItemsDisplay").innerHTML = listHtml;
+  // 🌟 SaaS：動態付款選單渲染
+  const paySel = document.getElementById("payMethod");
+  paySel.innerHTML = "";
+  if (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N') paySel.innerHTML += `<option value="LINEPAY">LINE Pay</option>`;
+  if (sysConfig.ENABLE_CASH_PAYMENT !== 'N') paySel.innerHTML += `<option value="現金">現場付款</option>`;
+  // 最底線防呆：如果老闆兩個都關掉，預設還是給他現金避免系統死機
+  if (paySel.options.length === 0) paySel.innerHTML = `<option value="現金">現場付款</option>`;
 
   ['.mode-switch', '#comboModeWrap', '#singleModeWrap', '.inline-summary', '#cartSection', '#stickyCheckoutBar'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
   document.getElementById("checkoutPanel").style.display = "block";
@@ -486,13 +490,15 @@ async function submitOrder() {
 
   let subtotal = basket.reduce((s,i) => s + i.price, 0);
   let shippingFee = 0;
-  if (serviceMode === 'delivery') {
-    shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
-  }
+  if (serviceMode === 'delivery') { shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE; }
+
+  // 🌟 SaaS：計算包含折扣後的最終金額，並把折扣標示附在明細字串給老闆看
+  const finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
+  const finalItemsStr = basket.map(i=>i.desc + " x" + i.qty).join(" | ") + (appliedPromoDiscount > 0 ? ` | 🎟️ 折扣碼折抵 -$${appliedPromoDiscount}` : "");
 
   const orderData = {
-    items: basket.map(i=>i.desc + " x" + i.qty).join(" | "),
-    total: subtotal + shippingFee,
+    items: finalItemsStr,
+    total: finalTotal,
     pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId
   };
 
@@ -649,7 +655,6 @@ async function checkLinePayReturn() {
   const status = urlParams.get('status'); const orderId = urlParams.get('orderId');
   if (status === 'success' && orderId) {
     
-    // 🌟 終極稽核：完美清洗網址列，切斷上一頁的輪迴錯誤！
     window.history.replaceState(null, null, window.location.pathname);
     
     document.getElementById("orderPage").style.display = 'none'; 
