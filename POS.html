@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v40.1 APP 喚醒終極稽核版</title>
+<title>加山記 POS v41.0 隱形通道終極破關版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -39,7 +39,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     <h1>加山記</h1>
     <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
     <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
+    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結安卓隱形通道出單</button>
     
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
     <div id="usbStatus" class="usb-status">本機出單：未連線</div>
@@ -478,12 +478,25 @@ async function connectUSB(){
   }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// 🌟 APP 原生專用連線模式 (直接切換狀態)
+// 🌟 最終隱形通道連線：徹底繞過 Chrome 防護
 async function connectLAN() {
-  currentPrinterMode = 'lan'; 
-  document.getElementById("usbStatus").innerText = `本機出單：APP 原生喚醒模式`;
-  setMsg("✅ 已切換為 APP 原生喚醒列印模式！");
-  alert("✅ 成功啟用 APP 原生喚醒模式！\n\n稍後列印時，系統會瞬間自動喚醒藍色的 RawBT 進行列印。請確保已在 RawBT 設定中開啟「Start printing automatically」。");
+  setMsg("測試 RawBT 隱形通道...");
+  try {
+      let ws = new WebSocket("ws://127.0.0.1:40213/");
+      ws.onopen = function() {
+          currentPrinterMode = 'lan'; 
+          document.getElementById("usbStatus").innerText = `本機出單：無聲背景列印 (RawBT)`;
+          setMsg("✅ 成功連接 RawBT 隱形通道！");
+          ws.close(); 
+      };
+      ws.onerror = function() {
+          alert("❌ 無法連線！\n請確認：\n1. 綠色APP已開啟(Running)\n2. 藍色APP的「Run as a print service」已關閉！");
+          document.getElementById("usbStatus").innerText = "本機出單：連線失敗";
+          setMsg("RawBT 代理連線失敗");
+      };
+  } catch(e) {
+      alert("連線發生錯誤：" + e.message);
+  }
 }
 
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
@@ -655,22 +668,19 @@ function createPrinterBuffer(canvas, protocol) {
   return buf;
 }
 
-// 🌟 APP 專用喚醒引擎：將包裹轉為 Base64 透過 Intent 射出
-function sendToRawBTAppIntent(bufferData) {
-    return new Promise((resolve) => {
-        let binary = '';
-        let bytes = new Uint8Array(bufferData);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        let base64Data = window.btoa(binary);
-        
-        let intentUrl = "intent:base64," + base64Data + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.ws=1;end;";
-        
-        window.location.href = intentUrl;
-        
-        // 給予 APP 切換與列印的緩衝時間
-        setTimeout(resolve, 1500); 
+// 🌟 隱形通道發射器 (無彈出視窗)
+function sendToRawBTWS(bufferData) {
+    return new Promise((resolve, reject) => {
+        let ws = new WebSocket("ws://127.0.0.1:40213/");
+        ws.onopen = function() {
+            // 發送 Blob 確保二進位資料不會損壞
+            const blob = new Blob([bufferData], { type: "application/octet-stream" });
+            ws.send(blob);
+            setTimeout(() => { ws.close(); resolve(); }, 1000);
+        };
+        ws.onerror = function(err) {
+            reject(new Error("RawBT 隱形通道連線失敗"));
+        };
     });
 }
 
@@ -775,14 +785,14 @@ async function printOrderLabel(o){
   const protocol = printerConf.usbProtocol || 'TSPL';
 
   if (currentPrinterMode === 'lan') {
-      // 🌟 雙單合一技術：將客單與廚房單接在一起，只發送一次 Intent
+      // 🌟 雙單合一技術：將客單與廚房單接在一起，只發送一次隱形通道請求
       const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
       const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
       const combinedBuf = new Uint8Array(buf1.length + buf2.length);
       combinedBuf.set(buf1, 0);
       combinedBuf.set(buf2, buf1.length);
       
-      await sendToRawBTAppIntent(combinedBuf.buffer);
+      await sendToRawBTWS(combinedBuf.buffer);
   } else {
       await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
       await new Promise(resolve => setTimeout(resolve, 1500)); 
@@ -1159,7 +1169,7 @@ async function handleCloseShift() {
         
         if (currentPrinterMode === 'lan') {
             const buf = createPrinterBuffer(receipt.canvas, printerConf.usbProtocol || 'TSPL');
-            await sendToRawBTAppIntent(buf.buffer);
+            await sendToRawBTWS(buf.buffer);
         } else {
             await printCanvasToPrinter(receipt.canvas, receipt.finalHeight); 
         }
