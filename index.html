@@ -314,10 +314,10 @@ async function fetchSysConfig() {
         }
     }
 
-    // 若觸發自動打烊，強制把按鈕關掉
+    // 若觸發自動打烊，強制把按鈕關掉（修改後：只關門市，保留宅配）
     if (isAutoClosed) {
         enableOnsite = false;
-        enableDelivery = false;
+        // enableDelivery = false; 
     }
     
     const btnOnsite = document.getElementById("btnOnsite");
