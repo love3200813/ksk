@@ -254,14 +254,14 @@ const BUSINESS_OPEN = { h:17, m:0 };
 const BUSINESS_CLOSE = { h:23, m:0 };
 const MIN_RESERVE_MINUTES = 60;
 
-// 🌟 新增：全域存放運費設定
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500 };
+// 🌟 全域存放運費設定與夜間打烊設定
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00' };
 
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
 let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
-// 🌟 新增：自動抓取後台運費與開關設定 (防閃爍優化版)
+// 🌟 自動抓取後台運費與開關設定 (防閃爍優化版 + 終極夜間防呆版)
 async function fetchSysConfig() {
   try {
     const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
@@ -269,29 +269,56 @@ async function fetchSysConfig() {
     sysConfig.DELIVERY_FEE = Number(conf.DELIVERY_FEE || 190);
     sysConfig.FREE_SHIPPING_LIMIT = Number(conf.FREE_SHIPPING_LIMIT || 2500);
     
-    // 🌟 讀取營業時間
+    // 讀取營業時間
     sysConfig.RESERVE_START = conf.RESERVE_START || "17:00";
     sysConfig.RESERVE_END = conf.RESERVE_END || "23:00";
     
-    // 🌟 讀取點餐模式開關 (修復布林值導致按鈕消失的問題)
+    // 讀取點餐模式開關
     sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
-    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; // 確保它是文字
+    sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; 
+
+    // 🌟 新增：讀取自動打烊設定
+    sysConfig.AUTO_CLOSE_ENABLE = conf.AUTO_CLOSE_ENABLE || 'N';
+    sysConfig.AUTO_CLOSE_TIME = conf.AUTO_CLOSE_TIME || "22:00";
 
     const modeComboBtn = document.getElementById("modeComboBtn");
     const modeSingleBtn = document.getElementById("modeSingleBtn");
     
-    // 控制按鈕顯示與隱藏
     if (modeComboBtn) modeComboBtn.style.display = (sysConfig.ENABLE_COMBO === 'Y') ? "block" : "none";
     if (modeSingleBtn) modeSingleBtn.style.display = (sysConfig.ENABLE_SINGLE === 'Y') ? "block" : "none";
 
-    // 自動切換到有開放的模式 (防止預設模式被關閉時畫面空白)
     if (sysConfig.ENABLE_COMBO === 'Y' && sysConfig.ENABLE_SINGLE !== 'Y') {
         setOrderMode('combo');
     } else if (sysConfig.ENABLE_SINGLE === 'Y') {
         setOrderMode('single');
     }
-    const enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
-    const enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
+    
+    let enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
+    let enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
+    
+    // 🌟 核心防護：夜間自動打烊判斷邏輯
+    let isAutoClosed = false;
+    if (sysConfig.AUTO_CLOSE_ENABLE === 'Y' && sysConfig.AUTO_CLOSE_TIME) {
+        const [cH, cM] = sysConfig.AUTO_CLOSE_TIME.split(':').map(Number);
+        const now = getTaipeiNow();
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        const closeMins = cH * 60 + cM;
+        const openMins = 8 * 60; // 設定早上 08:00 之前都算是昨天的打烊時間
+
+        if (closeMins >= openMins) {
+            // 打烊時間在晚上 (例如 22:00) -> 如果現在大於 22:00 或是凌晨 00~08，都算打烊
+            if (nowMins >= closeMins || nowMins < openMins) isAutoClosed = true;
+        } else {
+            // 打烊時間在凌晨 (例如 02:00) -> 如果現在介於 02:00 到 08:00 之間，算打烊
+            if (nowMins >= closeMins && nowMins < openMins) isAutoClosed = true;
+        }
+    }
+
+    // 若觸發自動打烊，強制把按鈕關掉
+    if (isAutoClosed) {
+        enableOnsite = false;
+        enableDelivery = false;
+    }
     
     const btnOnsite = document.getElementById("btnOnsite");
     const btnDelivery = document.getElementById("btnDelivery");
@@ -299,10 +326,11 @@ async function fetchSysConfig() {
     const subtitle = document.getElementById("portalSubtitle");
     
     if (!enableOnsite && !enableDelivery) {
-       subtitle.innerText = "⚠️ 目前暫停接單 ⚠️";
+       // 如果是因為打烊觸發的，顯示專屬的打烊訊息
+       subtitle.innerText = isAutoClosed ? "🌙 本店已打烊，明日請早 🌙" : "⚠️ 目前暫停接單 ⚠️";
        subtitle.style.color = "var(--danger)";
        subtitle.style.fontSize = "24px";
-       hintEl.innerText = "店面休息中或已售完，請稍後再試！";
+       hintEl.innerText = isAutoClosed ? `(每日 ${sysConfig.AUTO_CLOSE_TIME} 後系統會自動拉下鐵門)` : "店面休息中或已售完，請稍後再試！";
        hintEl.style.fontSize = "16px";
     } else {
        subtitle.innerText = "請選擇您的點餐方式";
@@ -348,14 +376,12 @@ function chooseServiceMode(mode) {
 function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
-    // 宅配模式只抓有開放宅配，且有單點價的燉湯
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
     categories = [{ 
       name: "🚚 低溫宅配專區", 
       list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img })) 
     }];
   } else {
-    // 現場模式：抓取所有分類，對應正確的 singlePrice
     categories = [
       { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img })) },
       { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || 0, img: d.img })) },
@@ -364,11 +390,9 @@ function renderSingleUI() {
     ];
   }
   
-  // 🌟 神級優化：自動過濾掉「單點價為 0」的品項（代表它專屬於套餐，不會在單點區洗版）
   categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0));
   categories = categories.filter(cat => cat.list.length > 0);
 
-  // 渲染出單點畫面
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
         ${cat.list.map(i => `<div class="menu-card">${i.img ? `<img src="${i.img}" class="menu-img">` : ''}<b>${i.n}</b><br><span style="color:var(--danger); font-weight:900;">$${i.p}</span>
@@ -380,7 +404,6 @@ function renderSingleUI() {
 function showCheckout() {
   let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
   
-  // 🌟 核心升級：動態判斷免運與運費
   let shippingFee = 0;
   if (serviceMode === 'delivery') {
     shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
@@ -401,7 +424,6 @@ function showCheckout() {
 
   let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
   
-  // 🌟 顯示運費明細或免運歡呼
   if (shippingFee > 0) {
     listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
   } else if (serviceMode === 'delivery') {
@@ -439,7 +461,6 @@ async function submitOrder() {
   if(serviceMode === 'delivery') pickup = "delivery_cold";
   else if(document.getElementById("pickupMode").value === 'reserve') pickup = document.getElementById("pickupDate").value + " " + document.getElementById("pickupTime").value;
 
-  // 🌟 核心升級：送出給後台的總價，精準計算動態運費
   let subtotal = basket.reduce((s,i) => s + i.price, 0);
   let shippingFee = 0;
   if (serviceMode === 'delivery') {
@@ -533,11 +554,10 @@ function updatePickupTimeOptions() {
   const dateStr = document.getElementById("pickupDate").value; 
   const s = document.getElementById("pickupTime"); 
   const now = getTaipeiNow(); 
-  const minT = new Date(now.getTime() + MIN_RESERVE_MINUTES*60000); // 至少要提前一小時預約
+  const minT = new Date(now.getTime() + MIN_RESERVE_MINUTES*60000); 
   
   let options = []; 
   
-  // 🌟 從系統設定讀取時間 (預設 17:00 到 23:00)
   const startStr = sysConfig.RESERVE_START || "17:00";
   const endStr = sysConfig.RESERVE_END || "23:00";
   
@@ -546,7 +566,7 @@ function updatePickupTimeOptions() {
   
   while(cur <= end) { 
     if(cur >= minT) options.push(pad(cur.getHours()) + ":" + pad(cur.getMinutes())); 
-    cur = new Date(cur.getTime() + 30*60000); // 每 30 分鐘一個間隔
+    cur = new Date(cur.getTime() + 30*60000); 
   }
   
   s.innerHTML = options.length ? options.map(t=>`<option value="${t}">${t}</option>`).join("") : `<option value="">無可用時段 (已超過預約時間)</option>`;
@@ -560,7 +580,6 @@ async function queryOrder() {
   let id = document.getElementById("queryInput").value.trim();
   if (!id) return alert("請輸入號碼");
   
-  // 自動補齊格式，例如輸入 1 會變成 #001
   if (/^\d+$/.test(id)) id = "#" + id.padStart(3, "0"); 
   
   document.getElementById("queryResult").innerHTML = "查詢中...";
@@ -568,22 +587,18 @@ async function queryOrder() {
     const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + encodeURIComponent(id) + "&t=" + Date.now());
     let json = await res.json();
     
-    // 1. 如果後台回報錯誤
     if (json && json.error) {
       document.getElementById("queryResult").innerHTML = "查詢失敗：" + json.message;
       return;
     }
     
-    // 2. 防禦陣列格式
     if (Array.isArray(json)) json = json[0];
     
-    // 3. 判斷是否有抓到訂單
     if (!json || (!json.seqId && !json.seq)) {
       document.getElementById("queryResult").innerHTML = "查無此訂單";
       return;
     }
 
-    // 4. 完美兼容新舊變數名稱
     const seq = json.seqId || json.seq || id;
     const items = json.items || json.content || "無內容";
     const status = json.status || "處理中";
@@ -617,7 +632,7 @@ async function checkLinePayReturn() {
   }
 }
 
-// 🌟 新增呼叫：載入設定
+// 🌟 載入設定
 initializeLiff(); fetchSysConfig(); fetchMenuData(); checkLinePayReturn();
 
 window.addEventListener('load', function() {
@@ -636,10 +651,8 @@ function autoQueryLastOrder() {
 }
 
 function renderComboUI() {
-  // 🌟 第 1 步：選擇燉湯主角
   document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `<div class="menu-card" onclick="selectMain('${m.code}')">${m.img ? `<img src="${m.img}" class="menu-img">` : ''}<b>${m.code}. ${m.n}</b><br><small>套餐起跳價 $${m.comboPrice}</small></div>`).join("");
   
-  // 🌟 自動產生漂亮複選按鈕的工具
   const makeCheckbox = (item, type, priceKey) => {
     const p = Number(item[priceKey]) || 0;
     const priceStr = p > 0 ? `(+ $${p})` : (type === 'addon' ? '' : '(內含)');
@@ -649,7 +662,6 @@ function renderComboUI() {
             </label>`;
   };
 
-  // 🌟 把選單塞進 HTML 做好的方塊區
   document.getElementById("comboAddonContainer").innerHTML = COMBO_ADDONS.map(a => makeCheckbox(a, 'addon', 'singlePrice')).join("");
   document.getElementById("comboMainContainer").innerHTML = COMBO_MAINS.map(d => makeCheckbox(d, 'main', 'comboPrice')).join("");
   document.getElementById("comboSideContainer").innerHTML = COMBO_SIDES.map(s => makeCheckbox(s, 'side', 'comboPrice')).join("");
@@ -666,7 +678,6 @@ function selectMain(c) {
   document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
   window.scrollTo({top: 0, behavior: 'smooth'}); 
   
-  // 🌟 每次點進新的燉湯，自動幫客人把剛剛勾的選項清空歸零
   document.querySelectorAll('#comboOptionsWrap input[type="checkbox"]').forEach(cb => cb.checked = false);
   syncComboSelection();
 }
@@ -677,7 +688,6 @@ function syncComboSelection() {
   let addonTotal = 0, mainTotal = 0, sideTotal = 0;
   let selAddons = [], selMains = [], selSides = [];
 
-  // 🌟 尋找畫面上被「打勾」的選項，把價錢加總，名字存起來
   document.querySelectorAll('.chk-addon:checked').forEach(cb => { addonTotal += Number(cb.dataset.price); selAddons.push(cb.dataset.name); });
   document.querySelectorAll('.chk-main:checked').forEach(cb => { mainTotal += Number(cb.dataset.price); selMains.push(cb.dataset.name); });
   document.querySelectorAll('.chk-side:checked').forEach(cb => { sideTotal += Number(cb.dataset.price); selSides.push(cb.dataset.name); });
@@ -687,7 +697,6 @@ function syncComboSelection() {
   curCombo.sidesList = selSides;
   curCombo.extraPrice = addonTotal + mainTotal + sideTotal;
 
-  // 🌟 基礎燉湯錢 + 所有加點的錢
   const total = Number(curCombo.main.comboPrice) + curCombo.extraPrice;
   document.getElementById("currentComboPrice").innerText = total; 
   document.getElementById("currentComboPriceDisplay").innerText = total;
@@ -706,7 +715,6 @@ function addToBasket() {
     if(!curCombo.main) return alert("請先選擇招牌燉湯！");
     const total = Number(curCombo.main.comboPrice) + (curCombo.extraPrice || 0);
     
-    // 🌟 整理購物車的顯示文字 (例如: 套餐:人蔘雞湯 (主食:滷肉飯、白飯 | 小菜:燙青菜))
     let details = [];
     if(curCombo.mainsList && curCombo.mainsList.length > 0) details.push("主食:" + curCombo.mainsList.join("、"));
     if(curCombo.sidesList && curCombo.sidesList.length > 0) details.push("小菜:" + curCombo.sidesList.join("、"));
