@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v35.0 終極無損防護版</title>
+<title>加山記 POS v36.0 網口一波流旗艦版</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -479,10 +479,10 @@ async function connectUSB(){
 }
 
 async function connectLAN() {
-  const ip = prompt("請輸入廚房網路出單機的 IP 位址 (例如 192.168.123.100)：", "192.168.123.100");
+  const ip = prompt("請輸入廚房網路出單機的 IP 位址 (例如 192.168.1.200)：", "192.168.1.200");
   if (!ip) return;
   
-  if (!confirm("⚠️ 重要提示 ⚠️\n\n此功能需在安卓平板上預先安裝【RawBT】APP。\n請確認 RawBT 內部已設定好印表機 IP：" + ip + "\n\n按下確定後將嘗試建立本地代理連線...")) {
+  if (!confirm("⚠️ 重要提示 ⚠️\n\n請確認安卓平板上的「Server for RawBT」(綠色APP) 的 Websocket API 已經設定為 Running 狀態。\n\n按下確定後將嘗試建立本地代理連線...")) {
       return;
   }
 
@@ -498,7 +498,7 @@ async function connectLAN() {
       };
       
       ws.onerror = function() {
-          alert("❌ 無法連線！\n\n請確認：\n1. 您使用的是安卓設備。\n2. 已安裝【RawBT】APP 並在背景執行。\n3. 在 RawBT 設定中開啟了 WebSocket Server 功能。");
+          alert("❌ 無法連線！\n\n請確認：\n「Server for RawBT」(綠色拼圖APP) 內的 Websocket API 已經開啟並顯示 Running。");
           document.getElementById("usbStatus").innerText = "本機出單：RawBT 連線失敗";
           setMsg("RawBT 代理連線失敗");
       };
@@ -659,7 +659,7 @@ function sendToRawBT(bufferData) {
         let ws = new WebSocket("ws://127.0.0.1:40213/");
         ws.onopen = function() {
             ws.send(bufferData);
-            setTimeout(() => { ws.close(); resolve(); }, 300); 
+            setTimeout(() => { ws.close(); resolve(); }, 500); 
         };
         ws.onerror = function(err) {
             reject(new Error("無法連線到 RawBT 服務"));
@@ -672,6 +672,50 @@ async function printCanvasToPrinter(canvas, finalHeight) {
   const totalHeight = Math.ceil(finalHeight); 
   const ctx = canvas.getContext("2d"); 
   const protocol = printerConf.usbProtocol || 'TSPL'; 
+
+  if (currentPrinterMode === 'lan') {
+      const widthBytes = Math.ceil(width / 8); 
+      const bitmap = new Uint8Array(widthBytes * totalHeight); 
+      const img = ctx.getImageData(0, 0, width, totalHeight).data; 
+      let buf; 
+
+      if (protocol === 'TSPL') {
+        bitmap.fill(255); 
+        for(let py = 0; py < totalHeight; py++){ 
+          for(let px = 0; px < width; px++){ 
+            const idx = (py * width + px) * 4; 
+            const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+            if(img[idx+3] > 128 && gray < 180) { 
+               bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); 
+            } 
+          } 
+        }
+        const mmHeight = Math.max(10, Math.ceil(totalHeight / 8)); 
+        const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${totalHeight},0,`);
+        const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\nFEED 20 mm\r\n`);
+        buf = new Uint8Array(header.length + bitmap.length + footer.length); 
+        buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+        
+      } else {
+        bitmap.fill(0); 
+        for(let py = 0; py < totalHeight; py++){ 
+          for(let px = 0; px < width; px++){ 
+            const idx = (py * width + px) * 4; 
+            const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+            if(img[idx+3] > 128 && gray < 180) { 
+               bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8))); 
+            } 
+          } 
+        }
+        const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF]);
+        const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]);
+        buf = new Uint8Array(header.length + bitmap.length + footer.length);
+        buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+      }
+      
+      await sendToRawBT(buf);
+      return; 
+  }
 
   const MAX_CHUNK_HEIGHT = protocol === 'TSPL' ? 1000 : 500; 
 
@@ -727,11 +771,6 @@ async function printCanvasToPrinter(canvas, finalHeight) {
             await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
         }
         await new Promise(resolve => setTimeout(resolve, 600));
-    } else if (currentPrinterMode === 'lan') {
-        await sendToRawBT(buf);
-        await new Promise(resolve => setTimeout(resolve, 800)); 
-    } else {
-        throw new Error("未建立任何出單機連線 (USB/LAN)");
     }
   }
 }
@@ -751,7 +790,6 @@ async function printOrderLabel(o){
   await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); await new Promise(resolve => setTimeout(resolve, 1500)); await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
 }
 
-// 🌟 修復核心：加入等待執行，確保紅綠燈鎖死
 async function safeExecuteDualPrint(o) {
   while (isPrinterBusy) {
     setMsg(`印表機忙碌中，單號 ${o.seq} 正在排隊等待...`);
@@ -763,7 +801,7 @@ async function safeExecuteDualPrint(o) {
     if (!blePrintCharacteristic && currentPrinterMode === 'none') { throw new Error("請先建立藍牙(標籤) 或 本機(明細) 連線"); }
     if (currentPrinterMode !== 'none') { 
         try {
-            await printOrderLabel(o); // 🌟 已修正：確保系統完全等待印表機印完
+            await printOrderLabel(o); 
         } catch(e) {
             console.error("本機列印錯誤", e);
             throw e;
