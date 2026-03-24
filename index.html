@@ -262,13 +262,12 @@ let serviceMode = "pickup";
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
 
 // 🌟 全域存放運費、時間與各式開關設定
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '' };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30 };
 
 let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
 let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
 let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
-// 🌟 自動抓取後台最新設定 (包含跑馬燈與預約時間)
 async function fetchSysConfig() {
   try {
     const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
@@ -276,18 +275,17 @@ async function fetchSysConfig() {
     sysConfig.DELIVERY_FEE = Number(conf.DELIVERY_FEE || 190);
     sysConfig.FREE_SHIPPING_LIMIT = Number(conf.FREE_SHIPPING_LIMIT || 2500);
     
-    // 讀取營業時間與提前準備時間
     sysConfig.RESERVE_START = conf.RESERVE_START || "17:00";
     sysConfig.RESERVE_END = conf.RESERVE_END || "23:00";
-    sysConfig.RESERVE_LEAD_TIME = Number(conf.RESERVE_LEAD_TIME) || 60; // 🌟 接收你後台填的數字！
+    sysConfig.RESERVE_LEAD_TIME = Number(conf.RESERVE_LEAD_TIME) || 60;
+    // 🌟 接收你後台填的「班次間隔數字」
+    sysConfig.RESERVE_INTERVAL = Number(conf.RESERVE_INTERVAL) || 30; 
     
     sysConfig.ENABLE_COMBO = conf.ENABLE_COMBO || 'N'; 
     sysConfig.ENABLE_SINGLE = conf.ENABLE_SINGLE || 'Y'; 
 
     sysConfig.AUTO_CLOSE_ENABLE = conf.AUTO_CLOSE_ENABLE || 'N';
     sysConfig.AUTO_CLOSE_TIME = conf.AUTO_CLOSE_TIME || "22:00";
-    
-    // 🌟 接收跑馬燈公告
     sysConfig.ANNOUNCEMENT = conf.ANNOUNCEMENT || "";
 
     const modeComboBtn = document.getElementById("modeComboBtn");
@@ -302,7 +300,6 @@ async function fetchSysConfig() {
         setOrderMode('single');
     }
     
-    // 🌟 顯示跑馬燈
     const annTextStr = "📢 公告：" + sysConfig.ANNOUNCEMENT;
     if (sysConfig.ANNOUNCEMENT && sysConfig.ANNOUNCEMENT.trim() !== "") {
         document.getElementById("portalAnnouncementBar").style.display = "block";
@@ -394,7 +391,6 @@ function renderSingleUI() {
   let categories = [];
   if (serviceMode === 'delivery') {
     const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
-    // 🌟 保留 status 狀態以供判斷
     categories = [{ 
       name: "🚚 低溫宅配專區", 
       list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img, status: d.status })) 
@@ -411,7 +407,6 @@ function renderSingleUI() {
   categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0));
   categories = categories.filter(cat => cat.list.length > 0);
 
-  // 🌟 升級：繪製畫面時判斷是否售完，加上反灰與 badge，並鎖死點擊按鈕
   document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
     <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
         ${cat.list.map(i => `
@@ -579,13 +574,12 @@ function initDateOptions() {
   updatePickupTimeOptions();
 }
 
-// 🌟 升級：套用你後台動態設定的「預約緩衝時間」
+// 🌟 升級：現在連「班次間隔」也是由你的設定決定的！
 function updatePickupTimeOptions() {
   const dateStr = document.getElementById("pickupDate").value; 
   const s = document.getElementById("pickupTime"); 
   const now = getTaipeiNow(); 
   
-  // 利用動態的 sysConfig.RESERVE_LEAD_TIME 取代原本寫死的 60
   const leadTimeMins = sysConfig.RESERVE_LEAD_TIME || 60; 
   const minT = new Date(now.getTime() + leadTimeMins * 60000); 
   
@@ -593,13 +587,15 @@ function updatePickupTimeOptions() {
   
   const startStr = sysConfig.RESERVE_START || "17:00";
   const endStr = sysConfig.RESERVE_END || "23:00";
+  // 🌟 從系統讀取你剛剛設定的「班次間隔」
+  const intervalMins = sysConfig.RESERVE_INTERVAL || 30; 
   
   let cur = new Date(`${dateStr}T${startStr}:00`); 
   const end = new Date(`${dateStr}T${endStr}:00`);
   
   while(cur <= end) { 
     if(cur >= minT) options.push(pad(cur.getHours()) + ":" + pad(cur.getMinutes())); 
-    cur = new Date(cur.getTime() + 30*60000); 
+    cur = new Date(cur.getTime() + intervalMins * 60000); 
   }
   
   s.innerHTML = options.length ? options.map(t=>`<option value="${t}">${t}</option>`).join("") : `<option value="">無可用時段 (已超過預約時間)</option>`;
@@ -666,7 +662,6 @@ async function checkLinePayReturn() {
   }
 }
 
-// 🌟 載入設定
 initializeLiff(); fetchSysConfig(); fetchMenuData(); checkLinePayReturn();
 
 window.addEventListener('load', function() {
@@ -684,7 +679,6 @@ function autoQueryLastOrder() {
   if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
 
-// 🌟 升級：套餐區域的售完判斷，鎖死點擊與勾選
 function renderComboUI() {
   document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `
     <div class="menu-card" onclick="${m.status === 'N' ? '' : `selectMain('${m.code}')`}" style="${m.status === 'N' ? 'opacity:0.5; cursor:not-allowed;' : ''}">
