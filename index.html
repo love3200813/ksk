@@ -279,7 +279,7 @@ async function fetchSysConfig() {
     const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
     const conf = await res.json();
     
-    Object.assign(sysConfig, conf); // 將抓取到的設定全部寫入預設變數
+    Object.assign(sysConfig, conf); 
     
     // 🌟 SaaS：替換 Logo
     if (sysConfig.LOGO_URL && sysConfig.LOGO_URL.trim() !== "") {
@@ -406,7 +406,6 @@ function renderCheckoutSummary() {
   let shippingFee = 0;
   if (serviceMode === 'delivery') shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
   
-  // 總計不低於 0
   let finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
 
   let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
@@ -414,7 +413,6 @@ function renderCheckoutSummary() {
   if (shippingFee > 0) listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
   else if (serviceMode === 'delivery') listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#1f8f55; font-weight:bold;"><span>🎉 達免運門檻</span> <span>$0</span></div>`;
   
-  // 顯示折扣明細
   if (appliedPromoDiscount > 0) {
     listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:var(--success); font-weight:bold;"><span>🎟️ 折扣碼折抵</span> <span>-$${appliedPromoDiscount}</span></div>`;
   }
@@ -433,12 +431,10 @@ function showCheckout() {
       return;
   }
   
-  // 進入結帳頁重置折扣碼
   appliedPromoDiscount = 0;
   if(document.getElementById("promoInput")) document.getElementById("promoInput").value = "";
   if(document.getElementById("promoMsg")) document.getElementById("promoMsg").innerText = "";
   
-  // 呼叫結算渲染
   renderCheckoutSummary();
 
   const addrSec = document.getElementById("deliveryAddressSection");
@@ -457,7 +453,6 @@ function showCheckout() {
   paySel.innerHTML = "";
   if (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N') paySel.innerHTML += `<option value="LINEPAY">LINE Pay</option>`;
   if (sysConfig.ENABLE_CASH_PAYMENT !== 'N') paySel.innerHTML += `<option value="現金">現場付款</option>`;
-  // 最底線防呆：如果老闆兩個都關掉，預設還是給他現金避免系統死機
   if (paySel.options.length === 0) paySel.innerHTML = `<option value="現金">現場付款</option>`;
 
   ['.mode-switch', '#comboModeWrap', '#singleModeWrap', '.inline-summary', '#cartSection', '#stickyCheckoutBar'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
@@ -655,6 +650,7 @@ async function checkLinePayReturn() {
   const status = urlParams.get('status'); const orderId = urlParams.get('orderId');
   if (status === 'success' && orderId) {
     
+    // 🌟 終極稽核：完美清洗網址列，切斷上一頁的輪迴錯誤！
     window.history.replaceState(null, null, window.location.pathname);
     
     document.getElementById("orderPage").style.display = 'none'; 
