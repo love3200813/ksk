@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加山記點餐</title>
 <style>
-/* 🌟 升級：追蹤進度條 iOS/Android 雙平台完美置頂黏滯防護 */
+/* 🌟 終極稽核：雙平台完美防滑走置頂設定 */
 #orderTrackerBar {
   background-color: #FFF9E6; 
   border-bottom: 2px solid #F3E5AB;
   padding: 15px;
   text-align: center;
-  position: -webkit-sticky; /* 🍎 蘋果 iOS 專屬防滑走指令 */
-  position: sticky;         /* 📱 安卓與電腦版置頂指令 */
+  position: -webkit-sticky; /* 🍎 蘋果 iOS 專用防滑走指令 */
+  position: sticky;         /* 📱 安卓/電腦 標準指令 */
   top: 0;                   
-  z-index: 99999;           /* 🌟 確保永遠在最上層不被蓋住 */
+  z-index: 99999;           /* 🌟 強制在螢幕最上層，絕對不被菜單蓋住 */
   font-family: "Microsoft JhengHei", sans-serif;
   display: none; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
@@ -240,7 +240,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     <div class="combo-step" style="text-align:center;">
         <h2 class="brand-title">✅ 訂單成立:請稍後等待取餐號碼顯示</h2>
         <div id="successDetail" style="margin:20px 0; line-height:2; font-size:18px;"></div>
-        <button class="btn btn-primary" onclick="location.reload()">再點一筆/返回首頁查詢訂單狀態</button>
+        <button class="btn btn-primary" onclick="window.location.href = window.location.pathname">按我返回點餐主頁查詢訂單</button>
     </div>
 </div>
 
@@ -500,6 +500,7 @@ async function submitOrder() {
     const res = await fetch(GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData)));
     const json = await res.json();
     if (json.error) { alert("後台錯誤：" + json.message); btn.disabled = false; return; }
+    
     localStorage.setItem("ksk_last_order", JSON.stringify({ seq: json.seq || "", orderId: json.orderId || "", time: new Date().getTime() }));
 
     if(json.payUrl) location.href = json.payUrl;
@@ -647,16 +648,26 @@ async function checkLinePayReturn() {
   const urlParams = new URLSearchParams(window.location.search);
   const status = urlParams.get('status'); const orderId = urlParams.get('orderId');
   if (status === 'success' && orderId) {
-    document.getElementById("orderPage").style.display = 'none'; document.getElementById("successPage").style.display = 'block';
+    
+    // 🌟 終極稽核：完美清洗網址列，切斷上一頁的輪迴錯誤！
+    window.history.replaceState(null, null, window.location.pathname);
+    
+    document.getElementById("orderPage").style.display = 'none'; 
+    document.getElementById("successPage").style.display = 'block';
     const detailDiv = document.getElementById("successDetail");
     detailDiv.innerHTML = `付款已完成！<br><span style="color:#888; font-size:16px;">正在為您讀取取餐號碼，請稍候...</span>`;
+    
     try {
       const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + orderId + "&t=" + Date.now());
       const json = await res.json();
-      if (json && json.seqId) detailDiv.innerHTML = `LINE Pay 付款成功！<br>取餐號：<b style="font-size:36px; color:var(--danger);">${json.seqId}</b><br><span style="font-size:14px; color:#666;">訂單ID：${orderId}</span>`;
-      else detailDiv.innerHTML = `付款成功！<br>您的訂單編號：<b>${orderId}</b><br><span style="font-size:16px;">請將此編號出示給店員即可取餐。</span>`;
+      if (json && json.seqId) {
+         detailDiv.innerHTML = `LINE Pay 付款成功！<br>取餐號：<b style="font-size:36px; color:var(--danger);">${json.seqId}</b><br><span style="font-size:14px; color:#666;">訂單ID：${orderId}</span>`;
+         localStorage.setItem("ksk_last_order", JSON.stringify({ seq: json.seqId, orderId: orderId, time: new Date().getTime() }));
+      }
+      else {
+         detailDiv.innerHTML = `付款成功！<br>您的訂單編號：<b>${orderId}</b><br><span style="font-size:16px;">請將此編號出示給店員即可取餐。</span>`;
+      }
     } catch (e) { detailDiv.innerHTML = `網路較慢，請截圖此畫面<br>您的訂單編號：<b>${orderId}</b>`; }
-    window.history.replaceState(null, null, window.location.pathname);
   }
 }
 
