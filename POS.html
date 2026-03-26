@@ -1028,8 +1028,12 @@ async function saveOrderEdit() {
   } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認並儲存修改"; }
 }
 
-async function triggerNotify(row) { if(!confirm("確定要發送取餐通知嗎？")) return; const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); alert(res.msg); }
-
+async function triggerNotify(row) { 
+  if(!confirm("確定要發送取餐通知嗎？\n(這會同步將訂單狀態改為「可取餐」，網頁客也能查到)")) return; 
+  const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); 
+  alert(res.msg); 
+  fetchOrders(); // 重新刷新畫面，確保資料同步
+}
 async function openSettingsPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
