@@ -37,9 +37,9 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 <div class="wrap">
   <div class="sidebar">
     <h1>加山記</h1>
-    <button class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
-    <button class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-    <button class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
+    <button id="btnConnectBle" class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
+    <button id="btnConnectUsb" class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
+    <button id="btnConnectLan" class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
     
     <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
     <div id="usbStatus" class="usb-status">本機出單：未連線</div>
@@ -301,7 +301,21 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;">
+      <div class="modal-body" style="padding:20px;">
       
+      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
+        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
+        </label>
+      </div>
+      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
       <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
         <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
@@ -368,8 +382,23 @@ let processingRows = new Set();
 let isPrinterBusy = false;
 
 let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
-  usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384
+  usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384,
+  showBle: true, showUsb: true, showLan: true // 新增這三個預設值
 };
+
+// 防呆機制：防止舊用戶的快取沒有這三個設定值
+if (printerConf.showBle === undefined) printerConf.showBle = true;
+if (printerConf.showUsb === undefined) printerConf.showUsb = true;
+if (printerConf.showLan === undefined) printerConf.showLan = true;
+
+// 🟢 新增：套用按鈕顯示狀態的函數
+function applyButtonVisibility() {
+  if(document.getElementById("btnConnectBle")) document.getElementById("btnConnectBle").style.display = printerConf.showBle ? "block" : "none";
+  if(document.getElementById("btnConnectUsb")) document.getElementById("btnConnectUsb").style.display = printerConf.showUsb ? "block" : "none";
+  if(document.getElementById("btnConnectLan")) document.getElementById("btnConnectLan").style.display = printerConf.showLan ? "block" : "none";
+}
+applyButtonVisibility(); // 腳本讀取到這裡時立刻執行，隱藏不需要的按鈕
+
 
 function openPrinterSettings() {
   document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
@@ -379,6 +408,12 @@ function openPrinterSettings() {
   document.getElementById("p_blePxH").value = printerConf.blePxH;
   document.getElementById("p_bleBottom").value = printerConf.bleBottom;
   document.getElementById("p_usbPxW").value = printerConf.usbPxW;
+  
+  // 🟢 新增：開啟面板時，讀取 Checkbox 狀態
+  document.getElementById("p_showBle").checked = printerConf.showBle;
+  document.getElementById("p_showUsb").checked = printerConf.showUsb;
+  document.getElementById("p_showLan").checked = printerConf.showLan;
+
   document.getElementById("printerModal").classList.add("show");
 }
 
@@ -392,10 +427,18 @@ function savePrinterSettings() {
     blePxW: Number(document.getElementById("p_blePxW").value),
     blePxH: Number(document.getElementById("p_blePxH").value),
     bleBottom: Number(document.getElementById("p_bleBottom").value),
-    usbPxW: Number(document.getElementById("p_usbPxW").value)
+    usbPxW: Number(document.getElementById("p_usbPxW").value),
+    
+    // 🟢 新增：儲存時，記錄 Checkbox 狀態
+    showBle: document.getElementById("p_showBle").checked,
+    showUsb: document.getElementById("p_showUsb").checked,
+    showLan: document.getElementById("p_showLan").checked
   };
   localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
-  alert("✅ 列印機參數與語言切換已儲存！");
+  
+  applyButtonVisibility(); // 儲存後立刻更新左側按鈕顯示狀態
+  
+  alert("✅ 列印機參數與顯示設定已儲存！");
   closePrinterSettings();
 }
 
