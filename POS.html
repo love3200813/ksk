@@ -20,7 +20,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 .modal-card{ width:min(100%, 850px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
 .modal-header{ padding:20px; border-bottom:1px solid #EAE8E3; display:flex; justify-content:space-between; align-items:center; background:#FAFAFA; }
 .modal-body{ padding:20px; overflow-y:auto; flex:1; }
-.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:15px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:15px; }
 .card{ background:#FFFFFF; border-radius:16px; padding:16px; border-left:6px solid #F39C12; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border:1px solid #EAE8E3; margin-bottom:10px; }
 .seq{ font-size:32px; font-weight:900; color:#D35400; }
 .cash-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
@@ -920,22 +920,36 @@ async function fetchOrders() {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
     document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
+      
+      // 判斷狀態顏色
+      let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; // 製作中 (預設黃色)
+      if (o.status === '可取餐') { statusBg = '#d4edda'; statusColor = '#155724'; statusBorder = '#c3e6cb'; } // 綠色
+      else if (o.status === '待列印') { statusBg = '#f8d7da'; statusColor = '#721c24'; statusBorder = '#f5c6cb'; } // 紅色
+
       return `
       <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
         <div style="display:flex; justify-content:space-between; align-items:start;">
-          <div class="seq">${o.seq}</div>
+          <div>
+            <div class="seq">${o.seq}</div>
+            <div style="margin-top:6px;">
+              <span style="background:#f0f0f0; padding:4px 8px; border-radius:6px; font-size:13px; font-weight:bold; color:#555;">💰 ${o.pay || '未知'}</span>
+              <span style="background:#f0f0f0; padding:4px 8px; border-radius:6px; font-size:13px; font-weight:bold; color:#8e44ad; margin-left:5px;">📦 ${formatPickupDisplay(o.pickup)}</span>
+            </div>
+          </div>
           <div style="text-align:right; font-size:12px; color:#666;">
             🕒 ${o.time}<br>
-            <span style="color:#8e44ad; font-weight:bold;">${formatPickupDisplay(o.pickup)}</span>
+            <span style="display:inline-block; margin-top:8px; background:${statusBg}; color:${statusColor}; border:1px solid ${statusBorder}; padding:4px 10px; border-radius:6px; font-weight:900; font-size:14px; letter-spacing:1px;">
+              ${o.status}
+            </span>
           </div>
         </div>
         
-        <div style="font-size:15px; color:#2980b9; margin:6px 0; font-weight:bold; background:#f0f8ff; padding:5px 8px; border-radius:6px; display:inline-block;">
+        <div style="font-size:15px; color:#2980b9; margin:12px 0 8px; font-weight:bold; background:#f0f8ff; padding:8px 10px; border-radius:8px; border:1px solid #cce3ff;">
           👤 ${o.customerName || '現場代客'} | 📞 ${o.customerPhone || '無電話'}
         </div>
         
-        <b style="font-size:18px; display:block; margin:5px 0;">${o.content}</b>
-        <span style="color:#e74c3c; font-weight:bold; font-size:24px;">$${o.total}</span>
+        <b style="font-size:18px; display:block; margin:8px 0; line-height:1.4;">${o.content}</b>
+        <span style="color:#e74c3c; font-weight:900; font-size:26px; display:block; margin-bottom:10px;">$${o.total}</span>
         
         <div style="display:flex; gap:5px; margin-top:10px;">
           <button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">補印</button>
@@ -943,7 +957,9 @@ async function fetchOrders() {
           <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
         </div>
         <div style="display:flex; gap:5px; margin-top:5px;">
-          <button class="sbtn" style="background:#17a2b8; color:#fff;" onclick="triggerNotify(${o.row})">通知</button>
+          <button class="sbtn" style="background:${o.status==='可取餐'?'#ccc':'#17a2b8'}; color:${o.status==='可取餐'?'#888':'#fff'}; cursor:${o.status==='可取餐'?'not-allowed':'pointer'};" onclick="triggerNotify(${o.row})" ${o.status==='可取餐'?'disabled':''}>
+            ${o.status === '可取餐' ? '已通知 ✅' : '🔔 通知客人'}
+          </button>
           <button class="sbtn" style="background:#e74c3c; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
         </div>
       </div>`;
@@ -1029,10 +1045,21 @@ async function saveOrderEdit() {
 }
 
 async function triggerNotify(row) { 
-  if(!confirm("確定要發送取餐通知嗎？\n(這會同步將訂單狀態改為「可取餐」，網頁客也能查到)")) return; 
-  const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); 
-  alert(res.msg); 
-  fetchOrders(); // 重新刷新畫面，確保資料同步
+  // 1. 畫面先顯示處理中，不卡斷操作
+  setMsg("發送通知中..."); 
+  
+  try {
+    // 2. 呼叫 GAS 後台發送通知並更新狀態
+    const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); 
+    
+    // 3. 把後台回傳的結果顯示在左下角紅字區塊
+    setMsg(res.msg); 
+    
+    // 4. 重新抓取訂單，讓卡片狀態瞬間變成「可取餐」，且按鈕變灰
+    fetchOrders(); 
+  } catch(e) {
+    setMsg("通知發送失敗：" + e.message);
+  }
 }
 async function openSettingsPanel() {
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
