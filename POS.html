@@ -122,16 +122,32 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰</h4>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
         <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel ID</label>
-        <input type="text" id="settingLinePayId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Pay Channel Secret</label>
-        <input type="text" id="settingLinePaySecret" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
+        
+        <h5 style="margin:15px 0 5px; color:#2980b9;">🟢 LINE Pay 串接設定</h5>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">目前使用的環境 (切換後須儲存)</label>
+        <select id="settingLinePayEnv" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
+          <option value="sandbox">🟡 測試環境 (Sandbox)</option>
+          <option value="production">🔴 正式環境 (Production)</option>
+        </select>
+
+        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
+          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰 <small>※保留您原本的代碼</small></label>
+          <input type="text" id="settingLinePayId" placeholder="Channel ID (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
+          <input type="text" id="settingLinePaySecret" placeholder="Channel Secret (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+        </div>
+
+        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #e74c3c; margin-bottom:15px;">
+          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#e74c3c;">🔴 正式環境 (Production) 金鑰</label>
+          <input type="text" id="settingLinePayProdId" placeholder="Channel ID (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
+          <input type="text" id="settingLinePayProdSecret" placeholder="Channel Secret (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+        </div>
+
+        <h5 style="margin:15px 0 5px; color:#27ae60;">🟢 LINE Bot 串接設定</h5>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Channel Access Token (超長字串)</label>
         <textarea id="settingLineBotToken" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;"></textarea>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆個人 LINE User ID (接單通知用)</label>
         <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
       </div>
-
       <div style="background:#f9ebff; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad;">
         <h4 style="margin:0 0 10px 0; color:#8e44ad;">💰 商業防呆與品牌行銷</h4>
         
@@ -1072,8 +1088,14 @@ async function openSettingsPanel() {
   if (!pwd) return; 
   if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
   
+  document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
+  
+  // 🟢 新增：讀取 LINE Pay 雙環境設定
+  document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
+  document.getElementById("settingLinePayProdId").value = sysConfig.LINEPAY_PROD_ID || "";
+  document.getElementById("settingLinePayProdSecret").value = sysConfig.LINEPAY_PROD_SECRET || "";
   document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
   document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
@@ -1131,8 +1153,26 @@ async function saveSettings() {
     const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
+    // 🟢 新增：抓取 LINE Pay 雙環境設定
+    const linePayEnv = document.getElementById("settingLinePayEnv").value;
+    const linePayProdId = document.getElementById("settingLinePayProdId").value.trim();
+    const linePayProdSecret = document.getElementById("settingLinePayProdSecret").value.trim();
     const linePayId = document.getElementById("settingLinePayId").value.trim();
     const linePaySecret = document.getElementById("settingLinePaySecret").value.trim();
+
+    // ... (中間省略，找到 append 的地方加入新參數) ...
+    formData.append("linePayEnv", linePayEnv);
+    formData.append("linePayProdId", linePayProdId);
+    formData.append("linePayProdSecret", linePayProdSecret);
+    formData.append("linePayId", linePayId);
+    formData.append("linePaySecret", linePaySecret);
+    
+    // ... (在 res.success 成功後的更新區塊，加入更新本地變數) ...
+    sysConfig.LINEPAY_ENV = linePayEnv;
+    sysConfig.LINEPAY_PROD_ID = linePayProdId;
+    sysConfig.LINEPAY_PROD_SECRET = linePayProdSecret;
+    sysConfig.LINEPAY_CHANNEL_ID = linePayId; 
+    sysConfig.LINEPAY_SECRET = linePaySecret;
     const lineBotToken = document.getElementById("settingLineBotToken").value.trim();
     const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
     const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
