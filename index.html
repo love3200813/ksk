@@ -85,8 +85,10 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
       <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
     </div>
     
-    <p id="portalSubtitle" style="margin-bottom:40px; color:#666; font-size:18px; font-weight:bold;">正在為您確認門市營業狀態...</p>
+   <p id="portalSubtitle" style="margin-bottom:40px; color:#666; font-size:18px; font-weight:bold;">正在為您確認門市營業狀態...</p>
     
+    <button type="button" onclick="openTutorial()" style="background:none; border:none; color:#2980b9; font-weight:900; font-size:16px; cursor:pointer; margin-top:-20px; margin-bottom:30px; text-decoration:underline;">❓ 第一次點餐？點我看快速教學</button>
+
     <button id="btnOnsite" type="button" class="btn btn-primary btn-block" style="display:none; margin-bottom:20px; padding:30px; font-size:22px; border-radius:20px; box-shadow:var(--shadow);" onclick="chooseServiceMode('pickup')">
       🏠 門市現場 / 預約自取
     </button>
@@ -780,8 +782,45 @@ function addToBasket() {
     keys.forEach(k => { basket.push({ desc: `單點:${k}`, price: singleSelection[k].p * singleSelection[k].q, unitPrice: singleSelection[k].p, qty: singleSelection[k].q }); });
     singleSelection = {}; renderSingleUI(); document.getElementById("currentComboPriceDisplay").innerText = "0";
   }
-  showToast("已加入購物車"); updateBasketUI();
+ showToast("已加入購物車"); updateBasketUI();
 }
+</script> <div id="tutorialModal" class="modal">
+  <div class="modal-card" style="max-height:85vh; overflow-y:auto; border: 2px solid #111;">
+    <div class="step-head" style="border-bottom: 2px dashed #eee; padding-bottom: 10px; margin-bottom: 15px;">
+      <div class="brand-title" style="font-size:22px;">📖 快速點餐教學</div>
+      <button class="btn" style="padding:5px 10px; width:auto; background:#f1f1f1;" onclick="closeTutorial()">✕</button>
+    </div>
+    
+    <div style="line-height:1.6; color:#444; font-size: 15px;">
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第一步：選擇服務</h4>
+      <p style="margin:0;">進入頁面後，請先選擇「門市現場/預約自取」或「低溫宅配到府」。</p>
+
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第二步：挑選餐點</h4>
+      <p style="margin:0;">您可以使用上方的按鈕切換點餐模式：<br>
+      • <b>超值套餐</b>：先選招牌燉湯，系統會引導您自由加購配菜與主食。<br>
+      • <b>輕鬆單點</b>：直接利用「+」「-」按鈕，快速增減您想要的品項。</p>
+
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第三步：加入購物車</h4>
+      <p style="margin:0;">選好餐點後，請務必點擊畫面下方的<b>「＋加入購物車」</b>。您可以反覆此動作，加點多道不同的餐點。</p>
+
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第四步：確認結帳</h4>
+      <p style="margin:0;">當您都點完後，點擊畫面最下方的<b>「確認結帳 ➔」</b>，填寫您的姓名、電話、取餐時間與付款方式，最後送出訂單即可！</p>
+
+      <div style="background:#f0f8ff; padding:12px; border-radius:10px; border:1px solid #cce3ff; margin-top:20px;">
+        <h4 style="color:#2563eb; margin:0 0 5px;">🔍 如何查詢進度？</h4>
+        <p style="margin:0;">點餐完成後，您可以隨時點擊畫面上方的「查詢訂單」，輸入您的<b>取餐號</b>查看店家目前的製作進度喔！</p>
+      </div>
+    </div>
+    
+    <button class="btn btn-primary btn-block" style="margin-top: 20px; font-size:18px; padding: 15px;" onclick="closeTutorial()">我瞭解了，開始點餐！</button>
+  </div>
+</div>
+
+<script>
+  // 🟢 新增：控制教學面板開關的函數
+  function openTutorial() { document.getElementById('tutorialModal').classList.add('show'); }
+  function closeTutorial() { document.getElementById('tutorialModal').classList.remove('show'); }
 </script>
+
 </body>
 </html>
