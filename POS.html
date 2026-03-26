@@ -953,12 +953,13 @@ async function submitCashOrder() {
   
   // 抓取付款方式與條碼
   const payMethod = document.getElementById("posPayMethod").value;
-  const barcode = document.getElementById("posBarcode").value.trim();
+  const barcodeInput = document.getElementById("posBarcode"); // 這裡把元素抓出來，方便後面清空
+  const barcode = barcodeInput.value.trim();
 
   // 防呆：如果選了掃碼卻沒掃
   if (payMethod === "LINEPAY掃碼槍" && !barcode) {
     alert("⚠️ 請先掃描客人的 LINE Pay 付款條碼！");
-    document.getElementById("posBarcode").focus();
+    barcodeInput.focus();
     return;
   }
 
@@ -976,9 +977,21 @@ async function submitCashOrder() {
       toggleCashPanel(); fetchOrders(); 
     } else {
       alert("❌ 錯誤：" + (json.message || "發生未知錯誤"));
+      
+      // 🟢 優化：如果扣款失敗，自動清空條碼並重新對焦，方便立刻重掃
+      if (payMethod === "LINEPAY掃碼槍") {
+        barcodeInput.value = "";
+        barcodeInput.focus();
+      }
     }
   } catch(e) {
     alert("連線錯誤：" + e.message);
+    
+    // 🟢 優化：如果是網路斷線等異常，一樣自動清空並重新對焦
+    if (payMethod === "LINEPAY掃碼槍") {
+      barcodeInput.value = "";
+      barcodeInput.focus();
+    }
   }
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
