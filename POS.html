@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v40.1 APP 喚醒終極稽核版</title>
+<title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合)</title>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -136,6 +136,11 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
           <option value="sandbox">🟡 測試環境 (Sandbox)</option>
           <option value="production">🔴 正式環境 (Production)</option>
         </select>
+
+        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #3498db; margin-bottom:10px;">
+          <p style="font-size:13px; font-weight:bold; color:#2980b9; margin:0 0 5px 0;">🛠️ 開發與測試專用工具：</p>
+          <a href="https://sandbox-web-pay.line.me/web/sandbox/payment/oneTimeKey?countryCode=TW" target="_blank" style="display:inline-block; background:#3498db; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">🔗 打開線下付款虛擬條碼產生器 (Sandbox)</a>
+        </div>
 
         <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
           <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰 <small>※保留您原本的代碼</small></label>
@@ -418,21 +423,19 @@ let isPrinterBusy = false;
 
 let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
   usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384,
-  showBle: true, showUsb: true, showLan: true // 新增這三個預設值
+  showBle: true, showUsb: true, showLan: true
 };
 
-// 防呆機制：防止舊用戶的快取沒有這三個設定值
 if (printerConf.showBle === undefined) printerConf.showBle = true;
 if (printerConf.showUsb === undefined) printerConf.showUsb = true;
 if (printerConf.showLan === undefined) printerConf.showLan = true;
 
-// 🟢 新增：套用按鈕顯示狀態的函數
 function applyButtonVisibility() {
   if(document.getElementById("btnConnectBle")) document.getElementById("btnConnectBle").style.display = printerConf.showBle ? "block" : "none";
   if(document.getElementById("btnConnectUsb")) document.getElementById("btnConnectUsb").style.display = printerConf.showUsb ? "block" : "none";
   if(document.getElementById("btnConnectLan")) document.getElementById("btnConnectLan").style.display = printerConf.showLan ? "block" : "none";
 }
-applyButtonVisibility(); // 腳本讀取到這裡時立刻執行，隱藏不需要的按鈕
+applyButtonVisibility();
 
 
 function openPrinterSettings() {
@@ -444,7 +447,6 @@ function openPrinterSettings() {
   document.getElementById("p_bleBottom").value = printerConf.bleBottom;
   document.getElementById("p_usbPxW").value = printerConf.usbPxW;
   
-  // 🟢 新增：開啟面板時，讀取 Checkbox 狀態
   document.getElementById("p_showBle").checked = printerConf.showBle;
   document.getElementById("p_showUsb").checked = printerConf.showUsb;
   document.getElementById("p_showLan").checked = printerConf.showLan;
@@ -464,14 +466,13 @@ function savePrinterSettings() {
     bleBottom: Number(document.getElementById("p_bleBottom").value),
     usbPxW: Number(document.getElementById("p_usbPxW").value),
     
-    // 🟢 新增：儲存時，記錄 Checkbox 狀態
     showBle: document.getElementById("p_showBle").checked,
     showUsb: document.getElementById("p_showUsb").checked,
     showLan: document.getElementById("p_showLan").checked
   };
   localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
   
-  applyButtonVisibility(); // 儲存後立刻更新左側按鈕顯示狀態
+  applyButtonVisibility(); 
   
   alert("✅ 列印機參數與顯示設定已儲存！");
   closePrinterSettings();
@@ -557,7 +558,6 @@ async function connectUSB(){
   }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
 }
 
-// 🌟 APP 原生專用連線模式 (直接切換狀態)
 async function connectLAN() {
   currentPrinterMode = 'lan'; 
   document.getElementById("usbStatus").innerText = `本機出單：APP 原生喚醒模式`;
@@ -689,7 +689,6 @@ function buildShiftReceiptCanvas(info, summary) {
   return { canvas: finalCanvas, finalHeight: finalHeight };
 }
 
-// 🌟 核心引擎：單張畫布產生封包
 function createPrinterBuffer(canvas, protocol) {
   const width = canvas.width;
   const totalHeight = canvas.height;
@@ -734,7 +733,6 @@ function createPrinterBuffer(canvas, protocol) {
   return buf;
 }
 
-// 🌟 APP 專用喚醒引擎：將包裹轉為 Base64 透過 Intent 射出
 function sendToRawBTAppIntent(bufferData) {
     return new Promise((resolve) => {
         let binary = '';
@@ -748,12 +746,10 @@ function sendToRawBTAppIntent(bufferData) {
         
         window.location.href = intentUrl;
         
-        // 給予 APP 切換與列印的緩衝時間
         setTimeout(resolve, 1500); 
     });
 }
 
-// 供 USB 使用的切塊傳輸
 async function printCanvasToPrinter(canvas, finalHeight) {
   const width = canvas.width; 
   const totalHeight = Math.ceil(finalHeight); 
@@ -854,7 +850,6 @@ async function printOrderLabel(o){
   const protocol = printerConf.usbProtocol || 'TSPL';
 
   if (currentPrinterMode === 'lan') {
-      // 🌟 雙單合一技術：將客單與廚房單接在一起，只發送一次 Intent
       const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
       const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
       const combinedBuf = new Uint8Array(buf1.length + buf2.length);
@@ -925,7 +920,7 @@ async function manualPrint(encoded){
     const o = JSON.parse(decodeURIComponent(encoded)); 
     const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); 
     if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
-    setMsg(`準備手動列印：${o.seq}...`);
+    setMsg(`準備手ַ手動列印：${o.seq}...`);
     await safeExecuteDualPrint(o); 
     setMsg(`${o.seq} 補印/宅配列印完成`); 
   }catch(err){ 
@@ -933,13 +928,12 @@ async function manualPrint(encoded){
   }
 }
 
-// 🟢 新增：切換付款方式時，顯示或隱藏掃碼輸入框
 function togglePosBarcode() {
   const method = document.getElementById("posPayMethod").value;
   const barcodeInput = document.getElementById("posBarcode");
   if (method === "LINEPAY掃碼槍") {
     barcodeInput.style.display = "block";
-    barcodeInput.focus(); // 自動對焦，方便直接拿槍掃描
+    barcodeInput.focus();
   } else {
     barcodeInput.style.display = "none";
     barcodeInput.value = "";
@@ -951,47 +945,41 @@ async function submitCashOrder() {
   const total = document.getElementById("posTotal").innerText; 
   const items = Object.keys(singleSel).map(k => `${k} x ${singleSel[k].q}`).join(", ");
   
-  // 抓取付款方式與條碼
   const payMethod = document.getElementById("posPayMethod").value;
-  const barcodeInput = document.getElementById("posBarcode"); // 這裡把元素抓出來，方便後面清空
+  const barcodeInput = document.getElementById("posBarcode"); 
   const barcode = barcodeInput.value.trim();
 
-  // 防呆：如果選了掃碼卻沒掃
+  if (Number(total) <= 0) { alert("⚠️ 請先選擇餐點內容！"); return; }
   if (payMethod === "LINEPAY掃碼槍" && !barcode) {
     alert("⚠️ 請先掃描客人的 LINE Pay 付款條碼！");
     barcodeInput.focus();
     return;
   }
 
-  btn.disabled = true; btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "連線扣款中..." : "送單中...";
+  btn.disabled = true; 
+  btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "📡 連線扣款中..." : "送單中...";
+  setMsg(payMethod === "LINEPAY掃碼槍" ? "正在處理 LINE Pay 線下扣款..." : "處理訂單中...");
+  
   const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode };
   const url = GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData));
   
   try {
-    const res = await fetch(url); const json = await res.json();
+    const res = await fetch(url); 
+    const json = await res.json();
     if (json.status === "success") { 
       alert("✅ 送單成功！" + (payMethod === "LINEPAY掃碼槍" ? "\n💰 LINE Pay 扣款成功！" : "")); 
+      playBeep();
       singleSel = {}; updatePosBasket(); renderPosUI(); 
       document.getElementById("posPayMethod").value = "現金";
       togglePosBarcode();
       toggleCashPanel(); fetchOrders(); 
     } else {
       alert("❌ 錯誤：" + (json.message || "發生未知錯誤"));
-      
-      // 🟢 優化：如果扣款失敗，自動清空條碼並重新對焦，方便立刻重掃
-      if (payMethod === "LINEPAY掃碼槍") {
-        barcodeInput.value = "";
-        barcodeInput.focus();
-      }
+      if (payMethod === "LINEPAY掃碼槍") { barcodeInput.value = ""; barcodeInput.focus(); }
     }
   } catch(e) {
     alert("連線錯誤：" + e.message);
-    
-    // 🟢 優化：如果是網路斷線等異常，一樣自動清空並重新對焦
-    if (payMethod === "LINEPAY掃碼槍") {
-      barcodeInput.value = "";
-      barcodeInput.focus();
-    }
+    if (payMethod === "LINEPAY掃碼槍") { barcodeInput.value = ""; barcodeInput.focus(); }
   }
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
@@ -1002,10 +990,9 @@ async function fetchOrders() {
     document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       
-      // 判斷狀態顏色
-      let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; // 製作中 (預設黃色)
-      if (o.status === '可取餐') { statusBg = '#d4edda'; statusColor = '#155724'; statusBorder = '#c3e6cb'; } // 綠色
-      else if (o.status === '待列印') { statusBg = '#f8d7da'; statusColor = '#721c24'; statusBorder = '#f5c6cb'; } // 紅色
+      let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; 
+      if (o.status === '可取餐') { statusBg = '#d4edda'; statusColor = '#155724'; statusBorder = '#c3e6cb'; } 
+      else if (o.status === '待列印') { statusBg = '#f8d7da'; statusColor = '#721c24'; statusBorder = '#f5c6cb'; } 
 
       return `
       <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
@@ -1126,17 +1113,10 @@ async function saveOrderEdit() {
 }
 
 async function triggerNotify(row) { 
-  // 1. 畫面先顯示處理中，不卡斷操作
   setMsg("發送通知中..."); 
-  
   try {
-    // 2. 呼叫 GAS 後台發送通知並更新狀態
     const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); 
-    
-    // 3. 把後台回傳的結果顯示在左下角紅字區塊
     setMsg(res.msg); 
-    
-    // 4. 重新抓取訂單，讓卡片狀態瞬間變成「可取餐」，且按鈕變灰
     fetchOrders(); 
   } catch(e) {
     setMsg("通知發送失敗：" + e.message);
@@ -1150,7 +1130,6 @@ async function openSettingsPanel() {
   
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
   
-  // 🟢 新增：讀取 LINE Pay 雙環境設定
   document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
@@ -1158,7 +1137,6 @@ async function openSettingsPanel() {
   document.getElementById("settingLinePayProdSecret").value = sysConfig.LINEPAY_PROD_SECRET || "";
   document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
   document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
-  document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
 
   document.getElementById("settingLogoUrl").value = sysConfig.LOGO_URL || "";
   document.getElementById("settingMinOnsite").value = sysConfig.MIN_ORDER_ONSITE || 0;
@@ -1213,26 +1191,13 @@ async function saveSettings() {
     const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
-    // 🟢 新增：抓取 LINE Pay 雙環境設定
+    
     const linePayEnv = document.getElementById("settingLinePayEnv").value;
     const linePayProdId = document.getElementById("settingLinePayProdId").value.trim();
     const linePayProdSecret = document.getElementById("settingLinePayProdSecret").value.trim();
     const linePayId = document.getElementById("settingLinePayId").value.trim();
     const linePaySecret = document.getElementById("settingLinePaySecret").value.trim();
 
-    // ... (中間省略，找到 append 的地方加入新參數) ...
-    formData.append("linePayEnv", linePayEnv);
-    formData.append("linePayProdId", linePayProdId);
-    formData.append("linePayProdSecret", linePayProdSecret);
-    formData.append("linePayId", linePayId);
-    formData.append("linePaySecret", linePaySecret);
-    
-    // ... (在 res.success 成功後的更新區塊，加入更新本地變數) ...
-    sysConfig.LINEPAY_ENV = linePayEnv;
-    sysConfig.LINEPAY_PROD_ID = linePayProdId;
-    sysConfig.LINEPAY_PROD_SECRET = linePayProdSecret;
-    sysConfig.LINEPAY_CHANNEL_ID = linePayId; 
-    sysConfig.LINEPAY_SECRET = linePaySecret;
     const lineBotToken = document.getElementById("settingLineBotToken").value.trim();
     const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
     const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
@@ -1273,6 +1238,9 @@ async function saveSettings() {
     formData.append("pwdSettings", pwdSettings);
     formData.append("linePayId", linePayId);
     formData.append("linePaySecret", linePaySecret);
+    formData.append("linePayEnv", linePayEnv);
+    formData.append("linePayProdId", linePayProdId);
+    formData.append("linePayProdSecret", linePayProdSecret);
     formData.append("lineBotToken", lineBotToken);
     formData.append("lineBotUser", lineBotUser);
     formData.append("frontendUrl", encodeURIComponent(frontendUrl));
@@ -1300,10 +1268,11 @@ async function saveSettings() {
       sysConfig.LOGO_URL = logoUrl; sysConfig.MIN_ORDER_ONSITE = Number(minOnsite); sysConfig.MIN_ORDER_DELIVERY = Number(minDelivery);
       sysConfig.ENABLE_LINEPAY_PAYMENT = enableLinePayPayment; sysConfig.ENABLE_CASH_PAYMENT = enableCashPayment;
       sysConfig.PROMO_CODE = promoCode; sysConfig.PROMO_DISCOUNT = Number(promoDiscount);
+      sysConfig.LINEPAY_ENV = linePayEnv; sysConfig.LINEPAY_PROD_ID = linePayProdId; sysConfig.LINEPAY_PROD_SECRET = linePayProdSecret;
 
       closeSettingsPanel(); 
     } else { alert(res.msg); }
-  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定"; }
+  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
 }
 
 async function executeSearch() {
