@@ -364,6 +364,7 @@ let currentEditingOrder = null;
 
 let printedOrders = new Set();
 let printingOrders = new Set();
+let processingRows = new Set();
 let isPrinterBusy = false;
 
 let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
@@ -867,7 +868,7 @@ async function submitCashOrder() {
 async function fetchOrders() {
   try {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       return `
       <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
@@ -932,11 +933,12 @@ async function triggerManagerAction(row, op, encOrder) {
   if (!pwd) return;
   
   if (op === 'void') {
+    processingRows.add(row); fetchOrders(); if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
     const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
     if (res.success) { 
       alert(res.msg); fetchOrders(); 
       if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
-    } else { alert(res.msg); }
+    } else { alert(res.msg); processingRows.delete(row); fetchOrders(); if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders(); }
   } else if (op === 'edit') {
     if (encOrder) currentEditingOrder = JSON.parse(decodeURIComponent(encOrder));
     const res = await (await fetch(`${GAS_API}?action=getOrderForEdit&row=${row}&pwd=${pwd}`)).json();
@@ -1132,14 +1134,14 @@ function closeDeliveryPanel() { document.getElementById("deliveryModal").classLi
 
 async function refreshDeliveryOrders() {
   const div = document.getElementById("deliveryOrderList"); div.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>載入中...</div>";
-  const data = await (await fetch(GAS_API + "?action=getOrders")).json(); const list = data.filter(o => (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && o.status !== "已出貨");
+  const data = await (await fetch(GAS_API + "?action=getOrders")).json(); const list = data.filter(o => (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && o.status !== "已出貨" && !processingRows.has(o.row));
   if (list.length === 0) { div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>"; return; }
   div.innerHTML = list.map(o => {
     const enc = encodeURIComponent(JSON.stringify(o));
     return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">🖨️ 列印</button><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
   }).join("");
 }
-async function shipOrder(row, seq) { const track = prompt("單號:"); if(!track) return; await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders(); }
+async function shipOrder(row, seq) { const track = prompt("單號:"); if(!track) return; processingRows.add(row); refreshDeliveryOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders(); }
 
 async function fetchCurrentShift() {
   const data = await (await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now())).json(); const summary = await (await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now())).json();
@@ -1190,7 +1192,7 @@ function updatePosBasket() {
 async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
 function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
 function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
-async function setStatus(row, s) { await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
+async function setStatus(row, s) { processingRows.add(row); fetchOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
 async function initSystem() {
   const p = prompt("請輸入系統啟動密碼:"); if(!p) return; document.querySelector("#startOverlay button").innerText = "驗證連線中...";
