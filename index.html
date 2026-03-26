@@ -114,9 +114,10 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
         <div class="brand-title">🍲 加山記 Kashan Kee stew</div>
         <div style="font-size:13px; color:var(--muted);">加入購物車後可點下一份，最後統一結帳</div>
       </div>
-      <div class="top-actions">
-        <div class="top-chip">目前總計｜$<b id="cartTotalTop">0</b></div>
-        <button class="btn btn-secondary" onclick="openQueryModal()">查詢訂單</button>
+      <div class="top-actions" style="display:flex; align-items:center; gap:8px;">
+        <button class="btn" style="padding:10px; background:#fff3cd; color:#d35400; border:1px solid #ffc107;" onclick="openTutorial()">📖 教學</button>
+        <div class="top-chip" style="margin:0;">目前總計｜$<b id="cartTotalTop">0</b></div>
+        <button class="btn btn-secondary" style="padding:10px 14px;" onclick="openQueryModal()">查詢訂單</button>
       </div>
     </div>
   </div>
