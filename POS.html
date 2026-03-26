@@ -65,6 +65,13 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       <div style="margin-top:20px; padding:15px; background:#fff9f0; border-radius:14px;">
         <div style="font-size:24px; font-weight:900;">小計：$<span id="posTotal">0</span></div>
         <div id="posBasketList" style="margin:10px 0; font-weight:bold;"></div>
+        
+        <select id="posPayMethod" onchange="togglePosBarcode()" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size:16px; font-weight:bold; border:1px solid #ccc;">
+          <option value="現金">💵 現金結帳</option>
+          <option value="LINEPAY掃碼槍">🔫 LINEPAY掃碼槍</option>
+        </select>
+        <input type="text" id="posBarcode" placeholder="👉 請點此處並使用掃碼槍掃描客人條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
+        
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
     </div></div></div>
@@ -926,13 +933,53 @@ async function manualPrint(encoded){
   }
 }
 
+// 🟢 新增：切換付款方式時，顯示或隱藏掃碼輸入框
+function togglePosBarcode() {
+  const method = document.getElementById("posPayMethod").value;
+  const barcodeInput = document.getElementById("posBarcode");
+  if (method === "LINEPAY掃碼槍") {
+    barcodeInput.style.display = "block";
+    barcodeInput.focus(); // 自動對焦，方便直接拿槍掃描
+  } else {
+    barcodeInput.style.display = "none";
+    barcodeInput.value = "";
+  }
+}
+
 async function submitCashOrder() {
-  const btn = document.getElementById("cashSubmitBtn"); const total = document.getElementById("posTotal").innerText; const items = Object.keys(singleSel).map(k => `${k} x ${singleSel[k].q}`).join(", ");
-  btn.disabled = true; btn.innerText = "送單中...";
-  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: "現金", customerName: "現場代客" };
+  const btn = document.getElementById("cashSubmitBtn"); 
+  const total = document.getElementById("posTotal").innerText; 
+  const items = Object.keys(singleSel).map(k => `${k} x ${singleSel[k].q}`).join(", ");
+  
+  // 抓取付款方式與條碼
+  const payMethod = document.getElementById("posPayMethod").value;
+  const barcode = document.getElementById("posBarcode").value.trim();
+
+  // 防呆：如果選了掃碼卻沒掃
+  if (payMethod === "LINEPAY掃碼槍" && !barcode) {
+    alert("⚠️ 請先掃描客人的 LINE Pay 付款條碼！");
+    document.getElementById("posBarcode").focus();
+    return;
+  }
+
+  btn.disabled = true; btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "連線扣款中..." : "送單中...";
+  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode };
   const url = GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData));
-  const res = await fetch(url); const json = await res.json();
-  if (json.status === "success") { alert("送單成功！"); singleSel = {}; updatePosBasket(); renderPosUI(); toggleCashPanel(); fetchOrders(); }
+  
+  try {
+    const res = await fetch(url); const json = await res.json();
+    if (json.status === "success") { 
+      alert("✅ 送單成功！" + (payMethod === "LINEPAY掃碼槍" ? "\n💰 LINE Pay 扣款成功！" : "")); 
+      singleSel = {}; updatePosBasket(); renderPosUI(); 
+      document.getElementById("posPayMethod").value = "現金";
+      togglePosBarcode();
+      toggleCashPanel(); fetchOrders(); 
+    } else {
+      alert("❌ 錯誤：" + (json.message || "發生未知錯誤"));
+    }
+  } catch(e) {
+    alert("連線錯誤：" + e.message);
+  }
   btn.disabled = false; btn.innerText = "確認送出現場單";
 }
 
