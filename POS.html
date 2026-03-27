@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合)</title>
+<title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合+雲端發票)</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
   <script>
@@ -81,6 +81,9 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
           <option value="現金">💵 現金結帳</option>
           <option value="LINEPAY掃碼槍">🔫 LINEPAY掃碼槍</option>
         </select>
+        
+        <input type="text" id="posInvoiceCarrier" placeholder="🧾 請掃描發票載具 (若無載具請跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
+
         <input type="text" id="posBarcode" placeholder="👉 請點此處並使用掃碼槍掃描客人條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
         
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
@@ -141,6 +144,20 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
         <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
         
+        <h5 style="margin:15px 0 5px; color:#8e44ad;">🧾 電子發票 (API 串接)</h5>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">發票服務商</label>
+        <select id="settingInvoiceProvider" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold;">
+          <option value="">(目前不串接電子發票)</option>
+          <option value="ECPay">🟢 綠界科技 ECPay</option>
+          <option value="NewebPay">🔵 藍新科技 NewebPay</option>
+        </select>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">商店代號 (MerchantID)</label>
+        <input type="text" id="settingInvoiceMerchantId" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">HashKey (通訊金鑰)</label>
+        <input type="text" id="settingInvoiceHashKey" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">HashIV (通訊向量)</label>
+        <input type="text" id="settingInvoiceHashIv" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
+
         <h5 style="margin:15px 0 5px; color:#2980b9;">🟢 LINE Pay 串接設定</h5>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">目前使用的環境 (切換後須儲存)</label>
         <select id="settingLinePayEnv" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
@@ -489,7 +506,7 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0 };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_MERCHANT_ID:'', INVOICE_HASH_KEY:'', INVOICE_HASH_IV:'' };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -944,7 +961,6 @@ function togglePosBarcode() {
   const barcodeInput = document.getElementById("posBarcode");
   if (method === "LINEPAY掃碼槍") {
     barcodeInput.style.display = "block";
-    barcodeInput.focus();
   } else {
     barcodeInput.style.display = "none";
     barcodeInput.value = "";
@@ -959,10 +975,22 @@ async function submitCashOrder() {
   const payMethod = document.getElementById("posPayMethod").value;
   const barcodeInput = document.getElementById("posBarcode"); 
   const barcode = barcodeInput.value.trim();
+  const carrierInput = document.getElementById("posInvoiceCarrier");
+  const carrier = carrierInput.value.trim().toUpperCase();
 
   if (Number(total) <= 0) { alert("⚠️ 請先選擇餐點內容！"); return; }
+  
+  if (carrier !== "") {
+    const carrierRegex = /^\/[0-9A-Z+\-.]{7}$/;
+    if (!carrierRegex.test(carrier)) {
+      alert("⚠️ 發票載具格式錯誤！正確格式如：/AB12345");
+      carrierInput.focus();
+      return;
+    }
+  }
+
   if (payMethod === "LINEPAY掃碼槍" && !barcode) {
-    alert("⚠️ 請先掃描客人的 LINE Pay 付款條碼！");
+    barcodeInput.style.display = "block";
     barcodeInput.focus();
     return;
   }
@@ -971,7 +999,7 @@ async function submitCashOrder() {
   btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "📡 連線扣款中..." : "送單中...";
   setMsg(payMethod === "LINEPAY掃碼槍" ? "正在處理 LINE Pay 線下扣款..." : "處理訂單中...");
   
-  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode };
+  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode, invoiceCarrier: carrier };
   const url = GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData));
   
   try {
@@ -982,6 +1010,7 @@ async function submitCashOrder() {
       playBeep();
       singleSel = {}; updatePosBasket(); renderPosUI(); 
       document.getElementById("posPayMethod").value = "現金";
+      document.getElementById("posInvoiceCarrier").value = "";
       togglePosBarcode();
       toggleCashPanel(); fetchOrders(); 
     } else {
@@ -1025,6 +1054,7 @@ async function fetchOrders() {
         
         <div style="font-size:15px; color:#2980b9; margin:12px 0 8px; font-weight:bold; background:#f0f8ff; padding:8px 10px; border-radius:8px; border:1px solid #cce3ff;">
           👤 ${o.customerName || '現場代客'} | 📞 ${o.customerPhone || '無電話'}
+          ${o.invoiceCarrier ? `<br><span style="color:#8e44ad;">🧾 載具：${o.invoiceCarrier}</span>` : ''}
         </div>
         
         <b style="font-size:18px; display:block; margin:8px 0; line-height:1.4;">${o.content}</b>
@@ -1141,6 +1171,11 @@ async function openSettingsPanel() {
   
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
   
+  document.getElementById("settingInvoiceProvider").value = sysConfig.INVOICE_PROVIDER || "";
+  document.getElementById("settingInvoiceMerchantId").value = sysConfig.INVOICE_MERCHANT_ID || "";
+  document.getElementById("settingInvoiceHashKey").value = sysConfig.INVOICE_HASH_KEY || "";
+  document.getElementById("settingInvoiceHashIv").value = sysConfig.INVOICE_HASH_IV || "";
+
   document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
@@ -1203,6 +1238,11 @@ async function saveSettings() {
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
     
+    const invoiceProvider = document.getElementById("settingInvoiceProvider").value;
+    const invoiceMerchantId = document.getElementById("settingInvoiceMerchantId").value.trim();
+    const invoiceHashKey = document.getElementById("settingInvoiceHashKey").value.trim();
+    const invoiceHashIv = document.getElementById("settingInvoiceHashIv").value.trim();
+
     const linePayEnv = document.getElementById("settingLinePayEnv").value;
     const linePayProdId = document.getElementById("settingLinePayProdId").value.trim();
     const linePayProdSecret = document.getElementById("settingLinePayProdSecret").value.trim();
@@ -1247,6 +1287,12 @@ async function saveSettings() {
     formData.append("pwdDelivery", pwdDelivery);
     formData.append("pwdManager", encodeURIComponent(pwdManager));
     formData.append("pwdSettings", pwdSettings);
+
+    formData.append("invoiceProvider", invoiceProvider);
+    formData.append("invoiceMerchantId", invoiceMerchantId);
+    formData.append("invoiceHashKey", invoiceHashKey);
+    formData.append("invoiceHashIv", invoiceHashIv);
+
     formData.append("linePayId", linePayId);
     formData.append("linePaySecret", linePaySecret);
     formData.append("linePayEnv", linePayEnv);
@@ -1274,6 +1320,10 @@ async function saveSettings() {
       sysConfig.RESERVE_START = reserveStart; sysConfig.RESERVE_END = reserveEnd; sysConfig.RESERVE_LEAD_TIME = Number(reserveLeadTime);
       sysConfig.RESERVE_INTERVAL = Number(reserveInterval); sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
       sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings; sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
+      
+      sysConfig.INVOICE_PROVIDER = invoiceProvider; sysConfig.INVOICE_MERCHANT_ID = invoiceMerchantId;
+      sysConfig.INVOICE_HASH_KEY = invoiceHashKey; sysConfig.INVOICE_HASH_IV = invoiceHashIv;
+
       sysConfig.LINEPAY_CHANNEL_ID = linePayId; sysConfig.LINEPAY_SECRET = linePaySecret; sysConfig.LINEBOT_TOKEN = lineBotToken;
       sysConfig.LINEBOT_USER = lineBotUser; sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
       sysConfig.LOGO_URL = logoUrl; sysConfig.MIN_ORDER_ONSITE = Number(minOnsite); sysConfig.MIN_ORDER_DELIVERY = Number(minDelivery);
@@ -1356,7 +1406,13 @@ function updatePosBasket() {
 }
 
 async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
-function toggleCashPanel() { document.getElementById("cashPanel").classList.toggle("show"); }
+function toggleCashPanel() { 
+  const panel = document.getElementById("cashPanel");
+  panel.classList.toggle("show"); 
+  if (panel.classList.contains("show")) {
+      setTimeout(() => document.getElementById("posInvoiceCarrier").focus(), 100);
+  }
+}
 function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
 async function setStatus(row, s) { processingRows.add(row); fetchOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
@@ -1468,27 +1524,45 @@ async function saveMenuData() {
     if(res.success) { alert(res.msg); sysConfig.ENABLE_COMBO = enableCombo; sysConfig.ENABLE_SINGLE = enableSingle; closeMenuPanel(); fetchMenuData(); } else { alert(res.msg); }
   } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
 }
-// 🟢 掃碼槍注音/全形防呆轉換器
+
+// 🟢 掃碼槍注音/全形防呆轉換器 (套用於發票載具)
+document.getElementById('posInvoiceCarrier').addEventListener('input', function(e) {
+  let val = e.target.value.toUpperCase();
+  e.target.value = val;
+});
+
+// 🟢 掃碼槍注音/全形防呆轉換器 (套用於LINE Pay條碼)
 document.getElementById('posBarcode').addEventListener('input', function(e) {
-  // 定義鍵盤上數字對應的注音符號
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
     'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
   };
-  
   let val = e.target.value;
-  
-  // 1. 如果打出注音，自動替換成對應的數字
   val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
-  
-  // 2. 如果打出全形數字 (１２３)，自動轉成半形數字 (123)
   val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-  
-  // 3. 把其他不小心切換到輸入法產生的奇怪英文字母或符號通通濾掉，只保留純數字
   val = val.replace(/[^0-9]/g, '');
-  
-  // 把洗乾淨的純數字放回輸入框
   e.target.value = val;
+});
+
+// 🟢 連擊 Combo 掃碼邏輯 (載具 -> LINE Pay)
+document.getElementById('posInvoiceCarrier').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const method = document.getElementById("posPayMethod").value;
+    if (method === "LINEPAY掃碼槍") {
+      document.getElementById("posBarcode").style.display = "block";
+      document.getElementById("posBarcode").focus();
+    } else {
+      submitCashOrder();
+    }
+  }
+});
+
+document.getElementById('posBarcode').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitCashOrder();
+  }
 });
 </script>
 </body>
