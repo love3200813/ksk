@@ -6,7 +6,6 @@
 <title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合+雲端發票)</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -16,6 +15,7 @@
       });
     }
   </script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -84,8 +84,10 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </select>
         
         <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.請掃描發票載具 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
+        
         <input type="text" id="posTaxId" placeholder="🏢 2.請輸入統一編號 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #e67e22; margin-bottom:10px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
-        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
+
+        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">      
         
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
@@ -146,6 +148,12 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
         
         <h5 style="margin:15px 0 5px; color:#8e44ad;">🧾 電子發票 (API 串接)</h5>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#8e44ad;">目前發票環境 (切換後須儲存)</label>
+        <select id="settingInvoiceEnv" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
+          <option value="test">🟡 測試模式 (自動產生模擬發票)</option>
+          <option value="production">🔴 正式環境 (真實串接國稅局)</option>
+        </select>
+
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">發票服務商</label>
         <select id="settingInvoiceProvider" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold;">
           <option value="">(目前不串接電子發票)</option>
@@ -507,7 +515,7 @@ function savePrinterSettings() {
   closePrinterSettings();
 }
 
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_MERCHANT_ID:'', INVOICE_HASH_KEY:'', INVOICE_HASH_IV:'' };
+let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_ENV:'test', INVOICE_MERCHANT_ID:'', INVOICE_HASH_KEY:'', INVOICE_HASH_IV:'' };
 
 function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
 function pad2(v){ return String(v).padStart(2,"0"); }
@@ -1186,6 +1194,7 @@ async function openSettingsPanel() {
   
   document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
   
+  document.getElementById("settingInvoiceEnv").value = sysConfig.INVOICE_ENV || "test";
   document.getElementById("settingInvoiceProvider").value = sysConfig.INVOICE_PROVIDER || "";
   document.getElementById("settingInvoiceMerchantId").value = sysConfig.INVOICE_MERCHANT_ID || "";
   document.getElementById("settingInvoiceHashKey").value = sysConfig.INVOICE_HASH_KEY || "";
@@ -1253,6 +1262,7 @@ async function saveSettings() {
     const pwdManager = document.getElementById("settingPwdManager").value.trim();
     const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
     
+    const invoiceEnv = document.getElementById("settingInvoiceEnv").value;
     const invoiceProvider = document.getElementById("settingInvoiceProvider").value;
     const invoiceMerchantId = document.getElementById("settingInvoiceMerchantId").value.trim();
     const invoiceHashKey = document.getElementById("settingInvoiceHashKey").value.trim();
@@ -1303,6 +1313,7 @@ async function saveSettings() {
     formData.append("pwdManager", encodeURIComponent(pwdManager));
     formData.append("pwdSettings", pwdSettings);
 
+    formData.append("invoiceEnv", invoiceEnv);
     formData.append("invoiceProvider", invoiceProvider);
     formData.append("invoiceMerchantId", invoiceMerchantId);
     formData.append("invoiceHashKey", invoiceHashKey);
@@ -1336,7 +1347,7 @@ async function saveSettings() {
       sysConfig.RESERVE_INTERVAL = Number(reserveInterval); sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
       sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings; sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
       
-      sysConfig.INVOICE_PROVIDER = invoiceProvider; sysConfig.INVOICE_MERCHANT_ID = invoiceMerchantId;
+      sysConfig.INVOICE_ENV = invoiceEnv; sysConfig.INVOICE_PROVIDER = invoiceProvider; sysConfig.INVOICE_MERCHANT_ID = invoiceMerchantId;
       sysConfig.INVOICE_HASH_KEY = invoiceHashKey; sysConfig.INVOICE_HASH_IV = invoiceHashIv;
 
       sysConfig.LINEPAY_CHANNEL_ID = linePayId; sysConfig.LINEPAY_SECRET = linePaySecret; sysConfig.LINEBOT_TOKEN = lineBotToken;
@@ -1548,25 +1559,19 @@ document.getElementById('posInvoiceCarrier').addEventListener('input', function(
 
 // 🟢 掃碼槍注音/全形防呆轉換器 (套用於LINE Pay條碼)
 document.getElementById('posBarcode').addEventListener('input', function(e) {
-  // 定義鍵盤上數字對應的注音符號
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
     'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
   };
   let val = e.target.value;
-  // 1. 如果打出注音，自動替換成對應的數字
   val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
-  // 2. 如果打出全形數字 (１２３)，自動轉成半形數字 (123)
   val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-  // 3. 把其他不小心切換到輸入法產生的奇怪英文字母或符號通通濾掉，只保留純數字
   val = val.replace(/[^0-9]/g, '');
-  // 把洗乾淨的純數字放回輸入框
   e.target.value = val;
 });
 
-// 🟢 掃碼槍注音/全形防呆轉換器 (套用於統編條碼) - 保留您的原始寫法，不擅自精簡！
+// 🟢 掃碼槍注音/全形防呆轉換器 (套用於統編條碼)
 document.getElementById('posTaxId').addEventListener('input', function(e) {
-  // 定義鍵盤上數字對應的注音符號
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
     'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
