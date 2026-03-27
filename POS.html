@@ -6,6 +6,7 @@
 <title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合+雲端發票)</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -82,9 +83,9 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
           <option value="LINEPAY掃碼槍">🔫 LINEPAY掃碼槍</option>
         </select>
         
-        <input type="text" id="posInvoiceCarrier" placeholder="🧾 請掃描發票載具 (若無載具請跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
-
-        <input type="text" id="posBarcode" placeholder="👉 請點此處並使用掃碼槍掃描客人條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
+        <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.請掃描發票載具 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
+        <input type="text" id="posTaxId" placeholder="🏢 2.請輸入統一編號 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #e67e22; margin-bottom:10px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
+        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
         
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
@@ -975,8 +976,12 @@ async function submitCashOrder() {
   const payMethod = document.getElementById("posPayMethod").value;
   const barcodeInput = document.getElementById("posBarcode"); 
   const barcode = barcodeInput.value.trim();
+  
   const carrierInput = document.getElementById("posInvoiceCarrier");
-  const carrier = carrierInput.value.trim().toUpperCase();
+  const carrier = carrierInput ? carrierInput.value.trim().toUpperCase() : "";
+  
+  const taxIdInput = document.getElementById("posTaxId");
+  const taxId = taxIdInput ? taxIdInput.value.trim() : "";
 
   if (Number(total) <= 0) { alert("⚠️ 請先選擇餐點內容！"); return; }
   
@@ -984,7 +989,15 @@ async function submitCashOrder() {
     const carrierRegex = /^\/[0-9A-Z+\-.]{7}$/;
     if (!carrierRegex.test(carrier)) {
       alert("⚠️ 發票載具格式錯誤！正確格式如：/AB12345");
-      carrierInput.focus();
+      if(carrierInput) carrierInput.focus();
+      return;
+    }
+  }
+
+  if (taxId !== "") {
+    if (!/^\d{8}$/.test(taxId)) {
+      alert("⚠️ 統一編號格式錯誤！請輸入 8 位數字。");
+      if(taxIdInput) taxIdInput.focus();
       return;
     }
   }
@@ -999,7 +1012,7 @@ async function submitCashOrder() {
   btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "📡 連線扣款中..." : "送單中...";
   setMsg(payMethod === "LINEPAY掃碼槍" ? "正在處理 LINE Pay 線下扣款..." : "處理訂單中...");
   
-  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode, invoiceCarrier: carrier };
+  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode, invoiceCarrier: carrier, taxId: taxId };
   const url = GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData));
   
   try {
@@ -1010,7 +1023,8 @@ async function submitCashOrder() {
       playBeep();
       singleSel = {}; updatePosBasket(); renderPosUI(); 
       document.getElementById("posPayMethod").value = "現金";
-      document.getElementById("posInvoiceCarrier").value = "";
+      if(carrierInput) carrierInput.value = "";
+      if(taxIdInput) taxIdInput.value = "";
       togglePosBarcode();
       toggleCashPanel(); fetchOrders(); 
     } else {
@@ -1055,6 +1069,7 @@ async function fetchOrders() {
         <div style="font-size:15px; color:#2980b9; margin:12px 0 8px; font-weight:bold; background:#f0f8ff; padding:8px 10px; border-radius:8px; border:1px solid #cce3ff;">
           👤 ${o.customerName || '現場代客'} | 📞 ${o.customerPhone || '無電話'}
           ${o.invoiceCarrier ? `<br><span style="color:#8e44ad;">🧾 載具：${o.invoiceCarrier}</span>` : ''}
+          ${o.taxId ? `<br><span style="color:#e67e22;">🏢 統編：${o.taxId}</span>` : ''}
         </div>
         
         <b style="font-size:18px; display:block; margin:8px 0; line-height:1.4;">${o.content}</b>
@@ -1533,6 +1548,25 @@ document.getElementById('posInvoiceCarrier').addEventListener('input', function(
 
 // 🟢 掃碼槍注音/全形防呆轉換器 (套用於LINE Pay條碼)
 document.getElementById('posBarcode').addEventListener('input', function(e) {
+  // 定義鍵盤上數字對應的注音符號
+  const zhuyinMap = {
+    'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
+    'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
+  };
+  let val = e.target.value;
+  // 1. 如果打出注音，自動替換成對應的數字
+  val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
+  // 2. 如果打出全形數字 (１２３)，自動轉成半形數字 (123)
+  val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  // 3. 把其他不小心切換到輸入法產生的奇怪英文字母或符號通通濾掉，只保留純數字
+  val = val.replace(/[^0-9]/g, '');
+  // 把洗乾淨的純數字放回輸入框
+  e.target.value = val;
+});
+
+// 🟢 掃碼槍注音/全形防呆轉換器 (套用於統編條碼) - 保留您的原始寫法，不擅自精簡！
+document.getElementById('posTaxId').addEventListener('input', function(e) {
+  // 定義鍵盤上數字對應的注音符號
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
     'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
@@ -1544,16 +1578,23 @@ document.getElementById('posBarcode').addEventListener('input', function(e) {
   e.target.value = val;
 });
 
-// 🟢 連擊 Combo 掃碼邏輯 (載具 -> LINE Pay)
+// 🟢 連擊 Combo 掃碼邏輯 (載具 -> 統編 -> LINE Pay)
 document.getElementById('posInvoiceCarrier').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById("posTaxId").focus(); // 嗶完載具，自動跳到統編
+  }
+});
+
+document.getElementById('posTaxId').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') {
     e.preventDefault();
     const method = document.getElementById("posPayMethod").value;
     if (method === "LINEPAY掃碼槍") {
       document.getElementById("posBarcode").style.display = "block";
-      document.getElementById("posBarcode").focus();
+      document.getElementById("posBarcode").focus(); // 若是LINE Pay，自動跳付款條碼
     } else {
-      submitCashOrder();
+      submitCashOrder(); // 若是現金，直接結帳送單！
     }
   }
 });
