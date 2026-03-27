@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合)</title>
+<link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2ecc71">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW 註冊成功'))
+          .catch(err => console.log('SW 註冊失敗', err));
+      });
+    }
+  </script>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
