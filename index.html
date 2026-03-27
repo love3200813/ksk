@@ -224,8 +224,13 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
 
     <label style="font-weight:900;">聯絡姓名</label>
     <input type="text" id="customerName" placeholder="請輸入姓名">
+    
     <label style="font-weight:900;">聯絡電話</label>
     <input type="tel" id="customerPhone" placeholder="請輸入電話">
+    
+    <label style="font-weight:900; margin-top:10px; display:block; color:#2c3e50;">🧾 雲端發票 (手機載具)</label>
+    <input type="text" id="invoiceCarrier" placeholder="若無則免填 (格式如：/AB12345)" style="text-transform: uppercase;" maxlength="8">
+    <div style="font-size:12px; color:#666; margin-top:-5px; margin-bottom:15px;">※ 填寫後將為您開立雲端發票。格式為斜線「/」開頭，加上7位大寫英數字。</div>
     
     <div id="deliveryAddressSection" style="display:none; margin-top:15px; padding:15px; background:#fff5f5; border-radius:14px; border:1px solid #ffcccc;">
       <label style="font-weight:900; color:#d9534f; display:block; margin-bottom:8px;">🚚 收件完整地址</label>
@@ -479,9 +484,19 @@ async function submitOrder() {
   const phone = document.getElementById("customerPhone").value.trim();
   const address = document.getElementById("deliveryAddress").value.trim();
   const payMethod = document.getElementById("payMethod").value;
+  // ✅ 新增：抓取發票載具並轉大寫
+  const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCase();
   
   if (payMethod === "LINEPAY" && (!name || !phone)) return alert("請填寫聯絡姓名與電話！");
   if (serviceMode === 'delivery' && !address) return alert("請填寫宅配收件地址！");
+
+  // ✅ 新增：發票載具正規表達式驗證 (有填寫才驗證)
+  if (carrier !== "") {
+    const carrierRegex = /^\/[0-9A-Z+\-.]{7}$/;
+    if (!carrierRegex.test(carrier)) {
+      return alert("手機載具格式錯誤！\n正確格式為斜線「/」開頭，加上7位大寫英數（例如：/AB12345）。");
+    }
+  }
 
   const btn = document.getElementById("submitBtn");
   btn.disabled = true; btn.innerText = "送出中...";
@@ -501,7 +516,8 @@ async function submitOrder() {
   const orderData = {
     items: finalItemsStr,
     total: finalTotal,
-    pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId
+    pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId,
+    invoiceCarrier: carrier // ✅ 新增：將載具資料傳送到後台
   };
 
   try {
