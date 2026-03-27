@@ -1457,6 +1457,28 @@ async function saveMenuData() {
     if(res.success) { alert(res.msg); sysConfig.ENABLE_COMBO = enableCombo; sysConfig.ENABLE_SINGLE = enableSingle; closeMenuPanel(); fetchMenuData(); } else { alert(res.msg); }
   } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
 }
+// 🟢 掃碼槍注音/全形防呆轉換器
+document.getElementById('posBarcode').addEventListener('input', function(e) {
+  // 定義鍵盤上數字對應的注音符號
+  const zhuyinMap = {
+    'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
+    'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
+  };
+  
+  let val = e.target.value;
+  
+  // 1. 如果打出注音，自動替換成對應的數字
+  val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
+  
+  // 2. 如果打出全形數字 (１２３)，自動轉成半形數字 (123)
+  val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  
+  // 3. 把其他不小心切換到輸入法產生的奇怪英文字母或符號通通濾掉，只保留純數字
+  val = val.replace(/[^0-9]/g, '');
+  
+  // 把洗乾淨的純數字放回輸入框
+  e.target.value = val;
+});
 </script>
 </body>
 </html>
