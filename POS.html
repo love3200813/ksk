@@ -15,7 +15,7 @@
       });
     }
   </script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -301,7 +301,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟借密碼 (防閒雜人等進入)</label>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
         <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
         
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
@@ -682,20 +682,29 @@ async function buildInvoiceCanvas(o) {
   }
   y += 40;
   
-  // 6. 國稅局規定的左右雙 QR Code (利用 qrcode.js 生成 - 終極相容版)
+  // 6. 國稅局規定的左右雙 QR Code (動態強制載入突破 PWA 阻擋)
   const qrCanvasL = document.createElement("canvas");
   const qrCanvasR = document.createElement("canvas");
   try {
-      if (typeof QRCode === 'undefined') throw new Error("QR套件未載入");
+      // 💡 終極防護：如果一開始 <head> 的載入被平板擋住，這裡強制重新動態載入！
+      if (typeof QRCode === 'undefined') {
+          await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+          });
+      }
       
-      // 使用最相容的 callback 寫法，並設定容錯率為 L (可裝最多資料)
+      if (typeof QRCode === 'undefined') throw new Error("平板網路阻擋了外部套件");
+      
       await new Promise((resolve, reject) => {
           QRCode.toCanvas(qrCanvasL, `**Mock_Invoice_L**${mockInvNum}`, { width: 140, margin: 0, errorCorrectionLevel: 'L' }, function(err) {
               if (err) reject(err); else resolve();
           });
       });
       await new Promise((resolve, reject) => {
-          // 右邊放明細，若明細太長超過限制，截斷保留前80個字避免 QR Code 爆炸
           let safeContent = String(o.content).substring(0, 80); 
           QRCode.toCanvas(qrCanvasR, `**Mock_Invoice_R**${safeContent}`, { width: 140, margin: 0, errorCorrectionLevel: 'L' }, function(err) {
               if (err) reject(err); else resolve();
@@ -1181,7 +1190,7 @@ async function submitCashOrder() {
 async function fetchOrders() {
   try {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作废" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       
       let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; 
