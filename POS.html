@@ -301,7 +301,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
       
       <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
         <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟借密碼 (防閒雜人等進入)</label>
         <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
         
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
@@ -630,7 +630,6 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
 }
 
 // 🌟 新增：實體電子發票繪製器 (完全符合國稅局 5.7cm 寬度排版)
-// 🌟 新增：實體電子發票繪製器 (完全符合國稅局 5.7cm 寬度排版)
 async function buildInvoiceCanvas(o) {
   const width = printerConf.usbPxW || 384; 
   const tempCanvas = document.createElement("canvas"); 
@@ -710,9 +709,10 @@ async function buildInvoiceCanvas(o) {
       ctx.drawImage(qrCanvasR, paddingX * 2 + qrSize, qrY, qrSize, qrSize);
       y += qrSize + 20;
   } catch (e) {
-      ctx.font = "20px sans-serif";
+      ctx.font = "16px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("[QR Code 產生失敗，請檢查網路]", width/2, y);
+      ctx.fillStyle = "#000000";
+      ctx.fillText("QR Error: " + String(e.message || e).substring(0, 30), width/2, y);
       y += 40;
   }
   
@@ -892,7 +892,6 @@ function sendToRawBTAppIntent(bufferData) {
     });
 }
 
-// 🌟 核心 USB 實際列印函數 (已還原)
 async function printCanvasToPrinter(canvas, finalHeight) {
   const width = canvas.width; 
   const totalHeight = Math.ceil(finalHeight); 
@@ -954,58 +953,6 @@ async function printCanvasToPrinter(canvas, finalHeight) {
   }
 }
 
-// 🌟 核心修改：判斷是否要印實體發票，並把它塞進列印排程的最前面
-async function printOrderLabel(o){
-  if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
-  
-  const customerReceipt = buildCustomerReceiptCanvas(o); 
-  const kitchenReceipt = buildKitchenReceiptCanvas(o);
-  const protocol = printerConf.usbProtocol || 'TSPL';
-
-  // ✅ 判斷是否需要印實體電子發票：(沒有載具) 且 (開啟測試模式)
-  let invoiceReceipt = null;
-  const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
-  if (noCarrier && sysConfig.INVOICE_ENV === 'test') {
-      invoiceReceipt = await buildInvoiceCanvas(o);
-  }
-
-  if (currentPrinterMode === 'lan') {
-      const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
-      const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
-      
-      let totalLen = buf1.length + buf2.length;
-      let bufInv = null;
-      if (invoiceReceipt) {
-          bufInv = createPrinterBuffer(invoiceReceipt.canvas, protocol);
-          totalLen += bufInv.length;
-      }
-      
-      const combinedBuf = new Uint8Array(totalLen);
-      let offset = 0;
-      
-      // 如果有發票，先塞發票！
-      if (invoiceReceipt && bufInv) {
-          combinedBuf.set(bufInv, offset);
-          offset += bufInv.length;
-      }
-      
-      combinedBuf.set(buf1, offset);
-      offset += buf1.length;
-      combinedBuf.set(buf2, offset);
-      
-      await sendToRawBTAppIntent(combinedBuf.buffer);
-  } else {
-      // 🌟 USB 模式：依序印出 發票 ➔ 客人單 ➔ 廚房單
-      if (invoiceReceipt) {
-          await printCanvasToPrinter(invoiceReceipt.canvas, invoiceReceipt.finalHeight); 
-          await new Promise(resolve => setTimeout(resolve, 1500)); // 緩衝等待裁紙
-      }
-      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
-  }
-}
-
 async function printSingleLabelToBLE(canvas) {
   const width = canvas.width; const height = canvas.height; const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
   const widthBytes = Math.ceil(width / 8); const bitmap = new Uint8Array(widthBytes * height); bitmap.fill(255);
@@ -1036,6 +983,54 @@ async function printOrderToBLE(o, titleHeader) {
       if (match) { let qty = parseInt(match[1], 10); let cleanName = item.replace(/x\s*\d+$/i, "").trim(); for (let i = 0; i < qty; i++) labelItems.push(cleanName); } else { labelItems.push(item); }
   }
   for (let i = 0; i < labelItems.length; i++) { const canvas = buildItemLabelCanvas(o, labelItems[i], i + 1, labelItems.length, titleHeader); await printSingleLabelToBLE(canvas); await new Promise(r => setTimeout(r, 1500)); }
+}
+
+async function printOrderLabel(o){
+  if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
+  
+  const customerReceipt = buildCustomerReceiptCanvas(o); 
+  const kitchenReceipt = buildKitchenReceiptCanvas(o);
+  const protocol = printerConf.usbProtocol || 'TSPL';
+
+  let invoiceReceipt = null;
+  const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
+  if (noCarrier && sysConfig.INVOICE_ENV === 'test') {
+      invoiceReceipt = await buildInvoiceCanvas(o);
+  }
+
+  if (currentPrinterMode === 'lan') {
+      const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
+      const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
+      
+      let totalLen = buf1.length + buf2.length;
+      let bufInv = null;
+      if (invoiceReceipt) {
+          bufInv = createPrinterBuffer(invoiceReceipt.canvas, protocol);
+          totalLen += bufInv.length;
+      }
+      
+      const combinedBuf = new Uint8Array(totalLen);
+      let offset = 0;
+      
+      if (invoiceReceipt && bufInv) {
+          combinedBuf.set(bufInv, offset);
+          offset += bufInv.length;
+      }
+      
+      combinedBuf.set(buf1, offset);
+      offset += buf1.length;
+      combinedBuf.set(buf2, offset);
+      
+      await sendToRawBTAppIntent(combinedBuf.buffer);
+  } else {
+      if (invoiceReceipt) {
+          await printCanvasToPrinter(invoiceReceipt.canvas, invoiceReceipt.finalHeight); 
+          await new Promise(resolve => setTimeout(resolve, 1500)); 
+      }
+      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
+  }
 }
 
 async function safeExecuteDualPrint(o) {
