@@ -361,62 +361,6 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   </div>
 </div>
 
-<div id="printerModal" class="modal">
-  <div class="modal-card" style="width: 550px; max-height:90vh;">
-    <div class="modal-header">
-      <h3>🖨️ 列印機硬體參數設定</h3>
-      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
-    </div>
-    <div class="modal-body" style="padding:20px;">
-      
-      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
-        </label>
-      </div>
-
-      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
-        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
-          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
-          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
-        </select>
-        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項。</div>
-      </div>
-
-      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
-        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
-        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
-        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
-        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
-        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      </div>
-
-      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 網口/USB 出單機設定 (明細)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
-        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      </div>
-      
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
-    </div>
-  </div>
-</div>
-
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -629,7 +573,7 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
-// 🌟 新增：實體電子發票繪製器 (完全符合國稅局 5.7cm 寬度排版)
+// 🌟 新增：實體電子發票繪製器 (完全符合國稅局 5.7cm 寬度排版 - toDataURL終極轉換版)
 async function buildInvoiceCanvas(o) {
   const width = printerConf.usbPxW || 384; 
   const tempCanvas = document.createElement("canvas"); 
@@ -682,11 +626,8 @@ async function buildInvoiceCanvas(o) {
   }
   y += 40;
   
-  // 6. 國稅局規定的左右雙 QR Code (動態強制載入突破 PWA 阻擋)
-  const qrCanvasL = document.createElement("canvas");
-  const qrCanvasR = document.createElement("canvas");
+  // 6. 國稅局規定的左右雙 QR Code (圖片貼上法 - 終極無敵轉換版)
   try {
-      // 💡 終極防護：如果一開始 <head> 的載入被平板擋住，這裡強制重新動態載入！
       if (typeof QRCode === 'undefined') {
           await new Promise((resolve, reject) => {
               const script = document.createElement('script');
@@ -696,27 +637,32 @@ async function buildInvoiceCanvas(o) {
               document.head.appendChild(script);
           });
       }
-      
-      if (typeof QRCode === 'undefined') throw new Error("平板網路阻擋了外部套件");
-      
-      await new Promise((resolve, reject) => {
-          QRCode.toCanvas(qrCanvasL, `**Mock_Invoice_L**${mockInvNum}`, { width: 140, margin: 0, errorCorrectionLevel: 'L' }, function(err) {
-              if (err) reject(err); else resolve();
+      if (typeof QRCode === 'undefined') throw new Error("套件被瀏覽器阻擋");
+
+      // 使用 toDataURL 生成圖片，徹底避開 canvas 渲染衝突與中文字當機
+      const getQRImg = (txt) => new Promise((resolve, reject) => {
+          QRCode.toDataURL(txt, { width: 130, margin: 0, errorCorrectionLevel: 'L' }, (err, url) => {
+              if (err) return reject(err);
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject("圖片轉換失敗");
+              img.src = url;
           });
       });
-      await new Promise((resolve, reject) => {
-          let safeContent = String(o.content).substring(0, 80); 
-          QRCode.toCanvas(qrCanvasR, `**Mock_Invoice_R**${safeContent}`, { width: 140, margin: 0, errorCorrectionLevel: 'L' }, function(err) {
-              if (err) reject(err); else resolve();
-          });
-      });
+
+      // 過濾掉可能造成 QR Code 爆炸的換行符號
+      const safeContent = String(o.content || "").replace(/[\r\n]/g, " ").substring(0, 80);
       
+      const imgL = await getQRImg(`**Mock_Invoice_L**${mockInvNum}`);
+      const imgR = await getQRImg(`**Mock_Invoice_R**${safeContent}`);
+
       const qrY = y;
       const qrSize = 130;
       const paddingX = (width - (qrSize * 2)) / 3;
-      ctx.drawImage(qrCanvasL, paddingX, qrY, qrSize, qrSize);
-      ctx.drawImage(qrCanvasR, paddingX * 2 + qrSize, qrY, qrSize, qrSize);
+      ctx.drawImage(imgL, paddingX, qrY, qrSize, qrSize);
+      ctx.drawImage(imgR, paddingX * 2 + qrSize, qrY, qrSize, qrSize);
       y += qrSize + 20;
+
   } catch (e) {
       ctx.font = "16px sans-serif";
       ctx.textAlign = "center";
@@ -1190,7 +1136,7 @@ async function submitCashOrder() {
 async function fetchOrders() {
   try {
     const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作废" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
+    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
       const enc = encodeURIComponent(JSON.stringify(o));
       
       let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; 
