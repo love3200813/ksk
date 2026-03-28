@@ -15,6 +15,7 @@
       });
     }
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -360,6 +361,62 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   </div>
 </div>
 
+<div id="printerModal" class="modal">
+  <div class="modal-card" style="width: 550px; max-height:90vh;">
+    <div class="modal-header">
+      <h3>🖨️ 列印機硬體參數設定</h3>
+      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+      
+      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
+        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
+        </label>
+      </div>
+
+      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
+        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
+          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
+          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
+        </select>
+        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項。</div>
+      </div>
+
+      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
+        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
+        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
+        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
+        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
+        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+
+      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 網口/USB 出單機設定 (明細)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
+        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
+    </div>
+  </div>
+</div>
+
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -399,7 +456,9 @@ let printingOrders = new Set();
 let processingRows = new Set();
 let isPrinterBusy = false;
 
-// 🛡️ 終極防護：避免本地記憶體損毀導致整個網頁當機
+// ==========================================
+// 🖨️ 列印機硬體與顯示設定 (加裝終極防爆裝甲版)
+// ==========================================
 let printerConf;
 try {
   let saved = localStorage.getItem("ksk_printer_conf");
@@ -417,56 +476,72 @@ if (printerConf.showUsb === undefined) printerConf.showUsb = true;
 if (printerConf.showLan === undefined) printerConf.showLan = true;
 
 function applyButtonVisibility() {
-  if(document.getElementById("btnConnectBle")) document.getElementById("btnConnectBle").style.display = printerConf.showBle ? "block" : "none";
-  if(document.getElementById("btnConnectUsb")) document.getElementById("btnConnectUsb").style.display = printerConf.showUsb ? "block" : "none";
-  if(document.getElementById("btnConnectLan")) document.getElementById("btnConnectLan").style.display = printerConf.showLan ? "block" : "none";
+  if (document.getElementById("btnConnectBle")) document.getElementById("btnConnectBle").style.display = printerConf.showBle ? "block" : "none";
+  if (document.getElementById("btnConnectUsb")) document.getElementById("btnConnectUsb").style.display = printerConf.showUsb ? "block" : "none";
+  if (document.getElementById("btnConnectLan")) document.getElementById("btnConnectLan").style.display = printerConf.showLan ? "block" : "none";
 }
 applyButtonVisibility();
 
-
 function openPrinterSettings() {
   try {
-    document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
-    document.getElementById("p_bleMmW").value = printerConf.bleMmW || 40;
-    document.getElementById("p_bleMmH").value = printerConf.bleMmH || 30;
-    document.getElementById("p_blePxW").value = printerConf.blePxW || 320;
-    document.getElementById("p_blePxH").value = printerConf.blePxH || 224;
-    document.getElementById("p_bleBottom").value = printerConf.bleBottom || 28;
-    document.getElementById("p_usbPxW").value = printerConf.usbPxW || 384;
+    // 🛡️ 加入元素檢查：如果找不到該欄位就自動跳過，絕不當機！
+    if (document.getElementById("p_usbProtocol")) document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
+    if (document.getElementById("p_bleMmW")) document.getElementById("p_bleMmW").value = printerConf.bleMmW || 40;
+    if (document.getElementById("p_bleMmH")) document.getElementById("p_bleMmH").value = printerConf.bleMmH || 30;
+    if (document.getElementById("p_blePxW")) document.getElementById("p_blePxW").value = printerConf.blePxW || 320;
+    if (document.getElementById("p_blePxH")) document.getElementById("p_blePxH").value = printerConf.blePxH || 224;
+    if (document.getElementById("p_bleBottom")) document.getElementById("p_bleBottom").value = printerConf.bleBottom || 28;
+    if (document.getElementById("p_usbPxW")) document.getElementById("p_usbPxW").value = printerConf.usbPxW || 384;
     
-    document.getElementById("p_showBle").checked = printerConf.showBle;
-    document.getElementById("p_showUsb").checked = printerConf.showUsb;
-    document.getElementById("p_showLan").checked = printerConf.showLan;
+    if (document.getElementById("p_showBle")) document.getElementById("p_showBle").checked = printerConf.showBle;
+    if (document.getElementById("p_showUsb")) document.getElementById("p_showUsb").checked = printerConf.showUsb;
+    if (document.getElementById("p_showLan")) document.getElementById("p_showLan").checked = printerConf.showLan;
 
-    document.getElementById("printerModal").classList.add("show");
+    if (document.getElementById("printerModal")) {
+        document.getElementById("printerModal").classList.add("show");
+    } else {
+        alert("⚠️ 找不到列印機設定面板的畫面，請確認 HTML 結構是否完整。");
+    }
   } catch (e) {
-    alert("開啟列印機設定時發生錯誤，請聯絡系統管理員：" + e.message);
+    alert("開啟列印機設定時被防護系統攔截錯誤：" + e.message);
   }
 }
 
-function closePrinterSettings() { document.getElementById("printerModal").classList.remove("show"); }
+function closePrinterSettings() { 
+    if (document.getElementById("printerModal")) {
+        document.getElementById("printerModal").classList.remove("show"); 
+    }
+}
 
 function savePrinterSettings() {
-  printerConf = {
-    usbProtocol: document.getElementById("p_usbProtocol").value,
-    bleMmW: Number(document.getElementById("p_bleMmW").value),
-    bleMmH: Number(document.getElementById("p_bleMmH").value),
-    blePxW: Number(document.getElementById("p_blePxW").value),
-    blePxH: Number(document.getElementById("p_blePxH").value),
-    bleBottom: Number(document.getElementById("p_bleBottom").value),
-    usbPxW: Number(document.getElementById("p_usbPxW").value),
+  try {
+    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
+    const getChk = (id, def) => document.getElementById(id) ? document.getElementById(id).checked : def;
+
+    printerConf = {
+      usbProtocol: getVal("p_usbProtocol") || 'TSPL',
+      bleMmW: Number(getVal("p_bleMmW")) || 40,
+      bleMmH: Number(getVal("p_bleMmH")) || 30,
+      blePxW: Number(getVal("p_blePxW")) || 320,
+      blePxH: Number(getVal("p_blePxH")) || 224,
+      bleBottom: Number(getVal("p_bleBottom")) || 28,
+      usbPxW: Number(getVal("p_usbPxW")) || 384,
+      
+      showBle: getChk("p_showBle", true),
+      showUsb: getChk("p_showUsb", true),
+      showLan: getChk("p_showLan", true)
+    };
     
-    showBle: document.getElementById("p_showBle").checked,
-    showUsb: document.getElementById("p_showUsb").checked,
-    showLan: document.getElementById("p_showLan").checked
-  };
-  localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
-  
-  applyButtonVisibility(); 
-  
-  alert("✅ 列印機參數與顯示設定已儲存！");
-  closePrinterSettings();
+    localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
+    applyButtonVisibility(); 
+    
+    alert("✅ 列印機參數與顯示設定已儲存！");
+    closePrinterSettings();
+  } catch (e) {
+    alert("儲存設定失敗：" + e.message);
+  }
 }
+// ==========================================
 
 let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_ENV:'test', INVOICE_MERCHANT_ID:'', INVOICE_HASH_KEY:'', INVOICE_HASH_IV:'' };
 
