@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合+雲端發票)</title>
+<title>加山記 POS v40.3 雙軌金流防護版</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
   <script>
@@ -20,7 +20,6 @@
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; overflow-x: hidden; }
 .wrap{display:flex;min-height:100vh;}
 
-/* 側邊欄預設樣式 */
 .sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 1000; display:flex; flex-direction:column; }
 .sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; }
 .sidebar h1{ font-size:32px; margin:0; color:#2C2C2C; }
@@ -45,54 +44,41 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 .cash-item{ background:#FDFDFD; border-radius:14px; padding:14px; border:1px solid #EAE8E3; text-align:center; }
 .sbtn{ flex:1; border:none; padding:11px; border-radius:10px; cursor:pointer; font-weight:700; }
 
-/* ✅ 手機側拉背景遮罩 */
 #mobileOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; }
 
-/* ========================================== */
-/* 📱 手機與平板專用響應式 (RWD) 真 APP 裝甲  */
-/* ========================================== */
 @media (max-width: 768px) {
-  /* 側拉選單改造 */
   .sidebar { position: fixed; left: -320px; top: 0; bottom: 0; height: 100vh; width: 280px; box-shadow: 5px 0 20px rgba(0,0,0,0.4); transition: left 0.3s ease; display: flex !important; }
   .sidebar.open { left: 0; }
   #mobileOverlay.open { display: block; }
-  .mobile-close-btn { display: block; } /* 手機顯示 X 按鈕 */
+  .mobile-close-btn { display: block; } 
   
   .main { padding: 10px; width: 100%; }
   
-  /* 彈出視窗極致壓縮，避免被鍵盤擋住 */
   .modal { padding: 10px; }
   .modal-card { width: 100% !important; max-width: 100% !important; max-height: 92vh; margin: 0; }
   .modal-header { padding: 12px 15px; }
   .modal-body { padding: 12px; }
   h2, h3 { font-size: 20px; margin: 0; }
   
-  /* 高密度點餐網格 */
   .cash-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
   .cash-item { padding: 8px; font-size: 14px; border-radius: 10px; }
   .sbtn { padding: 8px; border-radius: 6px; font-size: 14px; }
   
-  /* 輸入框強制 16px 防止 iOS 縮放，且壓縮間距 */
   input[type="text"], input[type="number"], select, textarea { font-size: 16px !important; padding: 10px !important; margin-bottom: 8px !important; }
   
-  /* 編輯訂單：左右分屏改為上下排列 */
   #editModal .modal-body { flex-direction: column !important; }
   #editModal .modal-body > div:first-child { border-right: none !important; border-bottom: 2px dashed #ccc; padding-right: 0 !important; padding-bottom: 10px; margin-bottom: 10px; max-height: 35vh; overflow-y: auto; }
   
-  /* 綜合設定：雙欄強制改為上下排列 */
   #settingsModal .modal-body div[style*="display:flex"] { flex-direction: column !important; align-items: stretch !important; gap: 5px; }
   #settingsModal .modal-body div[style*="display:flex"] > div { width: 100% !important; }
   
   .btn { padding: 12px; font-size: 16px; margin-bottom: 8px; }
 }
 
-/* ========================================== */
-/* 🔄 手機橫向螢幕 (Landscape) 專用滾動裝甲 */
-/* ========================================== */
 @media (max-width: 950px) and (orientation: landscape) {
   .modal-card { max-height: 95vh; }
   .modal-body { max-height: 70vh; overflow-y: auto; }
-  #editModal .modal-body { flex-direction: row !important; } /* 橫向時保留左右分屏 */
+  #editModal .modal-body { flex-direction: row !important; } 
   #editModal .modal-body > div:first-child { border-right: 1px solid #EAE8E3 !important; border-bottom: none !important; padding-right: 15px !important; max-height: 60vh; }
   #settingsModal .modal-body div[style*="display:flex"] { flex-direction: row !important; }
 }
@@ -232,7 +218,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
         <h5 style="margin:15px 0 5px; color:#2980b9;">🟢 LINE Pay 串接設定</h5>
         <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">目前使用的環境 (切換後須儲存)</label>
-        <select id="settingLinePayEnv" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
+        <select id="settingLinePayEnv" onchange="toggleLinePayKeys()" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
           <option value="sandbox">🟡 測試環境 (Sandbox)</option>
           <option value="production">🔴 正式環境 (Production)</option>
         </select>
@@ -242,13 +228,13 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
           <a href="https://sandbox-web-pay.line.me/web/sandbox/payment/oneTimeKey?countryCode=TW" target="_blank" style="display:inline-block; background:#3498db; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">🔗 打開線下付款虛擬條碼產生器 (Sandbox)</a>
         </div>
 
-        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰 <small>※保留原本的代碼</small></label>
+        <div id="lpSandboxArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
+          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰</label>
           <input type="text" id="settingLinePayId" placeholder="Channel ID (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
           <input type="text" id="settingLinePaySecret" placeholder="Channel Secret (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
         </div>
 
-        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #e74c3c; margin-bottom:15px;">
+        <div id="lpProdArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #e74c3c; margin-bottom:15px;">
           <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#e74c3c;">🔴 正式環境 (Production) 金鑰</label>
           <input type="text" id="settingLinePayProdId" placeholder="Channel ID (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
           <input type="text" id="settingLinePayProdSecret" placeholder="Channel Secret (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
@@ -509,7 +495,22 @@ function closeSidebarOnMobile() {
     }
 }
 
-  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+// ✅ 新增：LINE Pay 環境動態切換邏輯
+function toggleLinePayKeys() {
+    const env = document.getElementById("settingLinePayEnv").value;
+    const sandboxArea = document.getElementById("lpSandboxArea");
+    const prodArea = document.getElementById("lpProdArea");
+    
+    if (env === "sandbox") {
+        sandboxArea.style.display = "block";
+        prodArea.style.display = "none";
+    } else {
+        sandboxArea.style.display = "none";
+        prodArea.style.display = "block";
+    }
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
   for (let i = 0; i < chars.length; i++) {
     let testLine = line + chars[i];
@@ -539,7 +540,7 @@ let processingRows = new Set();
 let isPrinterBusy = false;
 
 // ==========================================
-// 🖨️ 列印機硬體與顯示設定 (加裝終極防爆裝甲版)
+// 🖨️ 列印機硬體與顯示設定
 // ==========================================
 let printerConf;
 try {
@@ -581,11 +582,9 @@ function openPrinterSettings() {
 
     if (document.getElementById("printerModal")) {
         document.getElementById("printerModal").classList.add("show");
-    } else {
-        alert("⚠️ 找不到列印機設定面板的畫面，請確認 HTML 結構是否完整。");
     }
   } catch (e) {
-    alert("開啟列印機設定時被防護系統攔截錯誤：" + e.message);
+    alert("開啟列印機設定發生錯誤：" + e.message);
   }
 }
 
@@ -740,7 +739,6 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
-// 🌟 新增：實體電子發票繪製器 (API直接索圖法)
 async function buildInvoiceCanvas(o) {
   const width = printerConf.usbPxW || 384; 
   const tempCanvas = document.createElement("canvas"); 
@@ -793,7 +791,7 @@ async function buildInvoiceCanvas(o) {
   }
   y += 40;
   
-  // 6. 國稅局規定的左右雙 QR Code (全新解法：API直接索圖法)
+  // 6. QR Code API
   try {
       const getQRImg = async (txt) => {
           const url = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(txt)}&margin=0`;
@@ -846,7 +844,6 @@ async function buildInvoiceCanvas(o) {
       ctx.fillStyle = "#000000";
   }
   
-  // 裁切成最終高度
   const finalHeight = y + 60; 
   const finalCanvas = document.createElement("canvas"); 
   finalCanvas.width = width; finalCanvas.height = finalHeight;
@@ -1360,7 +1357,7 @@ function renderEditUI() {
     let displayList = list; if (isDeliveryOrder) displayList = list.filter(i => i.isDelivery === "Y");
     document.getElementById(id).innerHTML = displayList.map(i => {
       let p = Number(i.singlePrice) || Number(i.sp) || 0;
-      return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${editSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div></div>`;
+      return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${editSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div></div>`;
     }).join("");
   };
   draw(MAINS, "editMainGrid"); draw(DRINKS, "editDrinkGrid"); draw(SIDES, "editSideGrid");
@@ -1452,6 +1449,8 @@ async function openSettingsPanel() {
   document.getElementById("settingInvoiceHashIv").value = sysConfig.INVOICE_HASH_IV || "";
 
   document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
+  toggleLinePayKeys(); // 開啟設定面板時自動初始化顯示的輸入框
+  
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
   document.getElementById("settingLinePayProdId").value = sysConfig.LINEPAY_PROD_ID || "";
