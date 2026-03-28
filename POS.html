@@ -15,7 +15,6 @@
       });
     }
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
 <style>
 body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
 .wrap{display:flex;min-height:100vh;}
@@ -361,62 +360,6 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   </div>
 </div>
 
-<div id="printerModal" class="modal">
-  <div class="modal-card" style="width: 550px; max-height:90vh;">
-    <div class="modal-header">
-      <h3>🖨️ 列印機硬體參數設定</h3>
-      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
-    </div>
-    <div class="modal-body" style="padding:20px;">
-      
-      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
-        </label>
-      </div>
-
-      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
-        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
-          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
-          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
-        </select>
-        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項。</div>
-      </div>
-
-      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
-        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
-        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
-        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
-        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
-        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      </div>
-
-      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 網口/USB 出單機設定 (明細)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
-        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      </div>
-      
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
-    </div>
-  </div>
-</div>
-
 <script>
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
   const chars = text.split(''); let line = ''; let currentY = y;
@@ -629,7 +572,7 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
-// 🌟 新增：實體電子發票繪製器 (圖片貼上終極無敵轉換版)
+// 🌟 新增：實體電子發票繪製器 (終極解法：API直接索圖法，完全放棄外部套件)
 async function buildInvoiceCanvas(o) {
   const width = printerConf.usbPxW || 384; 
   const tempCanvas = document.createElement("canvas"); 
@@ -682,28 +625,26 @@ async function buildInvoiceCanvas(o) {
   }
   y += 40;
   
-  // 6. 國稅局規定的左右雙 QR Code (圖片貼上法)
+  // 6. 國稅局規定的左右雙 QR Code (全新解法：API直接索圖法)
   try {
-      if (typeof QRCode === 'undefined') {
-          await new Promise((resolve, reject) => {
-              const script = document.createElement('script');
-              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';
-              script.onload = resolve;
-              script.onerror = reject;
-              document.head.appendChild(script);
+      const getQRImg = async (txt) => {
+          const url = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(txt)}&margin=0`;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("API請求失敗");
+          const blob = await response.blob();
+          
+          const b64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
           });
-      }
-      if (typeof QRCode === 'undefined') throw new Error("套件被瀏覽器阻擋");
-
-      const getQRImg = (txt) => new Promise((resolve, reject) => {
-          QRCode.toDataURL(txt, { width: 130, margin: 0, errorCorrectionLevel: 'L' }, (err, url) => {
-              if (err) return reject(err);
-              const img = new Image();
-              img.onload = () => resolve(img);
-              img.onerror = () => reject("圖片轉換失敗");
-              img.src = url;
-          });
-      });
+          
+          const img = new Image();
+          img.src = b64;
+          await new Promise((resolve) => img.onload = resolve);
+          return img;
+      };
 
       const safeContent = String(o.content || "").replace(/[\r\n]/g, " ").substring(0, 80);
       
@@ -721,7 +662,7 @@ async function buildInvoiceCanvas(o) {
       ctx.font = "16px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "#000000";
-      ctx.fillText("QR Error: " + String(e.message || e).substring(0, 30), width/2, y);
+      ctx.fillText("QR Error: API連線遭阻擋", width/2, y);
       y += 40;
   }
   
