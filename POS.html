@@ -399,10 +399,18 @@ let printingOrders = new Set();
 let processingRows = new Set();
 let isPrinterBusy = false;
 
-let printerConf = JSON.parse(localStorage.getItem("ksk_printer_conf")) || {
-  usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384,
-  showBle: true, showUsb: true, showLan: true
-};
+// 🛡️ 終極防護：避免本地記憶體損毀導致整個網頁當機
+let printerConf;
+try {
+  let saved = localStorage.getItem("ksk_printer_conf");
+  printerConf = saved ? JSON.parse(saved) : null;
+  if (typeof printerConf !== 'object' || printerConf === null) throw new Error("格式錯誤");
+} catch(e) {
+  printerConf = {
+    usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384,
+    showBle: true, showUsb: true, showLan: true
+  };
+}
 
 if (printerConf.showBle === undefined) printerConf.showBle = true;
 if (printerConf.showUsb === undefined) printerConf.showUsb = true;
@@ -417,19 +425,23 @@ applyButtonVisibility();
 
 
 function openPrinterSettings() {
-  document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
-  document.getElementById("p_bleMmW").value = printerConf.bleMmW;
-  document.getElementById("p_bleMmH").value = printerConf.bleMmH;
-  document.getElementById("p_blePxW").value = printerConf.blePxW;
-  document.getElementById("p_blePxH").value = printerConf.blePxH;
-  document.getElementById("p_bleBottom").value = printerConf.bleBottom;
-  document.getElementById("p_usbPxW").value = printerConf.usbPxW;
-  
-  document.getElementById("p_showBle").checked = printerConf.showBle;
-  document.getElementById("p_showUsb").checked = printerConf.showUsb;
-  document.getElementById("p_showLan").checked = printerConf.showLan;
+  try {
+    document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
+    document.getElementById("p_bleMmW").value = printerConf.bleMmW || 40;
+    document.getElementById("p_bleMmH").value = printerConf.bleMmH || 30;
+    document.getElementById("p_blePxW").value = printerConf.blePxW || 320;
+    document.getElementById("p_blePxH").value = printerConf.blePxH || 224;
+    document.getElementById("p_bleBottom").value = printerConf.bleBottom || 28;
+    document.getElementById("p_usbPxW").value = printerConf.usbPxW || 384;
+    
+    document.getElementById("p_showBle").checked = printerConf.showBle;
+    document.getElementById("p_showUsb").checked = printerConf.showUsb;
+    document.getElementById("p_showLan").checked = printerConf.showLan;
 
-  document.getElementById("printerModal").classList.add("show");
+    document.getElementById("printerModal").classList.add("show");
+  } catch (e) {
+    alert("開啟列印機設定時發生錯誤，請聯絡系統管理員：" + e.message);
+  }
 }
 
 function closePrinterSettings() { document.getElementById("printerModal").classList.remove("show"); }
@@ -572,7 +584,7 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
-// 🌟 新增：實體電子發票繪製器 (終極解法：API直接索圖法，完全放棄外部套件)
+// 🌟 新增：實體電子發票繪製器 (API直接索圖法)
 async function buildInvoiceCanvas(o) {
   const width = printerConf.usbPxW || 384; 
   const tempCanvas = document.createElement("canvas"); 
