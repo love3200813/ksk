@@ -84,10 +84,8 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </select>
         
         <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.請掃描發票載具 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
-        
         <input type="text" id="posTaxId" placeholder="🏢 2.請輸入統一編號 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #e67e22; margin-bottom:10px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
-
-        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">      
+        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
         
         <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
@@ -631,6 +629,98 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
   return canvas;
 }
 
+// 🌟 新增：實體電子發票繪製器 (完全符合國稅局 5.7cm 寬度排版)
+async function buildInvoiceCanvas(o) {
+  const width = printerConf.usbPxW || 384; 
+  const tempCanvas = document.createElement("canvas"); 
+  const ctx = tempCanvas.getContext("2d");
+  tempCanvas.width = width; tempCanvas.height = 1200; 
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); 
+  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
+  
+  let y = 10; 
+  
+  // 1. 抬頭店名
+  ctx.textAlign = "center";
+  ctx.font = "bold 36px sans-serif";
+  ctx.fillText(sysConfig.STORE_NAME || "加山記", width / 2, y); y += 45;
+  
+  // 2. 電子發票證明聯
+  ctx.font = "bold 42px sans-serif";
+  ctx.fillText("電子發票證明聯", width / 2, y); y += 55;
+  
+  // 3. 發票期別 (自動計算民國年與雙月期別)
+  ctx.font = "bold 36px sans-serif";
+  const date = new Date();
+  const twYear = date.getFullYear() - 1911;
+  const month = date.getMonth() + 1;
+  const periodM1 = month % 2 === 0 ? month - 1 : month;
+  const periodM2 = periodM1 + 1;
+  ctx.fillText(`${twYear}年${pad2(periodM1)}-${pad2(periodM2)}月`, width / 2, y); y += 50;
+  
+  // 4. 隨機發票號碼 (正式上線前會改接 API)
+  ctx.font = "bold 48px sans-serif";
+  const randomEng = String.fromCharCode(65 + Math.floor(Math.random()*26)) + String.fromCharCode(65 + Math.floor(Math.random()*26));
+  const randomNum = String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+  const mockInvNum = `${randomEng}-${randomNum}`;
+  ctx.fillText(mockInvNum, width / 2, y); y += 60;
+  
+  // 5. 交易資訊與統編
+  ctx.textAlign = "left";
+  ctx.font = "22px sans-serif";
+  const dateStr = `${date.getFullYear()}-${pad2(month)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  ctx.fillText(dateStr, 10, y); 
+  ctx.fillText("格式: 25", width - 100, y); y += 30;
+  
+  const randomCode = Math.floor(1000 + Math.random() * 9000);
+  ctx.fillText(`隨機碼: ${randomCode}`, 10, y); 
+  ctx.fillText(`總計: ${o.total}`, width - 130, y); y += 30;
+  
+  ctx.fillText(`賣方: 82300000`, 10, y); 
+  if (o.taxId && o.taxId !== "") {
+      ctx.fillText(`買方: ${o.taxId}`, width - 180, y); 
+  }
+  y += 40;
+  
+  // 6. 國稅局規定的左右雙 QR Code (利用 qrcode.js 生成)
+  const qrCanvasL = document.createElement("canvas");
+  const qrCanvasR = document.createElement("canvas");
+  try {
+      await QRCode.toCanvas(qrCanvasL, `**Mock_Invoice_L**${mockInvNum}`, { width: 140, margin: 0 });
+      await QRCode.toCanvas(qrCanvasR, `**Mock_Invoice_R**${o.content}`, { width: 140, margin: 0 });
+      
+      const qrY = y;
+      const qrSize = 130;
+      const paddingX = (width - (qrSize * 2)) / 3;
+      ctx.drawImage(qrCanvasL, paddingX, qrY, qrSize, qrSize);
+      ctx.drawImage(qrCanvasR, paddingX * 2 + qrSize, qrY, qrSize, qrSize);
+      y += qrSize + 20;
+  } catch (e) {
+      ctx.font = "20px sans-serif";
+      ctx.fillText("[QR Code 產生失敗，請檢查網路]", width/2, y);
+      y += 40;
+  }
+  
+  // 7. 結尾與測試警語
+  ctx.textAlign = "center";
+  ctx.font = "bold 22px sans-serif";
+  ctx.fillText("** 退換貨請憑此證明聯 **", width / 2, y); y += 30;
+  
+  if (sysConfig.INVOICE_ENV === 'test') {
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillStyle = "#e74c3c"; 
+      ctx.fillText("(此為系統測試發票，無兌獎效力)", width / 2, y); y += 30;
+      ctx.fillStyle = "#000000";
+  }
+  
+  // 裁切成最終高度
+  const finalHeight = y + 60; 
+  const finalCanvas = document.createElement("canvas"); 
+  finalCanvas.width = width; finalCanvas.height = finalHeight;
+  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
+  return { canvas: finalCanvas, finalHeight: finalHeight };
+}
+
 function buildCustomerReceiptCanvas(o){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
   const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
@@ -787,64 +877,55 @@ function sendToRawBTAppIntent(bufferData) {
     });
 }
 
-async function printCanvasToPrinter(canvas, finalHeight) {
-  const width = canvas.width; 
-  const totalHeight = Math.ceil(finalHeight); 
-  const ctx = canvas.getContext("2d"); 
-  const protocol = printerConf.usbProtocol || 'TSPL'; 
+// 🌟 核心修改：判斷是否要印實體發票，並把它塞進列印排程的最前面
+async function printOrderLabel(o){
+  if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
+  
+  const customerReceipt = buildCustomerReceiptCanvas(o); 
+  const kitchenReceipt = buildKitchenReceiptCanvas(o);
+  const protocol = printerConf.usbProtocol || 'TSPL';
 
-  const MAX_CHUNK_HEIGHT = protocol === 'TSPL' ? 1000 : 500; 
+  // ✅ 判斷是否需要印實體電子發票：(沒有載具) 且 (開啟測試模式)
+  let invoiceReceipt = null;
+  const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
+  if (noCarrier && sysConfig.INVOICE_ENV === 'test') {
+      invoiceReceipt = await buildInvoiceCanvas(o);
+  }
 
-  for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
-    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY); 
-    const img = ctx.getImageData(0, startY, width, currentHeight).data; 
-    const widthBytes = Math.ceil(width / 8); 
-    const bitmap = new Uint8Array(widthBytes * currentHeight); 
-    
-    let buf; 
-    if (protocol === 'TSPL') {
-      bitmap.fill(255); 
-      for(let py = 0; py < currentHeight; py++){ 
-        for(let px = 0; px < width; px++){ 
-          const idx = (py * width + px) * 4; 
-          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
-          if(img[idx+3] > 128 && gray < 180) { 
-             bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); 
-          } 
-        } 
+  if (currentPrinterMode === 'lan') {
+      const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
+      const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
+      
+      let totalLen = buf1.length + buf2.length;
+      let bufInv = null;
+      if (invoiceReceipt) {
+          bufInv = createPrinterBuffer(invoiceReceipt.canvas, protocol);
+          totalLen += bufInv.length;
       }
-      const mmHeight = Math.max(10, Math.ceil(currentHeight / 8)); 
-      const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${currentHeight},0,`);
-      const isLastChunk = (startY + currentHeight >= totalHeight); 
-      const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`; 
-      const footer = new TextEncoder().encode(footerStr);
-      buf = new Uint8Array(header.length + bitmap.length + footer.length); 
-      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-    } else {
-      bitmap.fill(0); 
-      for(let py = 0; py < currentHeight; py++){ 
-        for(let px = 0; px < width; px++){ 
-          const idx = (py * width + px) * 4; 
-          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
-          if(img[idx+3] > 128 && gray < 180) { 
-             bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8))); 
-          } 
-        } 
+      
+      const combinedBuf = new Uint8Array(totalLen);
+      let offset = 0;
+      
+      // 如果有發票，先塞發票！
+      if (invoiceReceipt && bufInv) {
+          combinedBuf.set(bufInv, offset);
+          offset += bufInv.length;
       }
-      const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, currentHeight & 0xFF, (currentHeight >> 8) & 0xFF]);
-      const isLastChunk = (startY + currentHeight >= totalHeight); 
-      const footer = isLastChunk ? new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]) : new Uint8Array([]);
-      buf = new Uint8Array(header.length + bitmap.length + footer.length);
-      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-    }
-    
-    if (currentPrinterMode === 'usb') {
-        const CHUNK_SIZE = 8192; 
-        for (let i = 0; i < buf.length; i += CHUNK_SIZE) { 
-            await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
-        }
-        await new Promise(resolve => setTimeout(resolve, 600));
-    }
+      
+      combinedBuf.set(buf1, offset);
+      offset += buf1.length;
+      combinedBuf.set(buf2, offset);
+      
+      await sendToRawBTAppIntent(combinedBuf.buffer);
+  } else {
+      // 🌟 USB 模式：依序印出 發票 ➔ 客人單 ➔ 廚房單
+      if (invoiceReceipt) {
+          await printCanvasToPrinter(invoiceReceipt.canvas, invoiceReceipt.finalHeight); 
+          await new Promise(resolve => setTimeout(resolve, 1500)); // 緩衝等待裁紙
+      }
+      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
   }
 }
 
@@ -878,27 +959,6 @@ async function printOrderToBLE(o, titleHeader) {
       if (match) { let qty = parseInt(match[1], 10); let cleanName = item.replace(/x\s*\d+$/i, "").trim(); for (let i = 0; i < qty; i++) labelItems.push(cleanName); } else { labelItems.push(item); }
   }
   for (let i = 0; i < labelItems.length; i++) { const canvas = buildItemLabelCanvas(o, labelItems[i], i + 1, labelItems.length, titleHeader); await printSingleLabelToBLE(canvas); await new Promise(r => setTimeout(r, 1500)); }
-}
-
-async function printOrderLabel(o){
-  if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
-  const customerReceipt = buildCustomerReceiptCanvas(o); 
-  const kitchenReceipt = buildKitchenReceiptCanvas(o);
-  const protocol = printerConf.usbProtocol || 'TSPL';
-
-  if (currentPrinterMode === 'lan') {
-      const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
-      const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
-      const combinedBuf = new Uint8Array(buf1.length + buf2.length);
-      combinedBuf.set(buf1, 0);
-      combinedBuf.set(buf2, buf1.length);
-      
-      await sendToRawBTAppIntent(combinedBuf.buffer);
-  } else {
-      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
-  }
 }
 
 async function safeExecuteDualPrint(o) {
