@@ -877,6 +877,68 @@ function sendToRawBTAppIntent(bufferData) {
     });
 }
 
+// 🌟 核心 USB 實際列印函數 (已還原)
+async function printCanvasToPrinter(canvas, finalHeight) {
+  const width = canvas.width; 
+  const totalHeight = Math.ceil(finalHeight); 
+  const ctx = canvas.getContext("2d"); 
+  const protocol = printerConf.usbProtocol || 'TSPL'; 
+
+  const MAX_CHUNK_HEIGHT = protocol === 'TSPL' ? 1000 : 500; 
+
+  for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
+    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY); 
+    const img = ctx.getImageData(0, startY, width, currentHeight).data; 
+    const widthBytes = Math.ceil(width / 8); 
+    const bitmap = new Uint8Array(widthBytes * currentHeight); 
+    
+    let buf; 
+    if (protocol === 'TSPL') {
+      bitmap.fill(255); 
+      for(let py = 0; py < currentHeight; py++){ 
+        for(let px = 0; px < width; px++){ 
+          const idx = (py * width + px) * 4; 
+          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+          if(img[idx+3] > 128 && gray < 180) { 
+             bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); 
+          } 
+        } 
+      }
+      const mmHeight = Math.max(10, Math.ceil(currentHeight / 8)); 
+      const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${currentHeight},0,`);
+      const isLastChunk = (startY + currentHeight >= totalHeight); 
+      const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`; 
+      const footer = new TextEncoder().encode(footerStr);
+      buf = new Uint8Array(header.length + bitmap.length + footer.length); 
+      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+    } else {
+      bitmap.fill(0); 
+      for(let py = 0; py < currentHeight; py++){ 
+        for(let px = 0; px < width; px++){ 
+          const idx = (py * width + px) * 4; 
+          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
+          if(img[idx+3] > 128 && gray < 180) { 
+             bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8))); 
+          } 
+        } 
+      }
+      const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, currentHeight & 0xFF, (currentHeight >> 8) & 0xFF]);
+      const isLastChunk = (startY + currentHeight >= totalHeight); 
+      const footer = isLastChunk ? new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]) : new Uint8Array([]);
+      buf = new Uint8Array(header.length + bitmap.length + footer.length);
+      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+    }
+    
+    if (currentPrinterMode === 'usb') {
+        const CHUNK_SIZE = 8192; 
+        for (let i = 0; i < buf.length; i += CHUNK_SIZE) { 
+            await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
+        }
+        await new Promise(resolve => setTimeout(resolve, 600));
+    }
+  }
+}
+
 // 🌟 核心修改：判斷是否要印實體發票，並把它塞進列印排程的最前面
 async function printOrderLabel(o){
   if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
