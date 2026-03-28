@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>加山記點餐</title>
 <style>
 #orderTrackerBar {
@@ -30,7 +30,7 @@
   --warning:#d98b00; --info:#2563eb; --shadow:0 10px 24px rgba(0,0,0,.06); --radius:18px;
 }
 *{box-sizing:border-box;}
-html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--text); }
+html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--text); overflow-x:hidden; }
 .page{ display:none; max-width:1100px; margin:0 auto; min-height:100vh; padding:18px 16px 40px; }
 .active{ display:block; }
 .topbar{ position:sticky; top:0; z-index:100; background:rgba(245,245,242,.92); backdrop-filter:blur(10px); padding-bottom:12px; }
@@ -58,10 +58,54 @@ html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; bac
 .inline-summary{ margin-top:18px; background:#fff; border:2px solid var(--primary); border-radius:20px; padding:18px; box-shadow:var(--shadow); }
 .modal{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:3000; padding:16px; }
 .modal.show{ display:flex; }
-.modal-card{ width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; }
+.modal-card{ width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; max-height:90vh; overflow-y:auto; }
 .toast{ position:fixed; left:50%; top:20px; transform:translateX(-50%); background:#111; color:#fff; padding:12px 16px; border-radius:14px; z-index:500; display:none; }
 input, select { width:100%; border:1px solid var(--line); border-radius:14px; padding:14px; font-size:16px; margin-bottom:10px; }
 .sold-out-badge { color:#fff; background:#e74c3c; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:6px; display:inline-block; vertical-align:middle; }
+
+/* ========================================== */
+/* 📱 完美 APP 級手機與平板 RWD 變形裝甲 */
+/* ========================================== */
+@media (max-width: 768px) {
+  .page { padding: 10px 10px 90px; } /* 底部留白避免被結帳條擋住 */
+  
+  /* 導覽列堆疊，避免長店名被擠壓 */
+  .topbar-inner { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px; }
+  .top-actions { justify-content: space-between; width: 100%; }
+  .brand-title { font-size: 22px; text-align: center; }
+  
+  /* 點餐網格極致壓縮：手機一排兩格 */
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .menu-card { padding: 12px; }
+  .menu-img { height: 100px; }
+  
+  /* 彈出視窗(教學/查詢) 滿版自適應 */
+  .modal { padding: 10px; }
+  .modal-card { width: 100% !important; max-width: 100% !important; padding: 15px; border-radius: 14px; }
+  
+  /* 鎖定輸入框字體大小，嚴防 iOS 點擊輸入框時畫面放大 */
+  input[type="text"], input[type="tel"], input[type="number"], select, textarea { font-size: 16px !important; }
+  
+  /* 套餐選項：手機強制改為單欄，避免核取方塊擠壓文字 */
+  #comboAddonContainer, #comboMainContainer, #comboSideContainer { grid-template-columns: 1fr !important; }
+}
+
+/* 極窄手機 (例如 iPhone SE) 入口大按鈕堆疊 */
+@media (max-width: 480px) {
+  .portal-btn-wrap { flex-direction: column; align-items: center; }
+  .portal-btn-wrap > button { width: 100%; max-width: 300px; padding: 25px 10px !important; }
+  .portal-btn-wrap .btn > div:first-child { font-size: 40px !important; } /* Icon 縮小點 */
+}
+
+/* ========================================== */
+/* 🔄 手機橫向螢幕 (Landscape) 專用滾動裝甲 */
+/* ========================================== */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* 確保入口頁在極扁的橫屏可以滑動 */
+  #entryPortal { position: absolute !important; min-height: 100vh; justify-content: flex-start !important; padding-top: 30px !important; overflow-y: auto; }
+  .modal-card { max-height: 85vh; }
+  .topbar { position: relative; } /* 解除固定，讓出寶貴的可視空間 */
+}
 </style>
 </head>
 <body>
@@ -89,7 +133,7 @@ input, select { width:100%; border:1px solid var(--line); border-radius:14px; pa
     
     <button type="button" onclick="openTutorial()" style="background:none; border:none; color:#2980b9; font-weight:900; font-size:16px; cursor:pointer; margin-top:-20px; margin-bottom:30px; text-decoration:underline;">❓ 第一次點餐？點我看快速教學</button>
 
-    <div style="display: flex; gap: 15px; width: 100%; max-width: 500px; justify-content: center; margin-bottom: 10px;">
+    <div class="portal-btn-wrap" style="display: flex; gap: 15px; width: 100%; max-width: 500px; justify-content: center; margin-bottom: 10px;">
       
       <button id="btnOnsite" type="button" class="btn btn-primary" style="display:none; flex: 1; padding: 40px 10px; font-size: 20px; border-radius: 24px; box-shadow: var(--shadow); text-align: center; transition: transform 0.2s;" onclick="chooseServiceMode('pickup')" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.95)'" ontouchend="this.style.transform='scale(1)'">
         <div style="font-size: 50px; margin-bottom: 15px;">🏠</div>
@@ -398,7 +442,6 @@ function renderSingleUI() {
       </div></div>`).join("");
 }
 
-// 🌟 SaaS：折扣碼套用邏輯
 function applyPromoCode() {
   const code = document.getElementById("promoInput").value.trim();
   const msg = document.getElementById("promoMsg");
@@ -416,7 +459,6 @@ function applyPromoCode() {
   }
 }
 
-// 🌟 SaaS：分離結算渲染邏輯，支援折扣碼即時更新
 function renderCheckoutSummary() {
   let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
   let shippingFee = 0;
@@ -440,7 +482,6 @@ function renderCheckoutSummary() {
 function showCheckout() {
   let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
   
-  // 🌟 SaaS：檢查低消門檻阻擋機制
   let minReq = (serviceMode === 'delivery') ? Number(sysConfig.MIN_ORDER_DELIVERY) : Number(sysConfig.MIN_ORDER_ONSITE);
   if (subtotal < minReq) {
       alert(`目前差 $${minReq - subtotal} 才能結帳！\n此服務模式最低消費門檻為 $${minReq}`);
@@ -464,7 +505,6 @@ function showCheckout() {
     document.getElementById("pickupMode").disabled = false;
   }
   
-  // 🌟 SaaS：動態付款選單渲染
   const paySel = document.getElementById("payMethod");
   paySel.innerHTML = "";
   if (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N') paySel.innerHTML += `<option value="LINEPAY">LINE Pay</option>`;
@@ -488,14 +528,12 @@ async function submitOrder() {
   const phone = document.getElementById("customerPhone").value.trim();
   const address = document.getElementById("deliveryAddress").value.trim();
   const payMethod = document.getElementById("payMethod").value;
-  // ✅ 新增：抓取發票載具並轉大寫
-const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCase();
-  const taxId = document.getElementById("taxId").value.trim(); // ✅ 新增抓取統編
+  const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCase();
+  const taxId = document.getElementById("taxId").value.trim(); 
   
   if (payMethod === "LINEPAY" && (!name || !phone)) return alert("請填寫聯絡姓名與電話！");
   if (serviceMode === 'delivery' && !address) return alert("請填寫宅配收件地址！");
 
-  // ✅ 載具驗證
   if (carrier !== "") {
     const carrierRegex = /^\/[0-9A-Z+\-.]{7}$/;
     if (!carrierRegex.test(carrier)) {
@@ -503,7 +541,6 @@ const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCa
     }
   }
 
-  // ✅ 統編驗證 (必須是純數字且剛好8碼)
   if (taxId !== "") {
     if (!/^\d{8}$/.test(taxId)) {
       return alert("🏢 統一編號格式錯誤！請輸入 8 位數字。");
@@ -521,7 +558,6 @@ const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCa
   let shippingFee = 0;
   if (serviceMode === 'delivery') { shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE; }
 
-  // 🌟 SaaS：計算包含折扣後的最終金額，並把折扣標示附在明細字串給老闆看
   const finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
   const finalItemsStr = basket.map(i=>i.desc + " x" + i.qty).join(" | ") + (appliedPromoDiscount > 0 ? ` | 🎟️ 折扣碼折抵 -$${appliedPromoDiscount}` : "");
 
@@ -530,7 +566,7 @@ const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCa
     total: finalTotal,
     pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId,
     invoiceCarrier: carrier,
-    taxId: taxId // ✅ 新增：將統編資料傳送到後台
+    taxId: taxId
   };
 
   try {
@@ -686,7 +722,6 @@ async function checkLinePayReturn() {
   const status = urlParams.get('status'); const orderId = urlParams.get('orderId');
   if (status === 'success' && orderId) {
     
-    // 🌟 終極稽核：完美清洗網址列，切斷上一頁的輪迴錯誤！
     window.history.replaceState(null, null, window.location.pathname);
     
     document.getElementById("orderPage").style.display = 'none'; 
@@ -819,7 +854,7 @@ function addToBasket() {
  showToast("已加入購物車"); updateBasketUI();
 }
 </script> <div id="tutorialModal" class="modal">
-  <div class="modal-card" style="max-height:85vh; overflow-y:auto; border: 2px solid #111;">
+  <div class="modal-card" style="border: 2px solid #111;">
     <div class="step-head" style="border-bottom: 2px dashed #eee; padding-bottom: 10px; margin-bottom: 15px;">
       <div class="brand-title" style="font-size:22px;">📖 快速點餐教學</div>
       <button class="btn" style="padding:5px 10px; width:auto; background:#f1f1f1;" onclick="closeTutorial()">✕</button>
@@ -851,7 +886,6 @@ function addToBasket() {
 </div>
 
 <script>
-  // 🟢 新增：控制教學面板開關的函數
   function openTutorial() { document.getElementById('tutorialModal').classList.add('show'); }
   function closeTutorial() { document.getElementById('tutorialModal').classList.remove('show'); }
 </script>
