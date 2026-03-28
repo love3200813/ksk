@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>加山記 POS v40.2 APP 喚醒終極稽核版 (LINE Pay 線下整合+雲端發票)</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
@@ -17,17 +17,23 @@
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
 <style>
-body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; }
+body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; overflow-x: hidden; }
 .wrap{display:flex;min-height:100vh;}
-.sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 1000; }
-.sidebar h1{ font-size:32px; margin:0 0 20px 0; color:#2C2C2C; }
+
+/* 側邊欄預設樣式 */
+.sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 1000; display:flex; flex-direction:column; }
+.sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; }
+.sidebar h1{ font-size:32px; margin:0; color:#2C2C2C; }
+.mobile-close-btn { display:none; background:none; border:none; font-size:28px; cursor:pointer; color:#e74c3c; font-weight:bold; }
+.sidebar-scroll { flex:1; overflow-y:auto; padding-right:5px; }
+
 .sidebar.hidden { display: none !important; }
-.main{ flex:1; padding:20px; box-sizing:border-box; }
+.main{ flex:1; padding:20px; box-sizing:border-box; width:100%; }
 .btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; color:#fff; }
 .btn-ble{background:#3498db;} .btn-usb{background:#F1F1F1;color:#333;}
 .btn-lan{background:#16a085;} .btn-delivery{background:#5D4037;} .btn-info{background:#8e44ad;} .btn-order{background:#F39C12;} .btn-start{background:#2ecc71;} .btn-shift{background:#e74c3c;}
 .usb-status{ font-size:14px; font-weight:bold; margin-top:10px; color:#27AE60; }
-.modal{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
 .modal.show{ display:flex; }
 .modal-card{ width:min(100%, 850px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
 .modal-header{ padding:20px; border-bottom:1px solid #EAE8E3; display:flex; justify-content:space-between; align-items:center; background:#FAFAFA; }
@@ -39,37 +45,62 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 .cash-item{ background:#FDFDFD; border-radius:14px; padding:14px; border:1px solid #EAE8E3; text-align:center; }
 .sbtn{ flex:1; border:none; padding:11px; border-radius:10px; cursor:pointer; font-weight:700; }
 
+/* ✅ 手機側拉背景遮罩 */
+#mobileOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; }
+
 /* ========================================== */
-/* 📱 手機與平板專用響應式 (RWD) 變形裝甲     */
+/* 📱 手機與平板專用響應式 (RWD) 真 APP 裝甲  */
 /* ========================================== */
 @media (max-width: 768px) {
-  .sidebar { 
-      position: fixed; left: 0; top: 0; height: 100vh; overflow-y: auto; 
-      box-shadow: 5px 0 20px rgba(0,0,0,0.3); display: none; /* 手機預設隱藏側邊欄 */
-  }
-  .main { width: 100%; padding: 10px; }
-  .modal-card { width: 98% !important; max-width: 98% !important; max-height: 90vh; margin: 0 auto; }
+  /* 側拉選單改造 */
+  .sidebar { position: fixed; left: -320px; top: 0; bottom: 0; height: 100vh; width: 280px; box-shadow: 5px 0 20px rgba(0,0,0,0.4); transition: left 0.3s ease; display: flex !important; }
+  .sidebar.open { left: 0; }
+  #mobileOverlay.open { display: block; }
+  .mobile-close-btn { display: block; } /* 手機顯示 X 按鈕 */
   
-  /* 編輯訂單：左右分屏改為上下排列，避免畫面被切斷 */
-  #editModal .modal-body { flex-direction: column !important; padding: 15px !important; }
-  #editModal .modal-body > div:first-child { border-right: none !important; border-bottom: 2px dashed #ccc; padding-right: 0 !important; padding-bottom: 15px; max-height: 35vh; overflow-y: auto; }
+  .main { padding: 10px; width: 100%; }
   
-  /* 綜合設定：雙欄輸入框強制改為上下排列 */
-  #settingsModal .modal-body div[style*="display:flex"] { flex-direction: column !important; align-items: stretch !important; gap: 10px; }
-  #settingsModal .modal-body div[style*="display:flex"] > div { flex: 1 1 auto !important; width: 100% !important; }
+  /* 彈出視窗極致壓縮，避免被鍵盤擋住 */
+  .modal { padding: 10px; }
+  .modal-card { width: 100% !important; max-width: 100% !important; max-height: 92vh; margin: 0; }
+  .modal-header { padding: 12px 15px; }
+  .modal-body { padding: 12px; }
+  h2, h3 { font-size: 20px; margin: 0; }
   
-  /* 菜單管理：按鈕區塊 */
-  #menuComboSettingsArea { flex-direction: column !important; align-items: flex-start !important; }
+  /* 高密度點餐網格 */
+  .cash-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+  .cash-item { padding: 8px; font-size: 14px; border-radius: 10px; }
+  .sbtn { padding: 8px; border-radius: 6px; font-size: 14px; }
   
-  /* 調整字體與間距讓手機更好點擊 */
-  .seq { font-size: 26px; }
-  h2 { font-size: 22px; margin-bottom: 10px; }
-  .cash-grid { grid-template-columns: repeat(auto-fill,minmax(110px,1fr)); }
-  .btn { padding: 16px; font-size: 18px; } /* 手機按鈕大一點好按 */
+  /* 輸入框強制 16px 防止 iOS 縮放，且壓縮間距 */
+  input[type="text"], input[type="number"], select, textarea { font-size: 16px !important; padding: 10px !important; margin-bottom: 8px !important; }
+  
+  /* 編輯訂單：左右分屏改為上下排列 */
+  #editModal .modal-body { flex-direction: column !important; }
+  #editModal .modal-body > div:first-child { border-right: none !important; border-bottom: 2px dashed #ccc; padding-right: 0 !important; padding-bottom: 10px; margin-bottom: 10px; max-height: 35vh; overflow-y: auto; }
+  
+  /* 綜合設定：雙欄強制改為上下排列 */
+  #settingsModal .modal-body div[style*="display:flex"] { flex-direction: column !important; align-items: stretch !important; gap: 5px; }
+  #settingsModal .modal-body div[style*="display:flex"] > div { width: 100% !important; }
+  
+  .btn { padding: 12px; font-size: 16px; margin-bottom: 8px; }
+}
+
+/* ========================================== */
+/* 🔄 手機橫向螢幕 (Landscape) 專用滾動裝甲 */
+/* ========================================== */
+@media (max-width: 950px) and (orientation: landscape) {
+  .modal-card { max-height: 95vh; }
+  .modal-body { max-height: 70vh; overflow-y: auto; }
+  #editModal .modal-body { flex-direction: row !important; } /* 橫向時保留左右分屏 */
+  #editModal .modal-body > div:first-child { border-right: 1px solid #EAE8E3 !important; border-bottom: none !important; padding-right: 15px !important; max-height: 60vh; }
+  #settingsModal .modal-body div[style*="display:flex"] { flex-direction: row !important; }
 }
 </style>
 </head>
 <body>
+
+<div id="mobileOverlay" onclick="toggleSidebar()"></div>
 
 <div id="startOverlay" style="position:fixed; inset:0; background:rgba(44, 44, 44, 0.95); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
   <h1>🍲 加山記 POS 系統</h1>
@@ -78,49 +109,55 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
 <div class="wrap">
   <div class="sidebar">
-    <h1>加山記</h1>
-    <button id="btnConnectBle" class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
-    <button id="btnConnectUsb" class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-    <button id="btnConnectLan" class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
+    <div class="sidebar-header">
+       <h1>加山記</h1>
+       <button class="mobile-close-btn" onclick="toggleSidebar()">✕</button>
+    </div>
     
-    <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
-    <div id="usbStatus" class="usb-status">本機出單：未連線</div>
-    <hr>
-    <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
-    <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
-    <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
-    <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
-    <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
-    <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
-    <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單管理 (上/下架)</button>
-    <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機設定</button>
-    
-    <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
-    <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
-    <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:14px;"></div>
+    <div class="sidebar-scroll">
+        <button id="btnConnectBle" class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
+        <button id="btnConnectUsb" class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
+        <button id="btnConnectLan" class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
+        
+        <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
+        <div id="usbStatus" class="usb-status">本機出單：未連線</div>
+        <hr>
+        <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
+        <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
+        <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
+        <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
+        <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
+        <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
+        <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單管理 (上/下架)</button>
+        <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機設定</button>
+        
+        <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
+        <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
+        <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:14px;"></div>
+    </div>
   </div>
 
   <div class="main">
-    <div id="cashPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🛒 現場下單</h2><button onclick="toggleCashPanel()">✕</button></div><div class="modal-body">
+    <div id="cashPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🛒 現場下單</h2><button onclick="toggleCashPanel(true)" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body">
       <div class="cash-grid" id="posSMainGrid"></div><hr><div class="cash-grid" id="posSDrinkGrid"></div><hr><div class="cash-grid" id="posSSideGrid"></div>
-      <div style="margin-top:20px; padding:15px; background:#fff9f0; border-radius:14px;">
-        <div style="font-size:24px; font-weight:900;">小計：$<span id="posTotal">0</span></div>
-        <div id="posBasketList" style="margin:10px 0; font-weight:bold;"></div>
+      <div style="margin-top:10px; padding:10px; background:#fff9f0; border-radius:14px;">
+        <div style="font-size:22px; font-weight:900;">小計：$<span id="posTotal">0</span></div>
+        <div id="posBasketList" style="margin:5px 0; font-weight:bold;"></div>
         
-        <select id="posPayMethod" onchange="togglePosBarcode()" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size:16px; font-weight:bold; border:1px solid #ccc;">
+        <select id="posPayMethod" onchange="togglePosBarcode()" style="width:100%; padding:10px; border-radius:8px; margin-bottom:8px; font-size:16px; font-weight:bold; border:1px solid #ccc;">
           <option value="現金">💵 現金結帳</option>
           <option value="LINEPAY掃碼槍">🔫 LINEPAY掃碼槍</option>
         </select>
         
-        <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.請掃描發票載具 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:10px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
-        <input type="text" id="posTaxId" placeholder="🏢 2.請輸入統一編號 (若無請按 Enter 跳過)" style="width:100%; padding:12px; border-radius:8px; border:2px solid #e67e22; margin-bottom:10px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
-        <input type="text" id="posBarcode" placeholder="👉 3.請點此處並使用掃碼槍掃描付款條碼" style="width:100%; padding:12px; border-radius:8px; border:2px solid #3498db; margin-bottom:10px; font-size:16px; display:none; background:#f0f8ff;">
+        <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.發票載具 (按 Enter 跳過)" style="width:100%; padding:10px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:8px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
+        <input type="text" id="posTaxId" placeholder="🏢 2.統一編號 (按 Enter 跳過)" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e67e22; margin-bottom:8px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
+        <input type="text" id="posBarcode" placeholder="👉 3.掃描付款條碼" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; margin-bottom:8px; font-size:16px; display:none; background:#f0f8ff;">
         
-        <button id="cashSubmitBtn" class="btn btn-start" onclick="submitCashOrder()" disabled>確認送出現場單</button>
+        <button id="cashSubmitBtn" class="btn btn-start" style="margin-bottom:0;" onclick="submitCashOrder()" disabled>確認送出現場單</button>
       </div>
     </div></div></div>
 
-    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 歷史訂單查詢</h2><button onclick="toggleSearchPanel()">✕</button></div><div class="modal-body">
+    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 歷史訂單查詢</h2><button onclick="toggleSearchPanel(true)" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body">
       <input type="text" id="searchInput" placeholder="搜尋姓名/電話/單號..." style="width:100%; padding:15px; border-radius:10px; border:1px solid #ccc; margin-bottom:10px;">
       <button onclick="executeSearch()" class="btn btn-info">開始搜尋</button>
       <div id="searchResults" style="margin-top:15px;"></div>
@@ -128,19 +165,19 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 
     <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
       <button onclick="toggleSidebar()" style="background: #FFFFFF; border: 1px solid #EAE8E3; border-radius: 10px; padding: 6px 14px; font-size: 22px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04); color: #2C2C2C; font-weight: bold; transition: 0.2s;">☰</button>
-      <h2 style="margin: 0;">即時製作訂單 (巡邏中)</h2>
+      <h2 style="margin: 0; font-size:20px;">即時訂單 (巡邏中)</h2>
     </div>
     <div id="orders" class="grid"></div>
   </div>
 </div>
 
-<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理面板</h3><button onclick="closeDeliveryPanel()">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
+<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理面板</h3><button onclick="closeDeliveryPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
 
 <div id="editModal" class="modal">
   <div class="modal-card" style="width:min(100%, 950px); max-width:950px;">
     <div class="modal-header">
       <h3>✏️ 編輯訂單 <span id="editSeq" style="color:#e74c3c; margin-left:10px;"></span></h3>
-      <button onclick="closeEditModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+      <button onclick="closeEditModal()" style="border:none; background:none; font-size:24px; cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="display:flex; gap:20px; padding:20px;">
       <input type="hidden" id="editRow">
@@ -150,12 +187,11 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <div class="cash-grid" id="editMainGrid"></div><hr><div class="cash-grid" id="editDrinkGrid"></div><hr><div class="cash-grid" id="editSideGrid"></div>
       </div>
       <div style="flex:1;">
-        <h4 style="margin-top:0; color:#e74c3c;">👉 實際儲存內容 (可手動修改)</h4>
-        <label style="font-size:14px; font-weight:bold; color:#666;">餐點內容字串</label>
+        <h4 style="margin-top:0; color:#e74c3c;">👉 實際儲存內容</h4>
         <textarea id="editContent" rows="6" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:16px; margin-bottom:15px; font-family:inherit; box-sizing:border-box; background:#FAFAFA;"></textarea>
         <label style="font-size:14px; font-weight:bold; color:#666;">總金額 <span id="editTotalInfo" style="font-size:14px; color:#e74c3c;"></span></label>
         <input type="number" id="editTotal" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:24px; font-weight:900; color:#d9534f; margin-bottom:25px; box-sizing:border-box; background:#FAFAFA;">
-        <button id="saveEditBtn" class="btn btn-start" style="background:#17a2b8; width:100%; font-size:18px; padding:15px;" onclick="saveOrderEdit()">💾 確認並儲存修改</button>
+        <button id="saveEditBtn" class="btn btn-start" style="background:#17a2b8; width:100%; font-size:18px; padding:15px;" onclick="saveOrderEdit()">💾 確認儲存</button>
       </div>
     </div>
   </div>
@@ -165,7 +201,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   <div class="modal-card" style="width: 700px; max-height:90vh;">
     <div class="modal-header">
       <h3>⚙️ POS 系統綜合設定</h3>
-      <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+      <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;">
 
@@ -207,7 +243,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         </div>
 
         <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰 <small>※保留您原本的代碼</small></label>
+          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰 <small>※保留原本的代碼</small></label>
           <input type="text" id="settingLinePayId" placeholder="Channel ID (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
           <input type="text" id="settingLinePaySecret" placeholder="Channel Secret (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
         </div>
@@ -315,7 +351,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <div style="display:flex; gap:10px; margin-bottom:15px;">
           <div style="flex:1;">
             <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">開始時間</label>
-            <input type="time" id="settingReserveStart" stylewidth="100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+            <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
           </div>
           <div style="flex:1;">
             <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">結束時間</label>
@@ -352,7 +388,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   <div class="modal-card" style="width:min(100%, 1100px); max-height:95vh;">
     <div class="modal-header">
       <h3>📝 菜單管理 <span id="menuModalTitleRole" style="font-size:16px; color:#e74c3c; font-weight:bold; margin-left:10px;"></span></h3>
-      <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+      <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
       
@@ -390,39 +426,87 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
   </div>
 </div>
 
+<div id="printerModal" class="modal">
+  <div class="modal-card" style="width: 550px; max-height:90vh;">
+    <div class="modal-header">
+      <h3>🖨️ 列印機硬體參數設定</h3>
+      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+      
+      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
+        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
+          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
+        </label>
+        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
+          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
+        </label>
+      </div>
+
+      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
+        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
+          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
+          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
+        </select>
+        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項。</div>
+      </div>
+
+      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
+        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
+        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
+        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
+        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
+        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+
+      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 網口/USB 出單機設定 (明細)</h4>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
+        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      </div>
+      
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==========================================
-// 📱 裝置自動偵測系統 (手機/平板/電腦)
+// 📱 手機側拉選單核心邏輯
 // ==========================================
-let currentDeviceMode = 'PC';
-function detectAndAdjustDevice() {
-  const w = window.innerWidth;
-  const sidebar = document.querySelector('.sidebar');
-  if (w <= 768) {
-    currentDeviceMode = 'Phone';
-    // 手機版：預設把側邊欄收起來，讓出空間給主畫面
-    if (!sidebar.classList.contains('user-toggled')) {
-       sidebar.style.display = 'none'; 
-    }
-  } else if (w <= 1024) {
-    currentDeviceMode = 'Tablet';
-    sidebar.style.display = 'block'; 
-  } else {
-    currentDeviceMode = 'PC';
-    sidebar.style.display = 'block'; 
-  }
-}
-window.addEventListener('resize', detectAndAdjustDevice);
-document.addEventListener('DOMContentLoaded', detectAndAdjustDevice);
-
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
-  sidebar.classList.add('user-toggled'); // 標記使用者已手動操作過
-  if (sidebar.style.display === 'none' || sidebar.style.display === '') {
-    sidebar.style.display = 'block';
+  const overlay = document.getElementById('mobileOverlay');
+  
+  if (window.innerWidth <= 768) {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('open');
   } else {
-    sidebar.style.display = 'none';
+      if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+        sidebar.style.display = 'flex';
+      } else {
+        sidebar.style.display = 'none';
+      }
   }
+}
+
+function closeSidebarOnMobile() {
+    if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('open');
+        document.getElementById('mobileOverlay').classList.remove('open');
+    }
 }
 
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -481,6 +565,7 @@ function applyButtonVisibility() {
 applyButtonVisibility();
 
 function openPrinterSettings() {
+  closeSidebarOnMobile();
   try {
     if (document.getElementById("p_usbProtocol")) document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
     if (document.getElementById("p_bleMmW")) document.getElementById("p_bleMmW").value = printerConf.bleMmW || 40;
@@ -1122,7 +1207,7 @@ async function manualPrint(encoded){
     const o = JSON.parse(decodeURIComponent(encoded)); 
     const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); 
     if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
-    setMsg(`準備手ַ手動列印：${o.seq}...`);
+    setMsg(`準備手動列印：${o.seq}...`);
     await safeExecuteDualPrint(o); 
     setMsg(`${o.seq} 補印/宅配列印完成`); 
   }catch(err){ 
@@ -1275,7 +1360,7 @@ function renderEditUI() {
     let displayList = list; if (isDeliveryOrder) displayList = list.filter(i => i.isDelivery === "Y");
     document.getElementById(id).innerHTML = displayList.map(i => {
       let p = Number(i.singlePrice) || Number(i.sp) || 0;
-      return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><button class="sbtn" style="width:30px;padding:5px;" onclick="changeEditSingle('${i.n}', -1, ${p})">-</button><span style="margin:0 10px; font-weight:bold;">${editSel[i.n]?.q || 0}</span><button class="sbtn" style="width:30px;padding:5px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div>`;
+      return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${editSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div></div>`;
     }).join("");
   };
   draw(MAINS, "editMainGrid"); draw(DRINKS, "editDrinkGrid"); draw(SIDES, "editSideGrid");
@@ -1338,7 +1423,7 @@ async function saveOrderEdit() {
          try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } 
       }
     } else { alert(res.msg); }
-  } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認並儲存修改"; }
+  } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認儲存"; }
 }
 
 async function triggerNotify(row) { 
@@ -1352,6 +1437,7 @@ async function triggerNotify(row) {
   }
 }
 async function openSettingsPanel() {
+  closeSidebarOnMobile();
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
   if (!pwd) return; 
@@ -1528,11 +1614,13 @@ async function saveSettings() {
 }
 
 async function executeSearch() {
+  closeSidebarOnMobile();
   const key = document.getElementById("searchInput").value; const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`); const data = await res.json();
   document.getElementById("searchResults").innerHTML = data.map(o => `<div style="background:#f9f9f9;padding:10px;margin-bottom:5px;border-radius:8px; border:1px solid #ccc;">🕒 ${o.createdAt}<br><b style="font-size:18px;">${o.seq}</b><br>${o.content} ($${o.total})</div>`).join("");
 }
 
 async function openDeliveryPanel() {
+  closeSidebarOnMobile();
   const currentDeliveryPwd = String(sysConfig.PWD_DELIVERY || "0926");
   const pwd = prompt("請輸入宅配管理專屬密碼:");
   if (String(pwd) === currentDeliveryPwd) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); } else { if(pwd) alert("❌ 密碼錯誤"); }
@@ -1585,7 +1673,7 @@ function renderPosUI() {
   const draw = (list, id) => {
     document.getElementById(id).innerHTML = list.map(i => {
       let p = Number(i.singlePrice) || Number(i.sp) || 0;
-      return `<div class="cash-item"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', -1, ${p})">-</button><span style="margin:0 10px; font-weight:bold;">${singleSel[i.n]?.q || 0}</span><button class="sbtn" style="width:30px;padding:5px;" onclick="editSingle('${i.n}', 1, ${p})">+</button></div>`;
+      return `<div class="cash-item"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${singleSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', 1, ${p})">+</button></div></div>`;
     }).join("");
   };
   draw(MAINS, "posSMainGrid"); draw(DRINKS, "posSDrinkGrid"); draw(SIDES, "posSSideGrid");
@@ -1597,14 +1685,18 @@ function updatePosBasket() {
 }
 
 async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
-function toggleCashPanel() { 
+function toggleCashPanel(isFromSidebar = false) { 
+  if (isFromSidebar) closeSidebarOnMobile();
   const panel = document.getElementById("cashPanel");
   panel.classList.toggle("show"); 
   if (panel.classList.contains("show")) {
       setTimeout(() => document.getElementById("posInvoiceCarrier").focus(), 100);
   }
 }
-function toggleSearchPanel() { document.getElementById("searchPanel").classList.toggle("show"); }
+function toggleSearchPanel(isFromSidebar = false) { 
+  if (isFromSidebar) closeSidebarOnMobile();
+  document.getElementById("searchPanel").classList.toggle("show"); 
+}
 async function setStatus(row, s) { processingRows.add(row); fetchOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
 
 async function initSystem() {
@@ -1619,6 +1711,7 @@ async function initSystem() {
 let rawMenuData = [];
 
 async function openMenuPanel() {
+  closeSidebarOnMobile();
   const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
   const rawManagerPwds = String(sysConfig.PWD_MANAGER || "1111,2222").replace(/，/g, ",");
   const managerPwds = rawManagerPwds.split(",").map(s => s.trim());
@@ -1716,13 +1809,12 @@ async function saveMenuData() {
   } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
 }
 
-// 🟢 掃碼槍注音/全形防呆轉換器 (套用於發票載具)
+// 🟢 掃碼槍注音/全形防呆轉換器
 document.getElementById('posInvoiceCarrier').addEventListener('input', function(e) {
   let val = e.target.value.toUpperCase();
   e.target.value = val;
 });
 
-// 🟢 掃碼槍注音/全形防呆轉換器 (套用於LINE Pay條碼)
 document.getElementById('posBarcode').addEventListener('input', function(e) {
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
@@ -1735,7 +1827,6 @@ document.getElementById('posBarcode').addEventListener('input', function(e) {
   e.target.value = val;
 });
 
-// 🟢 掃碼槍注音/全形防呆轉換器 (套用於統編條碼)
 document.getElementById('posTaxId').addEventListener('input', function(e) {
   const zhuyinMap = {
     'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
@@ -1748,11 +1839,10 @@ document.getElementById('posTaxId').addEventListener('input', function(e) {
   e.target.value = val;
 });
 
-// 🟢 連擊 Combo 掃碼邏輯 (載具 -> 統編 -> LINE Pay)
 document.getElementById('posInvoiceCarrier').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') {
     e.preventDefault();
-    document.getElementById("posTaxId").focus(); // 嗶完載具，自動跳到統編
+    document.getElementById("posTaxId").focus();
   }
 });
 
@@ -1762,9 +1852,9 @@ document.getElementById('posTaxId').addEventListener('keydown', function(e) {
     const method = document.getElementById("posPayMethod").value;
     if (method === "LINEPAY掃碼槍") {
       document.getElementById("posBarcode").style.display = "block";
-      document.getElementById("posBarcode").focus(); // 若是LINE Pay，自動跳付款條碼
+      document.getElementById("posBarcode").focus(); 
     } else {
-      submitCashOrder(); // 若是現金，直接結帳送單！
+      submitCashOrder(); 
     }
   }
 });
