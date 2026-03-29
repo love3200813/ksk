@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>加山記 POS v40.4 雙軌金流防護版</title>
+<title>加山記 POS v40.5 三路路由終極分流版</title>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2ecc71">
   <script>
@@ -101,12 +101,12 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
     </div>
     
     <div class="sidebar-scroll">
-        <button id="btnConnectBle" class="btn btn-ble" onclick="connectBLE()">📶 建立藍牙連線</button>
-        <button id="btnConnectUsb" class="btn btn-usb" onclick="connectUSB()">🔌 建立 USB 連線</button>
-        <button id="btnConnectLan" class="btn btn-lan" onclick="connectLAN()">🌐 連結 APP 喚醒列印模式</button>
-        
-        <div id="bleStatus" class="usb-status" style="color:#3498db;">藍牙：未連線</div>
-        <div id="usbStatus" class="usb-status">本機出單：未連線</div>
+        <button class="btn" style="background:#f39c12; color:#fff; border:2px solid #e67e22;" onclick="wakeUpDevices()">⚡ 一鍵喚醒所有設備</button>
+        <div style="background:#f9f9f9; padding:12px; border-radius:12px; border:1px solid #EAE8E3; margin-bottom:15px; font-weight:bold; font-size:14px; line-height:1.8;">
+            <div id="usbStatus" style="color:#7f8c8d;">🔌 USB：未連線 (請喚醒或配對)</div>
+            <div id="lanStatus" style="color:#16a085;">🌐 LAN：網路 APP 待命中</div>
+            <div id="bleStatus" style="color:#7f8c8d;">📶 BLE：未連線 (標籤機需點此配對)</div>
+        </div>
         <hr>
         <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
         <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
@@ -115,7 +115,7 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
         <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
         <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
         <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單管理 (上/下架)</button>
-        <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機設定</button>
+        <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機與路由設定</button>
         
         <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
         <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
@@ -424,55 +424,81 @@ body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2;
 <div id="printerModal" class="modal">
   <div class="modal-card" style="width: 550px; max-height:90vh;">
     <div class="modal-header">
-      <h3>🖨️ 列印機硬體參數設定</h3>
+      <h3>🖨️ 列印機與路由設定</h3>
       <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;">
       
-      <div style="background:#fff3cd; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #ffc107;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🔘 面板按鈕顯示設定</h4>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showBle" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立藍牙連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center; margin-bottom:8px;">
-          <input type="checkbox" id="p_showUsb" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「建立 USB 連線」
-        </label>
-        <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="p_showLan" style="width:18px; height:18px; margin:0 8px 0 0;"> 顯示「連結 APP 喚醒列印模式」
-        </label>
-      </div>
-
       <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">⚠️ 核心協議切換 (防亂碼關鍵)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">USB/網口 輸出指令協議</label>
-        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px;">
-          <option value="ESC">ESC/POS (適用 XP-Q90EC 等傳統出單機)</option>
-          <option value="TSPL">TSPL (適用 Xprinter 標籤機/貼紙機)</option>
+        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔌 USB 設備 (專線實體機)</h4>
+        <button class="btn btn-usb" style="width:auto; padding:8px 15px; margin-bottom:10px;" onclick="connectUSB()">重新配對 USB 印表機</button>
+        <br>
+        <label style="font-size:14px; font-weight:bold; display:block; margin-bottom:5px;">輸出指令協議：</label>
+        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px; margin-bottom:10px;">
+          <option value="ESC">ESC/POS (傳統熱感單據機)</option>
+          <option value="TSPL">TSPL (標籤/貼紙/發票機)</option>
         </select>
-        <div style="font-size:13px; color:#c0392b; margin-top:8px;">💡 如果印出無盡的英文字母與亂碼，請切換此選項。</div>
+        <label style="font-weight:bold; display:block; margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>預設 384</small></label>
+        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
+        
+        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
+        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_inv" style="width:18px;height:18px;vertical-align:middle;"> 實體發票</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_rec" style="width:18px;height:18px;vertical-align:middle;"> 客人明細</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_kit" style="width:18px;height:18px;vertical-align:middle;"> 廚房工單</label>
+        </div>
       </div>
 
-      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">📶 藍牙標籤機設定 (現場/外帶貼紙)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙寬度 (mm)</label>
-        <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體貼紙高度 (mm)</label>
-        <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬度 (px) <small>預設 320</small></label>
-        <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高度 (px) <small>防溢位請小於實體，預設 224</small></label>
-        <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28 (距離底部的留白)</small></label>
-        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #3498db;">
+        <h4 style="margin:0 0 10px 0; color:#2980b9;">🌐 網路設備 (RawBT 遠端機)</h4>
+        <label style="font-size:14px; font-weight:bold; display:block; margin-bottom:5px;">輸出指令協議：</label>
+        <select id="p_lanProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px; margin-bottom:10px;">
+          <option value="ESC">ESC/POS (傳統熱感單據機)</option>
+          <option value="TSPL">TSPL (標籤/貼紙/發票機)</option>
+        </select>
+        <label style="font-weight:bold; display:block; margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>預設 384</small></label>
+        <input type="number" id="p_lanPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
+        
+        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
+        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_inv" style="width:18px;height:18px;vertical-align:middle;"> 實體發票</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_rec" style="width:18px;height:18px;vertical-align:middle;"> 客人明細</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_kit" style="width:18px;height:18px;vertical-align:middle;"> 廚房工單</label>
+        </div>
       </div>
 
-      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">🔌 網口/USB 出單機設定 (明細)</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>58mm通常為384，80mm為576</small></label>
-        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #16a085;">
+        <h4 style="margin:0 0 10px 0; color:#16a085;">📶 藍牙設備 (貼紙機)</h4>
+        <button class="btn btn-ble" style="width:auto; padding:8px 15px; margin-bottom:10px;" onclick="connectBLE()">手動配對藍牙貼紙機</button>
+        <br>
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <div style="flex:1;">
+                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體寬 (mm)</label>
+                <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體高 (mm)</label>
+                <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <div style="flex:1;">
+                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬 (px)</label>
+                <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高 (px)</label>
+                <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+            </div>
+        </div>
+        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28</small></label>
+        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
+        
+        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
+        <label style="cursor:pointer;"><input type="checkbox" id="t_ble_lbl" style="width:18px;height:18px;vertical-align:middle;"> 飲料/單品貼紙</label>
       </div>
-      
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存列印機設定 (僅限本機)</button>
+
+      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存路由與列印設定</button>
     </div>
   </div>
 </div>
@@ -501,7 +527,6 @@ function closeSidebarOnMobile() {
     }
 }
 
-// ✅ 新增：LINE Pay 環境動態切換邏輯
 function toggleLinePayKeys() {
     const env = document.getElementById("settingLinePayEnv").value;
     const sandboxArea = document.getElementById("lpSandboxArea");
@@ -516,7 +541,6 @@ function toggleLinePayKeys() {
     }
 }
 
-// ✅ 新增：電子發票 環境動態切換邏輯
 function toggleInvoiceKeys() {
     const env = document.getElementById("settingInvoiceEnv").value;
     const sandboxArea = document.getElementById("invSandboxArea");
@@ -548,7 +572,6 @@ const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
 const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 
 let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpointOut = null;
-let currentPrinterMode = 'none'; 
 
 let MAINS=[], DRINKS=[], SIDES=[];
 let singleSel = {}; 
@@ -560,43 +583,46 @@ let printingOrders = new Set();
 let processingRows = new Set();
 let isPrinterBusy = false;
 
+// ==========================================
+// 🖨️ 升級點 3：列印機路由指派模組初始化
+// ==========================================
 let printerConf;
 try {
   let saved = localStorage.getItem("ksk_printer_conf");
   printerConf = saved ? JSON.parse(saved) : null;
-  if (typeof printerConf !== 'object' || printerConf === null) throw new Error("格式錯誤");
+  if (!printerConf || !printerConf.usbTasks) throw new Error("舊版格式，套用預設路由");
 } catch(e) {
   printerConf = {
-    usbProtocol: 'TSPL', bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28, usbPxW: 384,
-    showBle: true, showUsb: true, showLan: true
+    usbProtocol: 'TSPL', usbTasks: ['invoice', 'receipt'], usbPxW: 384,
+    lanProtocol: 'ESC', lanTasks: ['kitchen'], lanPxW: 384,
+    bleTasks: ['label'], bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28
   };
 }
-
-if (printerConf.showBle === undefined) printerConf.showBle = true;
-if (printerConf.showUsb === undefined) printerConf.showUsb = true;
-if (printerConf.showLan === undefined) printerConf.showLan = true;
-
-function applyButtonVisibility() {
-  if (document.getElementById("btnConnectBle")) document.getElementById("btnConnectBle").style.display = printerConf.showBle ? "block" : "none";
-  if (document.getElementById("btnConnectUsb")) document.getElementById("btnConnectUsb").style.display = printerConf.showUsb ? "block" : "none";
-  if (document.getElementById("btnConnectLan")) document.getElementById("btnConnectLan").style.display = printerConf.showLan ? "block" : "none";
-}
-applyButtonVisibility();
 
 function openPrinterSettings() {
   closeSidebarOnMobile();
   try {
-    if (document.getElementById("p_usbProtocol")) document.getElementById("p_usbProtocol").value = printerConf.usbProtocol || 'TSPL';
-    if (document.getElementById("p_bleMmW")) document.getElementById("p_bleMmW").value = printerConf.bleMmW || 40;
-    if (document.getElementById("p_bleMmH")) document.getElementById("p_bleMmH").value = printerConf.bleMmH || 30;
-    if (document.getElementById("p_blePxW")) document.getElementById("p_blePxW").value = printerConf.blePxW || 320;
-    if (document.getElementById("p_blePxH")) document.getElementById("p_blePxH").value = printerConf.blePxH || 224;
-    if (document.getElementById("p_bleBottom")) document.getElementById("p_bleBottom").value = printerConf.bleBottom || 28;
-    if (document.getElementById("p_usbPxW")) document.getElementById("p_usbPxW").value = printerConf.usbPxW || 384;
-    
-    if (document.getElementById("p_showBle")) document.getElementById("p_showBle").checked = printerConf.showBle;
-    if (document.getElementById("p_showUsb")) document.getElementById("p_showUsb").checked = printerConf.showUsb;
-    if (document.getElementById("p_showLan")) document.getElementById("p_showLan").checked = printerConf.showLan;
+    const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val; };
+    const setChk = (id, val) => { if(document.getElementById(id)) document.getElementById(id).checked = val; };
+
+    setVal("p_usbProtocol", printerConf.usbProtocol || 'TSPL');
+    setVal("p_usbPxW", printerConf.usbPxW || 384);
+    setChk("t_usb_inv", printerConf.usbTasks.includes('invoice'));
+    setChk("t_usb_rec", printerConf.usbTasks.includes('receipt'));
+    setChk("t_usb_kit", printerConf.usbTasks.includes('kitchen'));
+
+    setVal("p_lanProtocol", printerConf.lanProtocol || 'ESC');
+    setVal("p_lanPxW", printerConf.lanPxW || 384);
+    setChk("t_lan_inv", printerConf.lanTasks.includes('invoice'));
+    setChk("t_lan_rec", printerConf.lanTasks.includes('receipt'));
+    setChk("t_lan_kit", printerConf.lanTasks.includes('kitchen'));
+
+    setVal("p_bleMmW", printerConf.bleMmW || 40);
+    setVal("p_bleMmH", printerConf.bleMmH || 30);
+    setVal("p_blePxW", printerConf.blePxW || 320);
+    setVal("p_blePxH", printerConf.blePxH || 224);
+    setVal("p_bleBottom", printerConf.bleBottom || 28);
+    setChk("t_ble_lbl", printerConf.bleTasks.includes('label'));
 
     if (document.getElementById("printerModal")) {
         document.getElementById("printerModal").classList.add("show");
@@ -615,30 +641,114 @@ function closePrinterSettings() {
 function savePrinterSettings() {
   try {
     const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
-    const getChk = (id, def) => document.getElementById(id) ? document.getElementById(id).checked : def;
+    const getChk = (id) => document.getElementById(id) ? document.getElementById(id).checked : false;
 
     printerConf = {
       usbProtocol: getVal("p_usbProtocol") || 'TSPL',
+      usbPxW: Number(getVal("p_usbPxW")) || 384,
+      usbTasks: [],
+      
+      lanProtocol: getVal("p_lanProtocol") || 'ESC',
+      lanPxW: Number(getVal("p_lanPxW")) || 384,
+      lanTasks: [],
+      
       bleMmW: Number(getVal("p_bleMmW")) || 40,
       bleMmH: Number(getVal("p_bleMmH")) || 30,
       blePxW: Number(getVal("p_blePxW")) || 320,
       blePxH: Number(getVal("p_blePxH")) || 224,
       bleBottom: Number(getVal("p_bleBottom")) || 28,
-      usbPxW: Number(getVal("p_usbPxW")) || 384,
-      
-      showBle: getChk("p_showBle", true),
-      showUsb: getChk("p_showUsb", true),
-      showLan: getChk("p_showLan", true)
+      bleTasks: []
     };
+
+    if(getChk('t_usb_inv')) printerConf.usbTasks.push('invoice');
+    if(getChk('t_usb_rec')) printerConf.usbTasks.push('receipt');
+    if(getChk('t_usb_kit')) printerConf.usbTasks.push('kitchen');
+
+    if(getChk('t_lan_inv')) printerConf.lanTasks.push('invoice');
+    if(getChk('t_lan_rec')) printerConf.lanTasks.push('receipt');
+    if(getChk('t_lan_kit')) printerConf.lanTasks.push('kitchen');
+
+    if(getChk('t_ble_lbl')) printerConf.bleTasks.push('label');
     
     localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
-    applyButtonVisibility(); 
     
-    alert("✅ 列印機參數與顯示設定已儲存！");
+    alert("✅ 路由分配與硬體設定已成功儲存！");
     closePrinterSettings();
   } catch (e) {
     alert("儲存設定失敗：" + e.message);
   }
+}
+
+// ==========================================
+// 🔌 升級點 4：一鍵靜默喚醒連線引擎
+// ==========================================
+async function wakeUpDevices() {
+  setMsg("正在嘗試喚醒已配對設備...");
+  try {
+    let devices = await navigator.usb.getDevices();
+    if(devices.length > 0) {
+      printerDevice = devices[0];
+      await printerDevice.open();
+      if(printerDevice.configuration === null) await printerDevice.selectConfiguration(1);
+      let found = false;
+      for(const iface of printerDevice.configuration.interfaces){
+        for(const alt of iface.alternates){
+          const outEp = alt.endpoints.find(e => e.direction === "out");
+          if(outEp){ await printerDevice.claimInterface(iface.interfaceNumber); endpointOut = outEp.endpointNumber; found = true; break; }
+        }
+        if(found) break;
+      }
+      if(found) {
+        document.getElementById("usbStatus").innerHTML = `🔌 USB：<span style="color:#27AE60;">已喚醒連線</span>`;
+        setMsg("✅ USB 設備已自動恢復連線！(藍牙需手動)");
+      } else {
+         setMsg("⚠️ 找到 USB 設備但無法開啟，請至設定面板重新配對");
+      }
+    } else {
+      setMsg("⚠️ 尚未授權過 USB 設備，請至設定面板配對");
+    }
+  } catch(e) {
+    setMsg("喚醒失敗：" + e.message);
+  }
+}
+
+async function connectUSB(){
+  try{
+    setMsg("請在彈出視窗選擇 USB 印表機..."); 
+    printerDevice = await navigator.usb.requestDevice({ filters:[] }); 
+    await printerDevice.open();
+    if(printerDevice.configuration === null){ await printerDevice.selectConfiguration(1); }
+    let found = false;
+    for(const iface of printerDevice.configuration.interfaces){
+      for(const alt of iface.alternates){
+        const outEp = alt.endpoints.find(e => e.direction === "out");
+        if(outEp){ await printerDevice.claimInterface(iface.interfaceNumber); endpointOut = outEp.endpointNumber; found = true; break; }
+      }
+      if(found) break;
+    }
+    if(!found) throw new Error("找不到可用的 USB 輸出端點");
+    
+    document.getElementById("usbStatus").innerHTML = `🔌 USB：<span style="color:#27AE60;">已連線 (${printerDevice.productName || "裝置"})</span>`; 
+    setMsg("✅ USB 配對成功！日後可一鍵喚醒。");
+  }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
+}
+
+async function connectBLE() {
+  try {
+    setMsg("正在尋找藍牙標籤機..."); document.getElementById("bleStatus").innerHTML = "📶 BLE：搜尋中...";
+    bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
+    const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+    blePrintCharacteristic = await service.getCharacteristic(BLE_CHAR_UUID);
+    document.getElementById("bleStatus").innerHTML = `📶 BLE：<span style="color:#27AE60;">已連線 (${bleDevice.name || "標籤機"})</span>`; 
+    setMsg("✅ 藍牙標籤機連線成功！");
+    bleDevice.addEventListener('gattserverdisconnected', () => { document.getElementById("bleStatus").innerHTML = "📶 BLE：已斷線"; blePrintCharacteristic = null; });
+  } catch (error) { alert("藍牙連線失敗：" + error.message); document.getElementById("bleStatus").innerHTML = "📶 BLE：連線失敗"; }
+}
+
+async function connectLAN() {
+  document.getElementById("lanStatus").innerHTML = `🌐 LAN：<span style="color:#27AE60;">APP 喚醒模式已啟用</span>`;
+  setMsg("✅ 已確認網路 APP (RawBT) 待命！");
+  alert("✅ 設定完成！系統將依照您在設定中指派的任務，在背景自動切換並傳送資料給 RawBT。");
 }
 
 let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_ENV:'test', INVOICE_TEST_MERCHANT_ID:'', INVOICE_TEST_HASH_KEY:'', INVOICE_TEST_HASH_IV:'', INVOICE_PROD_MERCHANT_ID:'', INVOICE_PROD_HASH_KEY:'', INVOICE_PROD_HASH_IV:'', LINEPAY_ENV:'sandbox', LINEPAY_PROD_ID:'', LINEPAY_PROD_SECRET:'' };
@@ -691,46 +801,9 @@ function shouldPrintNow(order){
   return Date.now() >= printAt.getTime();
 }
 
-async function connectBLE() {
-  try {
-    setMsg("正在尋找藍牙標籤機..."); document.getElementById("bleStatus").innerText = "藍牙：搜尋中...";
-    bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
-    const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-    blePrintCharacteristic = await service.getCharacteristic(BLE_CHAR_UUID);
-    document.getElementById("bleStatus").innerText = `藍牙已連線：${bleDevice.name || "標籤機"}`; setMsg("藍牙標籤機連線成功！");
-    bleDevice.addEventListener('gattserverdisconnected', () => { document.getElementById("bleStatus").innerText = "藍牙：已斷線"; blePrintCharacteristic = null; });
-  } catch (error) { alert("藍牙連線失敗：" + error.message); document.getElementById("bleStatus").innerText = "藍牙：連線失敗"; }
-}
-
-async function connectUSB(){
-  try{
-    setMsg("正在尋找 USB 印表機..."); printerDevice = await navigator.usb.requestDevice({ filters:[] }); await printerDevice.open();
-    if(printerDevice.configuration === null){ await printerDevice.selectConfiguration(1); }
-    let found = false;
-    for(const iface of printerDevice.configuration.interfaces){
-      for(const alt of iface.alternates){
-        const outEp = alt.endpoints.find(e => e.direction === "out");
-        if(outEp){ await printerDevice.claimInterface(iface.interfaceNumber); endpointOut = outEp.endpointNumber; found = true; break; }
-      }
-      if(found) break;
-    }
-    if(!found) throw new Error("找不到可用的 USB 輸出端點");
-    
-    currentPrinterMode = 'usb'; 
-    document.getElementById("usbStatus").innerText = `本機出單(USB)：${printerDevice.productName || "未知裝置"}`; setMsg("USB 連線成功");
-  }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
-}
-
-async function connectLAN() {
-  currentPrinterMode = 'lan'; 
-  document.getElementById("usbStatus").innerText = `本機出單：APP 原生喚醒模式`;
-  setMsg("✅ 已切換為 APP 原生喚醒列印模式！");
-  alert("✅ 成功啟用 APP 原生喚醒模式！\n\n稍後列印時，系統會瞬間自動喚醒藍色的 RawBT 進行列印。請確保已在 RawBT 設定中開啟「Start printing automatically」。");
-}
-
 function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
-  const width = printerConf.blePxW; 
-  const height = printerConf.blePxH; 
+  const width = printerConf.blePxW || 320; 
+  const height = printerConf.blePxH || 224; 
   const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
   canvas.width = width; canvas.height = height; 
   ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
@@ -750,15 +823,15 @@ function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader
      y = drawWrappedText(ctx, itemName, 10, y, width - 20, 36);
   }
   
-  const bottomY = y + printerConf.bleBottom; 
+  const bottomY = y + (printerConf.bleBottom || 28); 
   ctx.font = "bold 20px sans-serif"; 
   ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
   
   return canvas;
 }
 
-async function buildInvoiceCanvas(o) {
-  const width = printerConf.usbPxW || 384; 
+async function buildInvoiceCanvas(o, customWidth) {
+  const width = customWidth || 384; 
   const tempCanvas = document.createElement("canvas"); 
   const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 1200; 
@@ -862,9 +935,9 @@ async function buildInvoiceCanvas(o) {
   return { canvas: finalCanvas, finalHeight: finalHeight };
 }
 
-function buildCustomerReceiptCanvas(o){
+function buildCustomerReceiptCanvas(o, customWidth){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
-  const width = printerConf.usbPxW; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  const width = customWidth || 384; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
   
@@ -903,9 +976,9 @@ function buildCustomerReceiptCanvas(o){
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
-function buildKitchenReceiptCanvas(o){
+function buildKitchenReceiptCanvas(o, customWidth){
   const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
-  const width = printerConf.usbPxW; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
+  const width = customWidth || 384; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
   let y = 10; ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50; ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
   ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; 
@@ -921,8 +994,8 @@ function buildKitchenReceiptCanvas(o){
   finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
 }
 
-function buildShiftReceiptCanvas(info, summary) {
-  const width = printerConf.usbPxW; 
+function buildShiftReceiptCanvas(info, summary, customWidth) {
+  const width = customWidth || 384; 
   const tempCanvas = document.createElement("canvas"); 
   const ctx = tempCanvas.getContext("2d");
   tempCanvas.width = width; tempCanvas.height = 3000; 
@@ -1011,72 +1084,9 @@ function sendToRawBTAppIntent(bufferData) {
         let base64Data = window.btoa(binary);
         
         let intentUrl = "intent:base64," + base64Data + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.ws=1;end;";
-        
         window.location.href = intentUrl;
-        
         setTimeout(resolve, 1500); 
     });
-}
-
-async function printCanvasToPrinter(canvas, finalHeight) {
-  const width = canvas.width; 
-  const totalHeight = Math.ceil(finalHeight); 
-  const ctx = canvas.getContext("2d"); 
-  const protocol = printerConf.usbProtocol || 'TSPL'; 
-
-  const MAX_CHUNK_HEIGHT = protocol === 'TSPL' ? 1000 : 500; 
-
-  for (let startY = 0; startY < totalHeight; startY += MAX_CHUNK_HEIGHT) {
-    const currentHeight = Math.min(MAX_CHUNK_HEIGHT, totalHeight - startY); 
-    const img = ctx.getImageData(0, startY, width, currentHeight).data; 
-    const widthBytes = Math.ceil(width / 8); 
-    const bitmap = new Uint8Array(widthBytes * currentHeight); 
-    
-    let buf; 
-    if (protocol === 'TSPL') {
-      bitmap.fill(255); 
-      for(let py = 0; py < currentHeight; py++){ 
-        for(let px = 0; px < width; px++){ 
-          const idx = (py * width + px) * 4; 
-          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
-          if(img[idx+3] > 128 && gray < 180) { 
-             bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); 
-          } 
-        } 
-      }
-      const mmHeight = Math.max(10, Math.ceil(currentHeight / 8)); 
-      const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${currentHeight},0,`);
-      const isLastChunk = (startY + currentHeight >= totalHeight); 
-      const footerStr = isLastChunk ? `\r\nPRINT 1,1\r\nFEED 20 mm\r\n` : `\r\nPRINT 1,1\r\n`; 
-      const footer = new TextEncoder().encode(footerStr);
-      buf = new Uint8Array(header.length + bitmap.length + footer.length); 
-      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-    } else {
-      bitmap.fill(0); 
-      for(let py = 0; py < currentHeight; py++){ 
-        for(let px = 0; px < width; px++){ 
-          const idx = (py * width + px) * 4; 
-          const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3; 
-          if(img[idx+3] > 128 && gray < 180) { 
-             bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8))); 
-          } 
-        } 
-      }
-      const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, currentHeight & 0xFF, (currentHeight >> 8) & 0xFF]);
-      const isLastChunk = (startY + currentHeight >= totalHeight); 
-      const footer = isLastChunk ? new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]) : new Uint8Array([]);
-      buf = new Uint8Array(header.length + bitmap.length + footer.length);
-      buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-    }
-    
-    if (currentPrinterMode === 'usb') {
-        const CHUNK_SIZE = 8192; 
-        for (let i = 0; i < buf.length; i += CHUNK_SIZE) { 
-            await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); 
-        }
-        await new Promise(resolve => setTimeout(resolve, 600));
-    }
-  }
 }
 
 async function printSingleLabelToBLE(canvas) {
@@ -1088,7 +1098,9 @@ async function printSingleLabelToBLE(canvas) {
           if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); }
       }
   }
-  const header = new TextEncoder().encode(`SIZE ${printerConf.bleMmW} mm, ${printerConf.bleMmH} mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
+  const bleMmW = printerConf.bleMmW || 40;
+  const bleMmH = printerConf.bleMmH || 30;
+  const header = new TextEncoder().encode(`SIZE ${bleMmW} mm, ${bleMmH} mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
   const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\n`); const buf = new Uint8Array(header.length + bitmap.length + footer.length);
   buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
   const CHUNK_SIZE = 128; 
@@ -1111,54 +1123,9 @@ async function printOrderToBLE(o, titleHeader) {
   for (let i = 0; i < labelItems.length; i++) { const canvas = buildItemLabelCanvas(o, labelItems[i], i + 1, labelItems.length, titleHeader); await printSingleLabelToBLE(canvas); await new Promise(r => setTimeout(r, 1500)); }
 }
 
-async function printOrderLabel(o){
-  if(currentPrinterMode === 'none') throw new Error("請先點擊左側建立本機 USB 或 LAN 連線");
-  
-  const customerReceipt = buildCustomerReceiptCanvas(o); 
-  const kitchenReceipt = buildKitchenReceiptCanvas(o);
-  const protocol = printerConf.usbProtocol || 'TSPL';
-
-  let invoiceReceipt = null;
-  const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
-  if (noCarrier && sysConfig.INVOICE_ENV === 'test') {
-      invoiceReceipt = await buildInvoiceCanvas(o);
-  }
-
-  if (currentPrinterMode === 'lan') {
-      const buf1 = createPrinterBuffer(customerReceipt.canvas, protocol);
-      const buf2 = createPrinterBuffer(kitchenReceipt.canvas, protocol);
-      
-      let totalLen = buf1.length + buf2.length;
-      let bufInv = null;
-      if (invoiceReceipt) {
-          bufInv = createPrinterBuffer(invoiceReceipt.canvas, protocol);
-          totalLen += bufInv.length;
-      }
-      
-      const combinedBuf = new Uint8Array(totalLen);
-      let offset = 0;
-      
-      if (invoiceReceipt && bufInv) {
-          combinedBuf.set(bufInv, offset);
-          offset += bufInv.length;
-      }
-      
-      combinedBuf.set(buf1, offset);
-      offset += buf1.length;
-      combinedBuf.set(buf2, offset);
-      
-      await sendToRawBTAppIntent(combinedBuf.buffer);
-  } else {
-      if (invoiceReceipt) {
-          await printCanvasToPrinter(invoiceReceipt.canvas, invoiceReceipt.finalHeight); 
-          await new Promise(resolve => setTimeout(resolve, 1500)); 
-      }
-      await printCanvasToPrinter(customerReceipt.canvas, customerReceipt.finalHeight); 
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-      await printCanvasToPrinter(kitchenReceipt.canvas, kitchenReceipt.finalHeight);
-  }
-}
-
+// ==========================================
+// 🚀 升級點 5：終極三路路由分配大腦
+// ==========================================
 async function safeExecuteDualPrint(o) {
   while (isPrinterBusy) {
     setMsg(`印表機忙碌中，單號 ${o.seq} 正在排隊等待...`);
@@ -1167,23 +1134,78 @@ async function safeExecuteDualPrint(o) {
   
   isPrinterBusy = true;
   try {
-    if (!blePrintCharacteristic && currentPrinterMode === 'none') { throw new Error("請先建立藍牙(標籤) 或 本機(明細) 連線"); }
-    if (currentPrinterMode !== 'none') { 
-        try {
-            await printOrderLabel(o); 
-        } catch(e) {
-            console.error("本機列印錯誤", e);
-            throw e;
+    let invRes = null, recRes = null, kitRes = null;
+    const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
+    const needInvoice = noCarrier && sysConfig.INVOICE_ENV === 'test';
+
+    // 🔴 路由 1：發射至 USB (櫃檯機)
+    let usbParts = [];
+    if (printerDevice && endpointOut && printerConf.usbTasks && printerConf.usbTasks.length > 0) {
+        if (printerConf.usbTasks.includes('invoice') && needInvoice) {
+            invRes = invRes || await buildInvoiceCanvas(o, printerConf.usbPxW);
+            usbParts.push(createPrinterBuffer(invRes.canvas, printerConf.usbProtocol));
+        }
+        if (printerConf.usbTasks.includes('receipt')) {
+            recRes = recRes || buildCustomerReceiptCanvas(o, printerConf.usbPxW);
+            usbParts.push(createPrinterBuffer(recRes.canvas, printerConf.usbProtocol));
+        }
+        if (printerConf.usbTasks.includes('kitchen')) {
+            kitRes = kitRes || buildKitchenReceiptCanvas(o, printerConf.usbPxW);
+            usbParts.push(createPrinterBuffer(kitRes.canvas, printerConf.usbProtocol));
+        }
+        
+        if (usbParts.length > 0) {
+            let totalLen = usbParts.reduce((a, b) => a + b.length, 0);
+            let usbBuf = new Uint8Array(totalLen);
+            let offset = 0;
+            usbParts.forEach(p => { usbBuf.set(p, offset); offset += p.length; });
+            const CHUNK_SIZE = 8192; 
+            for (let i = 0; i < usbBuf.length; i += CHUNK_SIZE) { 
+                await printerDevice.transferOut(endpointOut, usbBuf.slice(i, i + CHUNK_SIZE)); 
+            }
+            await new Promise(r => setTimeout(r, 600));
         }
     }
-    if (blePrintCharacteristic) { await printOrderToBLE(o, ""); }
+
+    // 🔴 路由 2：發射至 藍牙 (飲料貼紙機)
+    if (blePrintCharacteristic && printerConf.bleTasks && printerConf.bleTasks.includes('label')) {
+        await printOrderToBLE(o, "");
+    }
+
+    // 🔴 路由 3：發射至 LAN/RawBT (廚房機) -> 注意：此動作會跳轉網頁，必須放最後！
+    let lanParts = [];
+    if (printerConf.lanTasks && printerConf.lanTasks.length > 0) {
+        if (printerConf.lanTasks.includes('invoice') && needInvoice) {
+            invRes = invRes || await buildInvoiceCanvas(o, printerConf.lanPxW);
+            lanParts.push(createPrinterBuffer(invRes.canvas, printerConf.lanProtocol));
+        }
+        if (printerConf.lanTasks.includes('receipt')) {
+            recRes = recRes || buildCustomerReceiptCanvas(o, printerConf.lanPxW);
+            lanParts.push(createPrinterBuffer(recRes.canvas, printerConf.lanProtocol));
+        }
+        if (printerConf.lanTasks.includes('kitchen')) {
+            kitRes = kitRes || buildKitchenReceiptCanvas(o, printerConf.lanPxW);
+            lanParts.push(createPrinterBuffer(kitRes.canvas, printerConf.lanProtocol));
+        }
+        
+        if (lanParts.length > 0) {
+            let totalLen = lanParts.reduce((a, b) => a + b.length, 0);
+            let lanBuf = new Uint8Array(totalLen);
+            let offset = 0;
+            lanParts.forEach(p => { lanBuf.set(p, offset); offset += p.length; });
+            await sendToRawBTAppIntent(lanBuf.buffer);
+        }
+    }
+
+  } catch(e) {
+      console.error("列印路由發生錯誤", e);
+      throw e;
   } finally {
     isPrinterBusy = false;
   }
 }
 
 async function autoPrint(list){
-  if(!blePrintCharacteristic && currentPrinterMode === 'none') return;
   for(const o of list){
     if(o.status !== "待列印") continue; 
     if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; 
@@ -1196,7 +1218,7 @@ async function autoPrint(list){
 
     try{ 
       printingOrders.add(o.id); 
-      setMsg(`提醒：${o.seq} 正在列印...`); 
+      setMsg(`提醒：${o.seq} 正在分流列印...`); 
       playBeep(); 
       await safeExecuteDualPrint(o); 
       printedOrders.add(o.id); 
@@ -1217,7 +1239,7 @@ async function manualPrint(encoded){
     if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
     setMsg(`準備手動列印：${o.seq}...`);
     await safeExecuteDualPrint(o); 
-    setMsg(`${o.seq} 補印/宅配列印完成`); 
+    setMsg(`${o.seq} 補印完成`); 
   }catch(err){ 
     alert("列印失敗：" + err.message); 
   }
@@ -1423,11 +1445,11 @@ async function saveOrderEdit() {
   try {
     const res = await (await fetch(url)).json();
     if(res.success) {
-      alert("儲存成功！準備自動列印修改單。"); closeEditModal(); fetchOrders(); 
+      alert("儲存成功！準備自動分流列印修改單。"); closeEditModal(); fetchOrders(); 
       if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
       if (currentEditingOrder) {
          let printObj = Object.assign({}, currentEditingOrder); printObj.content = content; printObj.total = total; printObj.seq = printObj.seq + " (修改單)"; 
-         setMsg(`正在自動列印：${printObj.seq}...`);
+         setMsg(`正在分流列印：${printObj.seq}...`);
          try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } 
       }
     } else { alert(res.msg); }
@@ -1456,7 +1478,7 @@ async function openSettingsPanel() {
   document.getElementById("settingInvoiceEnv").value = sysConfig.INVOICE_ENV || "test";
   document.getElementById("settingInvoiceProvider").value = sysConfig.INVOICE_PROVIDER || "";
   
-  toggleInvoiceKeys(); // 呼叫更新發票欄位顯示
+  toggleInvoiceKeys(); 
   document.getElementById("settingInvoiceTestMerchantId").value = sysConfig.INVOICE_TEST_MERCHANT_ID || "";
   document.getElementById("settingInvoiceTestHashKey").value = sysConfig.INVOICE_TEST_HASH_KEY || "";
   document.getElementById("settingInvoiceTestHashIv").value = sysConfig.INVOICE_TEST_HASH_IV || "";
@@ -1465,7 +1487,7 @@ async function openSettingsPanel() {
   document.getElementById("settingInvoiceProdHashIv").value = sysConfig.INVOICE_PROD_HASH_IV || "";
 
   document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
-  toggleLinePayKeys(); // 呼叫更新 LINE Pay 欄位顯示
+  toggleLinePayKeys(); 
   
   document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
   document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
@@ -1670,28 +1692,37 @@ async function fetchCurrentShift() {
   if(data.active) { divS.innerText = "✅ 班次：" + data.shiftName; divS.style.color = "#27AE60"; divM.innerHTML = `人員：${data.operator}<br>現金：$${summary.cashTotal || 0}<br>LINE Pay：$${summary.linepayTotal || 0}<br><b>總營業額：$${summary.grandTotal || 0}</b>`; } else { divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = ""; }
 }
 async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
+
+// 🧾 交班單路由：發射至負責「客人明細」的印表機
 async function handleCloseShift() { 
-  if(!confirm("確定要進行交班結算嗎？\n(若有連線 USB/LAN 出單機，將會自動列印交班單據)")) return; 
+  if(!confirm("確定要進行交班結算嗎？\n(若有連線出單機，將會自動列印交班單據)")) return; 
   try {
     const infoRes = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now()); const info = await infoRes.json();
     const sumRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now()); const summary = await sumRes.json();
     
-    if (currentPrinterMode !== 'none') { 
-        setMsg("正在列印交班單據..."); 
-        const receipt = buildShiftReceiptCanvas(info, summary); 
-        
-        if (currentPrinterMode === 'lan') {
-            const buf = createPrinterBuffer(receipt.canvas, printerConf.usbProtocol || 'TSPL');
-            await sendToRawBTAppIntent(buf.buffer);
-        } else {
-            await printCanvasToPrinter(receipt.canvas, receipt.finalHeight); 
-        }
-    } else { 
-        alert("⚠️ 注意：目前未連線出單機，本次交班將只會記錄到雲端，不會列印實體紙本！"); 
+    let printed = false;
+    
+    if (printerDevice && endpointOut && printerConf.usbTasks && printerConf.usbTasks.includes('receipt')) { 
+        setMsg("正在列印交班單據 (USB)..."); 
+        const receipt = buildShiftReceiptCanvas(info, summary, printerConf.usbPxW); 
+        let buf = createPrinterBuffer(receipt.canvas, printerConf.usbProtocol);
+        const CHUNK_SIZE = 8192; 
+        for (let i = 0; i < buf.length; i += CHUNK_SIZE) { await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); }
+        printed = true;
+    } 
+    
+    if (printerConf.lanTasks && printerConf.lanTasks.includes('receipt')) {
+        setMsg("正在列印交班單據 (LAN)...");
+        const receipt = buildShiftReceiptCanvas(info, summary, printerConf.lanPxW); 
+        let buf = createPrinterBuffer(receipt.canvas, printerConf.lanProtocol);
+        await sendToRawBTAppIntent(buf.buffer);
+        printed = true;
     }
     
+    if(!printed) alert("⚠️ 系統無負責印明細的機器，本次交班僅記錄到雲端。");
+    
     await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); setMsg("✅ 交班結算完成"); 
-    if(currentPrinterMode !== 'none') alert("✅ 交班完成！單據已成功列印。");
+    if(printed) alert("✅ 交班完成！單據已成功列印。");
   } catch (e) { alert("交班處理失敗：" + e.message); }
 }
 
@@ -1835,17 +1866,13 @@ async function saveMenuData() {
   } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
 }
 
-// 🟢 掃碼槍注音/全形防呆轉換器
 document.getElementById('posInvoiceCarrier').addEventListener('input', function(e) {
   let val = e.target.value.toUpperCase();
   e.target.value = val;
 });
 
 document.getElementById('posBarcode').addEventListener('input', function(e) {
-  const zhuyinMap = {
-    'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
-    'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
-  };
+  const zhuyinMap = { 'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5', 'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0' };
   let val = e.target.value;
   val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
   val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
@@ -1854,10 +1881,7 @@ document.getElementById('posBarcode').addEventListener('input', function(e) {
 });
 
 document.getElementById('posTaxId').addEventListener('input', function(e) {
-  const zhuyinMap = {
-    'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5',
-    'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0'
-  };
+  const zhuyinMap = { 'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5', 'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0' };
   let val = e.target.value;
   val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
   val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
