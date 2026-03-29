@@ -3,1918 +3,892 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>加山記 POS v40.5 三路路由終極分流版</title>
-<link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#2ecc71">
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('SW 註冊成功'))
-          .catch(err => console.log('SW 註冊失敗', err));
-      });
-    }
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+<title>加山記點餐</title>
 <style>
-body{ margin:0; font-family:"Microsoft JhengHei",sans-serif; background:#F8F7F2; color:#2C2C2C; overflow-x: hidden; }
-.wrap{display:flex;min-height:100vh;}
-
-.sidebar{ width:300px; background:#FFFFFF; padding:20px; border-right:1px solid #EAE8E3; box-shadow: 2px 0 15px rgba(0,0,0,0.02); z-index: 1000; display:flex; flex-direction:column; }
-.sidebar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; }
-.sidebar h1{ font-size:32px; margin:0; color:#2C2C2C; }
-.mobile-close-btn { display:none; background:none; border:none; font-size:28px; cursor:pointer; color:#e74c3c; font-weight:bold; }
-.sidebar-scroll { flex:1; overflow-y:auto; padding-right:5px; }
-
-.sidebar.hidden { display: none !important; }
-.main{ flex:1; padding:20px; box-sizing:border-box; width:100%; }
-.btn{ width:100%; border:none; padding:14px; margin-bottom:10px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; transition: .2s; color:#fff; }
-.btn-ble{background:#3498db;} .btn-usb{background:#F1F1F1;color:#333;}
-.btn-lan{background:#16a085;} .btn-delivery{background:#5D4037;} .btn-info{background:#8e44ad;} .btn-order{background:#F39C12;} .btn-start{background:#2ecc71;} .btn-shift{background:#e74c3c;}
-.usb-status{ font-size:14px; font-weight:bold; margin-top:10px; color:#27AE60; }
-.modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+#orderTrackerBar {
+  background-color: #FFF9E6; 
+  border-bottom: 2px solid #F3E5AB;
+  padding: 15px;
+  text-align: center;
+  position: -webkit-sticky; 
+  position: sticky;         
+  top: 0;                   
+  z-index: 99999;           
+  font-family: "Microsoft JhengHei", sans-serif;
+  display: none; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+}
+#orderTrackerBar span { color: #5D4037; font-weight: bold; font-size: 15px; }
+#orderTrackerBar .track-btn {
+  background-color: #111; color: white; padding: 6px 15px;
+  border-radius: 20px; margin-left: 10px; font-size: 13px;
+  border: none; cursor: pointer; font-weight: bold;
+}
+:root{
+  --bg:#f5f5f2; --panel:#ffffff; --line:#e7e7e7; --text:#1b1b1b;
+  --muted:#7a7a7a; --primary:#111111; --success:#1f8f55; --danger:#d9534f;
+  --warning:#d98b00; --info:#2563eb; --shadow:0 10px 24px rgba(0,0,0,.06); --radius:18px;
+}
+*{box-sizing:border-box;}
+html,body{ margin:0; padding:0; font-family:"Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--text); overflow-x:hidden; }
+.page{ display:none; max-width:1100px; margin:0 auto; min-height:100vh; padding:18px 16px 40px; }
+.active{ display:block; }
+.topbar{ position:sticky; top:0; z-index:100; background:rgba(245,245,242,.92); backdrop-filter:blur(10px); padding-bottom:12px; }
+.topbar-inner{ display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:14px 16px; box-shadow:var(--shadow); }
+.brand-title{ font-size:26px; font-weight:900; }
+.top-chip{ background:#f3f3f3; border-radius:999px; padding:8px 12px; font-size:13px; color:#555; }
+.btn{ border:none; border-radius:14px; padding:14px 16px; font-size:16px; font-weight:900; cursor:pointer; transition:.18s; }
+.btn-primary{ background:var(--primary); color:#fff; }
+.btn-secondary{ background:#f1f1f1; color:#222; }
+.btn-block{ width:100%; }
+.mode-switch{ display:flex; gap:12px; margin:18px 0 16px; }
+.mode-btn{ flex:1; border:none; border-radius:16px; padding:15px; background:#ececec; font-weight:900; cursor:pointer; }
+.mode-btn.active{ background:#111; color:#fff; }
+.combo-step{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:var(--shadow); margin-bottom:16px; }
+.step-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+.menu-card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; cursor:pointer; transition:.18s; position:relative; overflow:hidden;}
+.menu-card.active{ border-color:#111; background:#f9f9f9; box-shadow: inset 0 0 0 1px #111; }
+.menu-img { width:100%; height:130px; object-fit:cover; border-radius:12px; margin-bottom:10px; background:#f0f0f0; }
+.step-lock{ opacity:.4; pointer-events:none; }
+.step-chip{ border-radius:999px; padding:7px 12px; font-size:13px; font-weight:900; background:#f2f2f2; color:#555; }
+.step-chip.ok{ background:#ecfdf3; color:#15803d; }
+.cart-item-box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 40px 12px 12px; margin-bottom: 10px; position: relative; border-left: 5px solid #111; word-break: break-all; }
+.del-btn { position: absolute; top: 10px; right: 10px; color: var(--danger); cursor: pointer; font-weight: bold; }
+.inline-summary{ margin-top:18px; background:#fff; border:2px solid var(--primary); border-radius:20px; padding:18px; box-shadow:var(--shadow); }
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:3000; padding:16px; }
 .modal.show{ display:flex; }
-.modal-card{ width:min(100%, 850px); max-height:90vh; background:#fff; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; }
-.modal-header{ padding:20px; border-bottom:1px solid #EAE8E3; display:flex; justify-content:space-between; align-items:center; background:#FAFAFA; }
-.modal-body{ padding:20px; overflow-y:auto; flex:1; }
-.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:15px; }
-.card{ background:#FFFFFF; border-radius:16px; padding:16px; border-left:6px solid #F39C12; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border:1px solid #EAE8E3; margin-bottom:10px; }
-.seq{ font-size:32px; font-weight:900; color:#D35400; }
-.cash-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
-.cash-item{ background:#FDFDFD; border-radius:14px; padding:14px; border:1px solid #EAE8E3; text-align:center; }
-.sbtn{ flex:1; border:none; padding:11px; border-radius:10px; cursor:pointer; font-weight:700; }
+.modal-card{ width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; max-height:90vh; overflow-y:auto; }
+.toast{ position:fixed; left:50%; top:20px; transform:translateX(-50%); background:#111; color:#fff; padding:12px 16px; border-radius:14px; z-index:500; display:none; }
+input, select { width:100%; border:1px solid var(--line); border-radius:14px; padding:14px; font-size:16px; margin-bottom:10px; }
+.sold-out-badge { color:#fff; background:#e74c3c; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:6px; display:inline-block; vertical-align:middle; }
 
-#mobileOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; }
-
+/* ========================================== */
+/* 📱 完美 APP 級手機與平板 RWD 變形裝甲 */
+/* ========================================== */
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: -320px; top: 0; bottom: 0; height: 100vh; width: 280px; box-shadow: 5px 0 20px rgba(0,0,0,0.4); transition: left 0.3s ease; display: flex !important; }
-  .sidebar.open { left: 0; }
-  #mobileOverlay.open { display: block; }
-  .mobile-close-btn { display: block; } 
+  .page { padding: 10px 10px 90px; } /* 底部留白避免被結帳條擋住 */
   
-  .main { padding: 10px; width: 100%; }
+  /* 導覽列堆疊，避免長店名被擠壓 */
+  .topbar-inner { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px; }
+  .top-actions { justify-content: space-between; width: 100%; }
+  .brand-title { font-size: 22px; text-align: center; }
   
+  /* 點餐網格極致壓縮：手機一排兩格 */
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .menu-card { padding: 12px; }
+  .menu-img { height: 100px; }
+  
+  /* 彈出視窗(教學/查詢) 滿版自適應 */
   .modal { padding: 10px; }
-  .modal-card { width: 100% !important; max-width: 100% !important; max-height: 92vh; margin: 0; }
-  .modal-header { padding: 12px 15px; }
-  .modal-body { padding: 12px; }
-  h2, h3 { font-size: 20px; margin: 0; }
+  .modal-card { width: 100% !important; max-width: 100% !important; padding: 15px; border-radius: 14px; }
   
-  .cash-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
-  .cash-item { padding: 8px; font-size: 14px; border-radius: 10px; }
-  .sbtn { padding: 8px; border-radius: 6px; font-size: 14px; }
+  /* 鎖定輸入框字體大小，嚴防 iOS 點擊輸入框時畫面放大 */
+  input[type="text"], input[type="tel"], input[type="number"], select, textarea { font-size: 16px !important; }
   
-  input[type="text"], input[type="number"], select, textarea { font-size: 16px !important; padding: 10px !important; margin-bottom: 8px !important; }
-  
-  #editModal .modal-body { flex-direction: column !important; }
-  #editModal .modal-body > div:first-child { border-right: none !important; border-bottom: 2px dashed #ccc; padding-right: 0 !important; padding-bottom: 10px; margin-bottom: 10px; max-height: 35vh; overflow-y: auto; }
-  
-  #settingsModal .modal-body div[style*="display:flex"] { flex-direction: column !important; align-items: stretch !important; gap: 5px; }
-  #settingsModal .modal-body div[style*="display:flex"] > div { width: 100% !important; }
-  
-  .btn { padding: 12px; font-size: 16px; margin-bottom: 8px; }
+  /* 套餐選項：手機強制改為單欄，避免核取方塊擠壓文字 */
+  #comboAddonContainer, #comboMainContainer, #comboSideContainer { grid-template-columns: 1fr !important; }
 }
 
-@media (max-width: 950px) and (orientation: landscape) {
-  .modal-card { max-height: 95vh; }
-  .modal-body { max-height: 70vh; overflow-y: auto; }
-  #editModal .modal-body { flex-direction: row !important; } 
-  #editModal .modal-body > div:first-child { border-right: 1px solid #EAE8E3 !important; border-bottom: none !important; padding-right: 15px !important; max-height: 60vh; }
-  #settingsModal .modal-body div[style*="display:flex"] { flex-direction: row !important; }
+/* 極窄手機 (例如 iPhone SE) 入口大按鈕堆疊 */
+@media (max-width: 480px) {
+  .portal-btn-wrap { flex-direction: column; align-items: center; }
+  .portal-btn-wrap > button { width: 100%; max-width: 300px; padding: 25px 10px !important; }
+  .portal-btn-wrap .btn > div:first-child { font-size: 40px !important; } /* Icon 縮小點 */
+}
+
+/* ========================================== */
+/* 🔄 手機橫向螢幕 (Landscape) 專用滾動裝甲 */
+/* ========================================== */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* 確保入口頁在極扁的橫屏可以滑動 */
+  #entryPortal { position: absolute !important; min-height: 100vh; justify-content: flex-start !important; padding-top: 30px !important; overflow-y: auto; }
+  .modal-card { max-height: 85vh; }
+  .topbar { position: relative; } /* 解除固定，讓出寶貴的可視空間 */
 }
 </style>
 </head>
 <body>
 
-<div id="mobileOverlay" onclick="toggleSidebar()"></div>
-
-<div id="startOverlay" style="position:fixed; inset:0; background:rgba(44, 44, 44, 0.95); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff;">
-  <h1>🍲 加山記 POS 系統</h1>
-  <button onclick="initSystem()" style="padding:15px 40px; font-size:22px; font-weight:bold; background:#2ecc71; color:#fff; border:none; border-radius:12px; cursor:pointer;">🔊 點此啟用系統</button>
+<div id="orderTrackerBar">
+  <span id="trackerText"></span>
+  <button type="button" class="track-btn" onclick="autoQueryLastOrder()">🔍 按我查詢訂單進度</button>
+  <span style="margin-left:15px; cursor:pointer; color:#999; font-size: 20px;" onclick="this.parentElement.style.display='none'">✕</span>
 </div>
 
-<div class="wrap">
-  <div class="sidebar">
-    <div class="sidebar-header">
-       <h1>加山記</h1>
-       <button class="mobile-close-btn" onclick="toggleSidebar()">✕</button>
+<div id="toast" class="toast"></div>
+
+<div id="orderPage" class="page active">
+  <div id="entryPortal" style="position:fixed; inset:0; background:#f5f5f2; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    
+    <div id="portalAnnouncementBar" style="display:none; width:100%; max-width:600px; background:#fff3cd; color:#d35400; padding:12px; border-radius:12px; border:2px solid #ffc107; font-weight:900; font-size:16px; margin-bottom:20px; box-shadow:var(--shadow);">
+      <marquee scrollamount="5" id="portalAnnouncementText"></marquee>
+    </div>
+
+    <div id="portalLogoArea" style="text-align:center;">
+      <h1 style="margin-bottom:30px; font-weight:900; color:#111;">🍲 加山記 Kashan Kee</h1>
     </div>
     
-    <div class="sidebar-scroll">
-        <button class="btn" style="background:#f39c12; color:#fff; border:2px solid #e67e22;" onclick="wakeUpDevices()">⚡ 一鍵喚醒所有設備</button>
-        <div style="background:#f9f9f9; padding:12px; border-radius:12px; border:1px solid #EAE8E3; margin-bottom:15px; font-weight:bold; font-size:14px; line-height:1.8;">
-            <div id="usbStatus" style="color:#7f8c8d;">🔌 USB：未連線 (請喚醒或配對)</div>
-            <div id="lanStatus" style="color:#16a085;">🌐 LAN：網路 APP 待命中</div>
-            <div id="bleStatus" style="color:#7f8c8d;">📶 BLE：未連線 (標籤機需點此配對)</div>
-        </div>
-        <hr>
-        <button class="btn btn-delivery" onclick="openDeliveryPanel()">📦 宅配訂單管理</button>
-        <button class="btn btn-info" onclick="toggleSearchPanel()">🔍 查詢歷史訂單</button>
-        <button class="btn btn-order" onclick="toggleCashPanel()">🛒 現場代客下單</button>
-        <button class="btn btn-start" onclick="handleStartShift()">🟢 開班</button>
-        <button class="btn btn-shift" onclick="handleCloseShift()">🧾 交班結算</button>
-        <button class="btn" style="background:#34495e; color:#fff; margin-top:20px;" onclick="openSettingsPanel()">⚙️ 設定 POS 機</button>
-        <button class="btn" style="background:#27ae60; color:#fff; margin-top:10px;" onclick="openMenuPanel()">📝 菜單管理 (上/下架)</button>
-        <button class="btn" style="background:#8e44ad; color:#fff; margin-top:10px;" onclick="openPrinterSettings()">🖨️ 列印機與路由設定</button>
-        
-        <div id="shiftStatus" style="font-weight:bold; margin-top:10px;"></div>
-        <div id="shiftSummaryMini" style="font-size:12px; color:#666; line-height:1.6;"></div>
-        <div id="msg" style="color:red; font-weight:bold; margin-top:10px; font-size:14px;"></div>
+   <p id="portalSubtitle" style="margin-bottom:40px; color:#666; font-size:18px; font-weight:bold;">正在為您確認門市營業狀態...</p>
+    
+    <button type="button" onclick="openTutorial()" style="background:none; border:none; color:#2980b9; font-weight:900; font-size:16px; cursor:pointer; margin-top:-20px; margin-bottom:30px; text-decoration:underline;">❓ 第一次點餐？點我看快速教學</button>
+
+    <div class="portal-btn-wrap" style="display: flex; gap: 15px; width: 100%; max-width: 500px; justify-content: center; margin-bottom: 10px;">
+      
+      <button id="btnOnsite" type="button" class="btn btn-primary" style="display:none; flex: 1; padding: 40px 10px; font-size: 20px; border-radius: 24px; box-shadow: var(--shadow); text-align: center; transition: transform 0.2s;" onclick="chooseServiceMode('pickup')" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.95)'" ontouchend="this.style.transform='scale(1)'">
+        <div style="font-size: 50px; margin-bottom: 15px;">🏠</div>
+        <div style="line-height: 1.4; font-weight: 900;">門市現場<br>預約自取</div>
+      </button>
+      
+      <button id="btnDelivery" type="button" class="btn btn-secondary" style="display:none; flex: 1; padding: 40px 10px; font-size: 20px; border: 2px solid #111; border-radius: 24px; background: #fff; box-shadow: var(--shadow); text-align: center; transition: transform 0.2s;" onclick="chooseServiceMode('delivery')" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.95)'" ontouchend="this.style.transform='scale(1)'">
+        <div style="font-size: 50px; margin-bottom: 15px;">🚚</div>
+        <div style="line-height: 1.4; font-weight: 900;">低溫宅配<br>到府</div>
+      </button>
+     </div>
+    <p id="deliveryFeeHint" style="margin-top:40px; font-size:14px; color:#999; font-weight:bold;">(系統連線中，請稍候...)</p>
+  </div>
+
+  <div id="mainAnnouncementBar" style="display:none; background:#fff3cd; color:#d35400; padding:10px 15px; border-radius:12px; border:2px solid #ffc107; font-weight:900; font-size:15px; margin-bottom:15px;">
+    <marquee scrollamount="5" id="mainAnnouncementText"></marquee>
+  </div>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <div class="brand-title">🍲 加山記 Kashan Kee stew</div>
+        <div style="font-size:13px; color:var(--muted);">加入購物車後可點下一份，最後統一結帳</div>
+      </div>
+      <div class="top-actions" style="display:flex; align-items:center; gap:8px;">
+        <button class="btn" style="padding:10px; background:#fff3cd; color:#d35400; border:1px solid #ffc107;" onclick="openTutorial()">📖 教學</button>
+        <div class="top-chip" style="margin:0;">目前總計｜$<b id="cartTotalTop">0</b></div>
+        <button class="btn btn-secondary" style="padding:10px 14px;" onclick="openQueryModal()">查詢訂單</button>
+      </div>
     </div>
   </div>
 
-  <div class="main">
-    <div id="cashPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🛒 現場下單</h2><button onclick="toggleCashPanel(true)" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body">
-      <div class="cash-grid" id="posSMainGrid"></div><hr><div class="cash-grid" id="posSDrinkGrid"></div><hr><div class="cash-grid" id="posSSideGrid"></div>
-      <div style="margin-top:10px; padding:10px; background:#fff9f0; border-radius:14px;">
-        <div style="font-size:22px; font-weight:900;">小計：$<span id="posTotal">0</span></div>
-        <div id="posBasketList" style="margin:5px 0; font-weight:bold;"></div>
-        
-        <select id="posPayMethod" onchange="togglePosBarcode()" style="width:100%; padding:10px; border-radius:8px; margin-bottom:8px; font-size:16px; font-weight:bold; border:1px solid #ccc;">
-          <option value="現金">💵 現金結帳</option>
-          <option value="LINEPAY掃碼槍">🔫 LINEPAY掃碼槍</option>
-        </select>
-        
-        <input type="text" id="posInvoiceCarrier" placeholder="🧾 1.發票載具 (按 Enter 跳過)" style="width:100%; padding:10px; border-radius:8px; border:2px solid #8e44ad; margin-bottom:8px; font-size:16px; background:#f9ebff; text-transform:uppercase; box-sizing:border-box;">
-        <input type="text" id="posTaxId" placeholder="🏢 2.統一編號 (按 Enter 跳過)" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e67e22; margin-bottom:8px; font-size:16px; background:#fdf2e9; box-sizing:border-box;" inputmode="numeric" maxlength="8">
-        <input type="text" id="posBarcode" placeholder="👉 3.掃描付款條碼" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; margin-bottom:8px; font-size:16px; display:none; background:#f0f8ff;">
-        
-        <button id="cashSubmitBtn" class="btn btn-start" style="margin-bottom:0;" onclick="submitCashOrder()" disabled>確認送出現場單</button>
-      </div>
-    </div></div></div>
-
-    <div id="searchPanel" class="modal"><div class="modal-card"><div class="modal-header"><h2>🔍 歷史訂單查詢</h2><button onclick="toggleSearchPanel(true)" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body">
-      <input type="text" id="searchInput" placeholder="搜尋姓名/電話/單號..." style="width:100%; padding:15px; border-radius:10px; border:1px solid #ccc; margin-bottom:10px;">
-      <button onclick="executeSearch()" class="btn btn-info">開始搜尋</button>
-      <div id="searchResults" style="margin-top:15px;"></div>
-    </div></div></div>
-
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-      <button onclick="toggleSidebar()" style="background: #FFFFFF; border: 1px solid #EAE8E3; border-radius: 10px; padding: 6px 14px; font-size: 22px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04); color: #2C2C2C; font-weight: bold; transition: 0.2s;">☰</button>
-      <h2 style="margin: 0; font-size:20px;">即時訂單 (巡邏中)</h2>
-    </div>
-    <div id="orders" class="grid"></div>
+  <div class="mode-switch">
+    <button id="modeComboBtn" class="mode-btn" onclick="setOrderMode('combo')">超值套餐</button>
+    <button id="modeSingleBtn" class="mode-btn active" onclick="setOrderMode('single')">輕鬆單點</button>
   </div>
-</div>
 
-<div id="deliveryModal" class="modal"><div class="modal-card"><div class="modal-header"><h3>🚚 宅配管理面板</h3><button onclick="closeDeliveryPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button></div><div class="modal-body" id="deliveryOrderList"></div></div></div>
-
-<div id="editModal" class="modal">
-  <div class="modal-card" style="width:min(100%, 950px); max-width:950px;">
-    <div class="modal-header">
-      <h3>✏️ 編輯訂單 <span id="editSeq" style="color:#e74c3c; margin-left:10px;"></span></h3>
-      <button onclick="closeEditModal()" style="border:none; background:none; font-size:24px; cursor:pointer;">✕</button>
-    </div>
-    <div class="modal-body" style="display:flex; gap:20px; padding:20px;">
-      <input type="hidden" id="editRow">
-      <input type="hidden" id="editPwd">
-      <div style="flex:2; border-right:1px solid #EAE8E3; padding-right:15px; overflow-y:auto;">
-        <h4 style="margin-top:0; color:#3498db;">👉 點擊自動帶入</h4>
-        <div class="cash-grid" id="editMainGrid"></div><hr><div class="cash-grid" id="editDrinkGrid"></div><hr><div class="cash-grid" id="editSideGrid"></div>
+  <div id="comboModeWrap" style="display:none;">
+    <div id="comboStep1" class="combo-step">
+      <div class="step-head">
+        <div class="brand-title" style="font-size:20px;">1. 選擇招牌燉湯</div> 
+        <span id="stepMainChip" class="step-chip">請選擇</span>
       </div>
-      <div style="flex:1;">
-        <h4 style="margin-top:0; color:#e74c3c;">👉 實際儲存內容</h4>
-        <textarea id="editContent" rows="6" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:16px; margin-bottom:15px; font-family:inherit; box-sizing:border-box; background:#FAFAFA;"></textarea>
-        <label style="font-size:14px; font-weight:bold; color:#666;">總金額 <span id="editTotalInfo" style="font-size:14px; color:#e74c3c;"></span></label>
-        <input type="number" id="editTotal" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:24px; font-weight:900; color:#d9534f; margin-bottom:25px; box-sizing:border-box; background:#FAFAFA;">
-        <button id="saveEditBtn" class="btn btn-start" style="background:#17a2b8; width:100%; font-size:18px; padding:15px;" onclick="saveOrderEdit()">💾 確認儲存</button>
+      <div id="mainGrid" class="grid"></div>
+    </div>
+
+    <div id="comboOptionsWrap" class="combo-step step-lock" style="display:none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--line);">
+        <button class="btn btn-secondary" onclick="resetCombo()" style="padding: 8px 12px; font-size: 14px;">🔙 返回重選燉湯</button>
+        <div style="font-weight: 900; color: var(--danger); font-size: 18px;" id="selectedMainDisplay"></div>
+      </div>
+      <div class="brand-title" style="font-size:20px; margin-bottom:15px;">2. 套餐配項 <span style="font-size:14px; color:#e74c3c; font-weight:normal;">(皆可複選)</span></div>
+      
+      <div style="margin-bottom:20px;">
+        <label style="font-weight:900; display:block; margin-bottom:10px; color:#3498db;">🥣 燉湯加料</label>
+        <div id="comboAddonContainer" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <label style="font-weight:900; display:block; margin-bottom:10px; color:#e67e22;">🍚 主食 (飯/麵)</label>
+        <div id="comboMainContainer" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <label style="font-weight:900; display:block; margin-bottom:10px; color:#27ae60;">🥗 副餐 (小菜)</label>
+        <div id="comboSideContainer" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+      </div>
+      
+      <div style="padding:15px; background:#fffceb; border-radius:12px; border:1px solid #ffeeba; text-align:right;">
+        <span style="font-weight:bold; color:#856404; font-size:18px;">套餐小計：$</span>
+        <span id="currentComboPrice" style="font-size:32px; font-weight:900; color:var(--danger);">0</span>
       </div>
     </div>
   </div>
-</div>
 
-<div id="settingsModal" class="modal">
-  <div class="modal-card" style="width: 700px; max-height:90vh;">
-    <div class="modal-header">
-      <h3>⚙️ POS 系統綜合設定</h3>
-      <button onclick="closeSettingsPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
+  <div id="singleModeWrap" style="display:block;">
+    <div id="singleMenuWrap"></div>
+  </div>
+
+  <div class="inline-summary" style="border-color: #111; background: #fff;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <div class="brand-title" style="font-size:20px;">🍱 當前餐點小計</div>
+      <div style="font-size:26px; font-weight:900; color:var(--danger);">$<span id="currentComboPriceDisplay">0</span></div>
     </div>
-    <div class="modal-body" style="padding:20px;">
+    <button class="btn btn-secondary btn-block" style="background:#111; color:#fff;" onclick="addToBasket()">＋加入購物車 (點完請按此)</button>
+  </div>
 
-      <div style="background:#fdf2e9; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e67e22;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔗 系統核心 API 串接金鑰</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">客端網頁 (index.html) 發布網址</label>
-        <input type="text" id="settingFrontendUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
-        
-        <h5 style="margin:15px 0 5px; color:#8e44ad;">🧾 電子發票 (API 串接)</h5>
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#8e44ad;">目前發票環境 (切換後須儲存)</label>
-        <select id="settingInvoiceEnv" onchange="toggleInvoiceKeys()" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
-          <option value="test">🟡 測試模式 (自動產生模擬發票)</option>
-          <option value="production">🔴 正式環境 (真實串接國稅局)</option>
-        </select>
-
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">發票服務商</label>
-        <select id="settingInvoiceProvider" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold;">
-          <option value="">(目前不串接電子發票)</option>
-          <option value="ECPay">🟢 綠界科技 ECPay</option>
-          <option value="NewebPay">🔵 藍新科技 NewebPay</option>
-        </select>
-
-        <div id="invSandboxArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (測試用金鑰)</label>
-          <input type="text" id="settingInvoiceTestMerchantId" placeholder="商店代號 MerchantID (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingInvoiceTestHashKey" placeholder="HashKey (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingInvoiceTestHashIv" placeholder="HashIV (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        </div>
-
-        <div id="invProdArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #e74c3c; margin-bottom:15px; display:none;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#e74c3c;">🔴 正式環境 (真實營業用金鑰)</label>
-          <input type="text" id="settingInvoiceProdMerchantId" placeholder="商店代號 MerchantID (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingInvoiceProdHashKey" placeholder="HashKey (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingInvoiceProdHashIv" placeholder="HashIV (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        </div>
-
-        <h5 style="margin:15px 0 5px; color:#2980b9;">🟢 LINE Pay 串接設定</h5>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">目前使用的環境 (切換後須儲存)</label>
-        <select id="settingLinePayEnv" onchange="toggleLinePayKeys()" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-weight:bold; font-size:15px; background:#fff;">
-          <option value="sandbox">🟡 測試環境 (Sandbox)</option>
-          <option value="production">🔴 正式環境 (Production)</option>
-        </select>
-
-        <div style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #3498db; margin-bottom:10px;">
-          <p style="font-size:13px; font-weight:bold; color:#2980b9; margin:0 0 5px 0;">🛠️ 開發與測試專用工具：</p>
-          <a href="https://sandbox-web-pay.line.me/web/sandbox/payment/oneTimeKey?countryCode=TW" target="_blank" style="display:inline-block; background:#3498db; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">🔗 打開線下付款虛擬條碼產生器 (Sandbox)</a>
-        </div>
-
-        <div id="lpSandboxArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #f39c12; margin-bottom:10px;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#f39c12;">🟡 測試環境 (Sandbox) 金鑰</label>
-          <input type="text" id="settingLinePayId" placeholder="Channel ID (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingLinePaySecret" placeholder="Channel Secret (測試)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        </div>
-
-        <div id="lpProdArea" style="background:#fff; padding:10px; border-radius:8px; border:1px dashed #e74c3c; margin-bottom:15px; display:none;">
-          <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#e74c3c;">🔴 正式環境 (Production) 金鑰</label>
-          <input type="text" id="settingLinePayProdId" placeholder="Channel ID (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:5px; box-sizing:border-box;">
-          <input type="text" id="settingLinePayProdSecret" placeholder="Channel Secret (正式)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        </div>
-
-        <h5 style="margin:15px 0 5px; color:#27ae60;">🟢 LINE Bot 串接設定</h5>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">LINE Bot Channel Access Token (超長字串)</label>
-        <textarea id="settingLineBotToken" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;"></textarea>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">老闆個人 LINE User ID (接單通知用)</label>
-        <input type="text" id="settingLineBotUser" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+  <div id="cartSection" style="margin-top:20px; display:none;">
+    <div class="brand-title" style="font-size:20px; margin-bottom:10px;">🛒 已加入清單</div>
+    <div id="basketItemsList"></div>
+    <div style="height: 100px;"></div> 
+  </div>
+  
+  <div id="stickyCheckoutBar" style="position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,0.96); backdrop-filter:blur(10px); border-top:2px solid #111; padding:15px 20px; display:none; z-index:999; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);">
+    <div style="max-width:1100px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:14px; color:#666; font-weight:bold;">共 <span id="cartQty">0</span> 份餐點</div>
+        <div style="font-size:24px; font-weight:900; color:var(--danger);">$<span id="cartTotalBottom">0</span></div>
       </div>
-      <div style="background:#f9ebff; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #8e44ad;">
-        <h4 style="margin:0 0 10px 0; color:#8e44ad;">💰 商業防呆與品牌行銷</h4>
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">品牌 Logo 圖片網址 (留白則顯示文字)</label>
-        <input type="text" id="settingLogoUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;" placeholder="例如: https://imgur.com/.../logo.jpg">
-        
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">最低消費：現場 ($)</label>
-            <input type="number" id="settingMinOnsite" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: 0">
-          </div>
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">最低消費：宅配 ($)</label>
-            <input type="number" id="settingMinDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: 500">
-          </div>
-        </div>
+      <button id="goCheckoutBtn" class="btn btn-primary" style="padding:12px 40px; font-size:18px;" onclick="showCheckout()">確認結帳 ➔</button>
+    </div>
+  </div>
 
-        <label style="font-weight:bold;display:block;margin-bottom:10px;font-size:14px;">允許客端使用的付款方式：</label>
-        <div style="display:flex; gap:20px; margin-bottom:15px; padding:10px; background:#fff; border-radius:8px; border:1px solid #ccc;">
-          <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
-            <input type="checkbox" id="settingEnableLinePay" style="width:18px; height:18px; margin:0 8px 0 0;"> 🟢 LINE Pay
-          </label>
-          <label style="cursor:pointer; font-size:15px; font-weight:bold; display:flex; align-items:center;">
-            <input type="checkbox" id="settingEnableCash" style="width:18px; height:18px; margin:0 8px 0 0;"> 💵 現場現金
-          </label>
-        </div>
+  <div id="checkoutPanel" class="combo-step" style="display:none; margin-top:20px; background:#fdfdfd; border:2px solid var(--info);">
+    <h2 class="brand-title" style="margin-bottom:15px;">步驟 2：確認資料</h2>
+    <div id="checkoutItemsDisplay" style="margin-bottom:15px; background:#fff; padding:12px; border-radius:12px; border:1px solid var(--line);"></div>
+    
+    <div id="promoSection" style="background:#f4f6f8; padding:15px; border-radius:12px; margin-bottom:15px; border:1px dashed #ccc;">
+      <label style="font-weight:900; color:#2c3e50; margin-bottom:8px; display:block;">🎟️ 專屬折扣碼</label>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="promoInput" placeholder="請輸入折扣碼" style="margin-bottom:0; flex:1;">
+        <button class="btn btn-secondary" onclick="applyPromoCode()" style="padding:10px 20px; flex:none; width:auto; border:1px solid #ccc;">套用</button>
+      </div>
+      <div id="promoMsg" style="font-size:14px; font-weight:bold; margin-top:8px;"></div>
+    </div>
 
-        <div style="display:flex; gap:10px; align-items:flex-end;">
-          <div style="flex:2;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">發行折扣碼 (不使用請留白)</label>
-            <input type="text" id="settingPromoCode" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="例如: VIP2026">
-          </div>
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">折抵金額 ($)</label>
-            <input type="number" id="settingPromoDiscount" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="50">
-          </div>
-        </div>
-      </div>
+    <label style="font-weight:900;">取餐方式</label>
+    <select id="pickupMode" onchange="handlePickupModeChange()">
+      <option value="onsite">現場取餐（盡快）</option>
+      <option value="reserve">預約取餐</option>
+    </select>
 
-      <div style="background:#fff9f0; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🖨️ 列印單據客製化</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據抬頭店名</label>
-        <input type="text" id="settingStoreName" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing:border-box;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">收據底部廣告/問候語</label>
-        <textarea id="settingReceiptFooter" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></textarea>
-      </div>
-      
-      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">📢 首頁緊急公告</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">顯示於點餐首頁的跑馬燈 (留白代表不顯示)</label>
-        <input type="text" id="settingAnnouncement" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      </div>
+    <div id="reserveFields" style="display:none;">
+      <label style="font-weight:900;">預約日期</label>
+      <select id="pickupDate" onchange="updatePickupTimeOptions()"></select>
+      <label style="font-weight:900;">預約時間</label>
+      <select id="pickupTime"></select>
+    </div>
 
-      <div style="background:#f4f6f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2c3e50;">💰 宅配運費設定</h4>
-        <div style="display:flex; gap:10px;">
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">單筆宅配運費 ($)</label>
-            <input type="number" id="settingFee" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-          </div>
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">免運門檻 ($) <small style="color:#e74c3c;">(無免運請設99999)</small></label>
-            <input type="number" id="settingLimit" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-          </div>
-        </div>
-      </div>
+    <label style="font-weight:900;">付款方式</label>
+    <select id="payMethod"></select>
 
-      <div style="background:#fff5e6; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#d35400;">🌍 前台開關與防呆</h4>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:10px;">
-          <input type="checkbox" id="settingOnsite" style="width:20px; height:20px; margin:0 10px 0 0;"> 🏠 顯示門市現場/預約自取
-        </label>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center; margin-bottom:15px;">
-          <input type="checkbox" id="settingDelivery" style="width:20px; height:20px; margin:0 10px 0 0;"> 🚚 顯示低溫宅配到府
-        </label>
-        <hr style="border:0; border-top:1px dashed #f3cbab; margin:15px 0;">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <h4 style="margin:0; color:#2c3e50;">🌙 夜間防呆自動打烊：</h4>
-          <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-            <input type="checkbox" id="settingAutoClose" style="width:20px; height:20px; margin:0 8px 0 0;"> 啟用設定
-          </label>
-          <span style="font-size:15px; font-weight:bold; margin-left:10px;">打烊時間</span>
-          <input type="time" id="settingCloseTime" style="padding:6px; border-radius:5px; border:1px solid #ccc; width:auto; margin-bottom:0;">
-        </div>
-      </div>
+    <label style="font-weight:900;">聯絡姓名</label>
+    <input type="text" id="customerName" placeholder="請輸入姓名">
+    
+    <label style="font-weight:900;">聯絡電話</label>
+    <input type="tel" id="customerPhone" placeholder="請輸入電話">
+    
+    <label style="font-weight:900; margin-top:10px; display:block; color:#2c3e50;">🧾 雲端發票 (手機載具)</label>
+    <input type="text" id="invoiceCarrier" placeholder="若無則免填 (格式如：/AB12345)" style="text-transform: uppercase;" maxlength="8">
+    <div style="font-size:12px; color:#666; margin-top:-5px; margin-bottom:10px;">※ 填寫後將為您開立雲端發票。格式為斜線「/」開頭，加上7位大寫英數字。</div>
+    
+    <label style="font-weight:900; margin-top:5px; display:block; color:#d35400;">🏢 公司統編 (報帳用)</label>
+    <input type="text" id="taxId" placeholder="若無則免填 (8位數字)" inputmode="numeric" maxlength="8">
+    <div style="font-size:12px; color:#e67e22; margin-top:-5px; margin-bottom:15px;">※ 若需開立公司報帳發票，請填寫8位數統一編號。</div>
+    
+    <div id="deliveryAddressSection" style="display:none; margin-top:15px; padding:15px; background:#fff5f5; border-radius:14px; border:1px solid #ffcccc;">
+      <label style="font-weight:900; color:#d9534f; display:block; margin-bottom:8px;">🚚 收件完整地址</label>
+      <input type="text" id="deliveryAddress" placeholder="請輸入縣市、行政區、道路與門牌號碼">
+      <div style="font-size:12px; color:#e74c3c; margin-top:5px;">※ 低溫宅配僅限燉湯品項，請填寫正確收件資訊。</div>
+    </div>
 
-      <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#16a085;">⏰ 預約取餐時間設定</h4>
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">開始時間</label>
-            <input type="time" id="settingReserveStart" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-          </div>
-          <div style="flex:1;">
-            <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">結束時間</label>
-            <input type="time" id="settingReserveEnd" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-          </div>
-        </div>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#2980b9;">預約時段班次間隔 (分鐘)</label>
-        <input type="number" id="settingReserveInterval" style="width:100%; padding:10px; border-radius:8px; border:2px solid #3498db; box-sizing:border-box; margin-bottom:15px;">
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">要求客人預約需「提前準備分鐘數」</label>
-        <input type="number" id="settingReserveLeadTime" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box;">
-      </div>
-      
-      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">🔐 各級密碼權限設定</h4>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">1. 系統啟動密碼 (防閒雜人等進入)</label>
-        <input type="text" id="settingPwdStartup" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">2. 宅配管理面板密碼</label>
-        <input type="text" id="settingPwdDelivery" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px;">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">3. 修改/作廢授權密碼 <small style="color:#e74c3c;">(多組請用逗號 , 隔開)</small></label>
-        <input type="text" id="settingPwdManager" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; font-family:monospace;">
-        
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;color:#c0392b;">4. ⚙️ 本設定面板專屬密碼 (老闆最高權限)</label>
-        <input type="text" id="settingPwdSettings" style="width:100%; padding:10px; border-radius:8px; border:2px solid #e74c3c; box-sizing:border-box; background:#fdf0ed;">
-      </div>
-      
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px; margin-top:10px;" onclick="saveSettings()">💾 儲存所有設定與密碼</button>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:15px;">
+      <button class="btn btn-secondary" onclick="hideCheckout()">返回點餐</button>
+      <button id="submitBtn" class="btn btn-primary" onclick="submitOrder()">確認送出訂單</button>
     </div>
   </div>
 </div>
 
-<div id="menuModal" class="modal" data-pwd="" data-role="">
-  <div class="modal-card" style="width:min(100%, 1100px); max-height:95vh;">
-    <div class="modal-header">
-      <h3>📝 菜單管理 <span id="menuModalTitleRole" style="font-size:16px; color:#e74c3c; font-weight:bold; margin-left:10px;"></span></h3>
-      <button onclick="closeMenuPanel()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
+<div id="successPage" class="page">
+    <div class="combo-step" style="text-align:center;">
+        <h2 class="brand-title">✅ 訂單成立:請稍後等待取餐號碼顯示</h2>
+        <div id="successDetail" style="margin:20px 0; line-height:2; font-size:18px;"></div>
+        <button class="btn btn-primary" onclick="window.location.href = window.location.pathname">按我返回點餐主頁查詢訂單</button>
     </div>
-    <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:15px;">
-      
-      <div id="menuComboSettingsArea" style="background:#fff5e6; padding:15px; border-radius:10px; display:flex; gap:20px; align-items:center;">
-        <h4 style="margin:0; color:#d35400;">🍔 客人點餐模式：</h4>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="menuEnableCombo" style="width:20px; height:20px; margin:0 8px 0 0;"> 🍱 開放「超值套餐」
-        </label>
-        <label style="cursor:pointer; font-size:16px; font-weight:bold; display:flex; align-items:center;">
-          <input type="checkbox" id="menuEnableSingle" style="width:20px; height:20px; margin:0 8px 0 0;" checked> 🍜 開放「輕鬆單點」
-        </label>
-      </div>
+</div>
 
-      <button id="addMenuRowBtn" onclick="addMenuRow()" class="btn btn-info" style="width:200px; background:#3498db;">➕ 新增一筆餐點</button>
-      
-      <div style="overflow-y:auto; border:1px solid #EAE8E3; border-radius:10px;">
-        <table style="width:100%; border-collapse:collapse; text-align:left;">
-          <thead style="background:#f4f6f8; position:sticky; top:0; z-index:1;">
-            <tr>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">類別</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">品名</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">單點($)</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">套餐($)</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">宅配</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd; color:#e74c3c;">狀態</th>
-              <th style="padding:12px; border-bottom:2px solid #ddd;">操作</th>
-            </tr>
-          </thead>
-          <tbody id="menuTbody"></tbody>
-        </table>
-      </div>
-      
-      <button id="saveMenuBtn" class="btn btn-start" style="background:#2ecc71; font-size:18px; padding:15px;" onclick="saveMenuData()">💾 儲存最新菜單狀態</button>
+<div id="queryModal" class="modal">
+  <div class="modal-card">
+    <div class="step-head">
+      <div class="brand-title">🔍 查詢訂單</div>
+      <button class="btn" style="padding:5px 10px; width:auto;" onclick="closeQueryModal()">✕</button>
     </div>
+    <input type="text" id="queryInput" placeholder="請輸入取餐號 (例如：#001或#P001)">
+    <div style="font-size:13px; color:#888; margin-bottom:15px; margin-top:-5px;">
+      💡 範例：請輸入取餐號 <b>#001或#P001</b> 或是訂單編號 <b>RW123456789</b>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="queryOrder()">送出查詢</button>
+    <div id="queryResult" style="margin-top:15px;"></div>
   </div>
 </div>
 
-<div id="printerModal" class="modal">
-  <div class="modal-card" style="width: 550px; max-height:90vh;">
-    <div class="modal-header">
-      <h3>🖨️ 列印機與路由設定</h3>
-      <button onclick="closePrinterSettings()" style="border:none;background:none;font-size:24px;cursor:pointer;">✕</button>
-    </div>
-    <div class="modal-body" style="padding:20px;">
-      
-      <div style="background:#fdf0ed; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #e74c3c;">
-        <h4 style="margin:0 0 10px 0; color:#c0392b;">🔌 USB 設備 (專線實體機)</h4>
-        <button class="btn btn-usb" style="width:auto; padding:8px 15px; margin-bottom:10px;" onclick="connectUSB()">重新配對 USB 印表機</button>
-        <br>
-        <label style="font-size:14px; font-weight:bold; display:block; margin-bottom:5px;">輸出指令協議：</label>
-        <select id="p_usbProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px; margin-bottom:10px;">
-          <option value="ESC">ESC/POS (傳統熱感單據機)</option>
-          <option value="TSPL">TSPL (標籤/貼紙/發票機)</option>
-        </select>
-        <label style="font-weight:bold; display:block; margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>預設 384</small></label>
-        <input type="number" id="p_usbPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
-        
-        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
-        <div style="display:flex; gap:15px; flex-wrap:wrap;">
-            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_inv" style="width:18px;height:18px;vertical-align:middle;"> 實體發票</label>
-            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_rec" style="width:18px;height:18px;vertical-align:middle;"> 客人明細</label>
-            <label style="cursor:pointer;"><input type="checkbox" id="t_usb_kit" style="width:18px;height:18px;vertical-align:middle;"> 廚房工單</label>
-        </div>
-      </div>
-
-      <div style="background:#e8f4f8; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #3498db;">
-        <h4 style="margin:0 0 10px 0; color:#2980b9;">🌐 網路設備 (RawBT 遠端機)</h4>
-        <label style="font-size:14px; font-weight:bold; display:block; margin-bottom:5px;">輸出指令協議：</label>
-        <select id="p_lanProtocol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-weight:bold; font-size:15px; margin-bottom:10px;">
-          <option value="ESC">ESC/POS (傳統熱感單據機)</option>
-          <option value="TSPL">TSPL (標籤/貼紙/發票機)</option>
-        </select>
-        <label style="font-weight:bold; display:block; margin-bottom:5px;font-size:14px;">紙張畫布寬度 (px) <small>預設 384</small></label>
-        <input type="number" id="p_lanPxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
-        
-        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
-        <div style="display:flex; gap:15px; flex-wrap:wrap;">
-            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_inv" style="width:18px;height:18px;vertical-align:middle;"> 實體發票</label>
-            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_rec" style="width:18px;height:18px;vertical-align:middle;"> 客人明細</label>
-            <label style="cursor:pointer;"><input type="checkbox" id="t_lan_kit" style="width:18px;height:18px;vertical-align:middle;"> 廚房工單</label>
-        </div>
-      </div>
-
-      <div style="background:#e8f8f5; padding:15px; border-radius:10px; margin-bottom:20px; border:2px solid #16a085;">
-        <h4 style="margin:0 0 10px 0; color:#16a085;">📶 藍牙設備 (貼紙機)</h4>
-        <button class="btn btn-ble" style="width:auto; padding:8px 15px; margin-bottom:10px;" onclick="connectBLE()">手動配對藍牙貼紙機</button>
-        <br>
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <div style="flex:1;">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體寬 (mm)</label>
-                <input type="number" id="p_bleMmW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-            </div>
-            <div style="flex:1;">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">實體高 (mm)</label>
-                <input type="number" id="p_bleMmH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-            </div>
-        </div>
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <div style="flex:1;">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布寬 (px)</label>
-                <input type="number" id="p_blePxW" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-            </div>
-            <div style="flex:1;">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">畫布高 (px)</label>
-                <input type="number" id="p_blePxH" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-            </div>
-        </div>
-        <label style="font-weight:bold;display:block;margin-bottom:5px;font-size:14px;">底部取餐字體位置 (px) <small>預設 28</small></label>
-        <input type="number" id="p_bleBottom" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; margin-bottom:10px;">
-        
-        <label style="font-size:14px; font-weight:bold; color:#2c3e50; display:block; margin-bottom:5px;">✅ 指派列印任務：</label>
-        <label style="cursor:pointer;"><input type="checkbox" id="t_ble_lbl" style="width:18px;height:18px;vertical-align:middle;"> 飲料/單品貼紙</label>
-      </div>
-
-      <button class="btn btn-start" style="width:100%; background:#2ecc71; font-size:18px; padding:15px;" onclick="savePrinterSettings()">💾 儲存路由與列印設定</button>
-    </div>
-  </div>
-</div>
-
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
-function toggleSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  const overlay = document.getElementById('mobileOverlay');
-  
-  if (window.innerWidth <= 768) {
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('open');
-  } else {
-      if (sidebar.style.display === 'none' || sidebar.style.display === '') {
-        sidebar.style.display = 'flex';
-      } else {
-        sidebar.style.display = 'none';
-      }
-  }
-}
-
-function closeSidebarOnMobile() {
-    if (window.innerWidth <= 768) {
-        document.querySelector('.sidebar').classList.remove('open');
-        document.getElementById('mobileOverlay').classList.remove('open');
-    }
-}
-
-function toggleLinePayKeys() {
-    const env = document.getElementById("settingLinePayEnv").value;
-    const sandboxArea = document.getElementById("lpSandboxArea");
-    const prodArea = document.getElementById("lpProdArea");
-    
-    if (env === "sandbox") {
-        sandboxArea.style.display = "block";
-        prodArea.style.display = "none";
-    } else {
-        sandboxArea.style.display = "none";
-        prodArea.style.display = "block";
-    }
-}
-
-function toggleInvoiceKeys() {
-    const env = document.getElementById("settingInvoiceEnv").value;
-    const sandboxArea = document.getElementById("invSandboxArea");
-    const prodArea = document.getElementById("invProdArea");
-    
-    if (env === "test") {
-        sandboxArea.style.display = "block";
-        prodArea.style.display = "none";
-    } else {
-        sandboxArea.style.display = "none";
-        prodArea.style.display = "block";
-    }
-}
-
-function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
-  const chars = text.split(''); let line = ''; let currentY = y;
-  for (let i = 0; i < chars.length; i++) {
-    let testLine = line + chars[i];
-    let testWidth = ctx.measureText(testLine).width;
-    if (testWidth > maxWidth && i > 0) {
-      ctx.fillText(line, x, currentY); line = chars[i]; currentY += lineHeight;
-    } else { line = testLine; }
-  }
-  ctx.fillText(line, x, currentY); return currentY + lineHeight;
-}
-  
+let serviceMode = "pickup"; 
 const GAS_API = "https://script.google.com/macros/s/AKfycbzZHIyddAlXhrUcCjE43-8vfR9Sm4tHas7t1F1Y4OyCuQtRxKSvOa2S4tQMwrq-NOvu/exec";
-const BLE_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
-const BLE_CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 
-let bleDevice = null, blePrintCharacteristic = null, printerDevice = null, endpointOut = null;
+// 🌟 SaaS 參數預設值
+let sysConfig = { 
+  DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, AUTO_CLOSE_ENABLE: 'N', AUTO_CLOSE_TIME: '22:00', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30,
+  LOGO_URL: '', MIN_ORDER_ONSITE: 0, MIN_ORDER_DELIVERY: 0, ENABLE_LINEPAY_PAYMENT: 'Y', ENABLE_CASH_PAYMENT: 'Y', PROMO_CODE: '', PROMO_DISCOUNT: 0 
+};
 
-let MAINS=[], DRINKS=[], SIDES=[];
-let singleSel = {}; 
-let editSel = {};   
-let currentEditingOrder = null; 
+let COMBO_MAINS = [], COMBO_DRINKS = [], COMBO_SIDES = [], COMBO_ADDONS = [];
+let customerLineId = "", basket = [], orderMode = "single", singleSelection = {}; 
+let curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
 
-let printedOrders = new Set();
-let printingOrders = new Set();
-let processingRows = new Set();
-let isPrinterBusy = false;
+// 🌟 折扣碼狀態變數
+let appliedPromoDiscount = 0;
 
-// ==========================================
-// 🖨️ 升級點 3：列印機路由指派模組初始化
-// ==========================================
-let printerConf;
-try {
-  let saved = localStorage.getItem("ksk_printer_conf");
-  printerConf = saved ? JSON.parse(saved) : null;
-  if (!printerConf || !printerConf.usbTasks) throw new Error("舊版格式，套用預設路由");
-} catch(e) {
-  printerConf = {
-    usbProtocol: 'TSPL', usbTasks: ['invoice', 'receipt'], usbPxW: 384,
-    lanProtocol: 'ESC', lanTasks: ['kitchen'], lanPxW: 384,
-    bleTasks: ['label'], bleMmW: 40, bleMmH: 30, blePxW: 320, blePxH: 224, bleBottom: 28
-  };
-}
-
-function openPrinterSettings() {
-  closeSidebarOnMobile();
+async function fetchSysConfig() {
   try {
-    const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val; };
-    const setChk = (id, val) => { if(document.getElementById(id)) document.getElementById(id).checked = val; };
-
-    setVal("p_usbProtocol", printerConf.usbProtocol || 'TSPL');
-    setVal("p_usbPxW", printerConf.usbPxW || 384);
-    setChk("t_usb_inv", printerConf.usbTasks.includes('invoice'));
-    setChk("t_usb_rec", printerConf.usbTasks.includes('receipt'));
-    setChk("t_usb_kit", printerConf.usbTasks.includes('kitchen'));
-
-    setVal("p_lanProtocol", printerConf.lanProtocol || 'ESC');
-    setVal("p_lanPxW", printerConf.lanPxW || 384);
-    setChk("t_lan_inv", printerConf.lanTasks.includes('invoice'));
-    setChk("t_lan_rec", printerConf.lanTasks.includes('receipt'));
-    setChk("t_lan_kit", printerConf.lanTasks.includes('kitchen'));
-
-    setVal("p_bleMmW", printerConf.bleMmW || 40);
-    setVal("p_bleMmH", printerConf.bleMmH || 30);
-    setVal("p_blePxW", printerConf.blePxW || 320);
-    setVal("p_blePxH", printerConf.blePxH || 224);
-    setVal("p_bleBottom", printerConf.bleBottom || 28);
-    setChk("t_ble_lbl", printerConf.bleTasks.includes('label'));
-
-    if (document.getElementById("printerModal")) {
-        document.getElementById("printerModal").classList.add("show");
-    }
-  } catch (e) {
-    alert("開啟列印機設定發生錯誤：" + e.message);
-  }
-}
-
-function closePrinterSettings() { 
-    if (document.getElementById("printerModal")) {
-        document.getElementById("printerModal").classList.remove("show"); 
-    }
-}
-
-function savePrinterSettings() {
-  try {
-    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
-    const getChk = (id) => document.getElementById(id) ? document.getElementById(id).checked : false;
-
-    printerConf = {
-      usbProtocol: getVal("p_usbProtocol") || 'TSPL',
-      usbPxW: Number(getVal("p_usbPxW")) || 384,
-      usbTasks: [],
-      
-      lanProtocol: getVal("p_lanProtocol") || 'ESC',
-      lanPxW: Number(getVal("p_lanPxW")) || 384,
-      lanTasks: [],
-      
-      bleMmW: Number(getVal("p_bleMmW")) || 40,
-      bleMmH: Number(getVal("p_bleMmH")) || 30,
-      blePxW: Number(getVal("p_blePxW")) || 320,
-      blePxH: Number(getVal("p_blePxH")) || 224,
-      bleBottom: Number(getVal("p_bleBottom")) || 28,
-      bleTasks: []
-    };
-
-    if(getChk('t_usb_inv')) printerConf.usbTasks.push('invoice');
-    if(getChk('t_usb_rec')) printerConf.usbTasks.push('receipt');
-    if(getChk('t_usb_kit')) printerConf.usbTasks.push('kitchen');
-
-    if(getChk('t_lan_inv')) printerConf.lanTasks.push('invoice');
-    if(getChk('t_lan_rec')) printerConf.lanTasks.push('receipt');
-    if(getChk('t_lan_kit')) printerConf.lanTasks.push('kitchen');
-
-    if(getChk('t_ble_lbl')) printerConf.bleTasks.push('label');
+    const res = await fetch(GAS_API + "?action=getConfig&t=" + Date.now());
+    const conf = await res.json();
     
-    localStorage.setItem("ksk_printer_conf", JSON.stringify(printerConf));
+    Object.assign(sysConfig, conf); 
     
-    alert("✅ 路由分配與硬體設定已成功儲存！");
-    closePrinterSettings();
-  } catch (e) {
-    alert("儲存設定失敗：" + e.message);
-  }
-}
+    // 🌟 SaaS：替換 Logo
+    if (sysConfig.LOGO_URL && sysConfig.LOGO_URL.trim() !== "") {
+      document.getElementById("portalLogoArea").innerHTML = `<img src="${sysConfig.LOGO_URL}" style="max-height:100px; max-width:90%; object-fit:contain; margin-bottom:20px; border-radius:12px;">`;
+    }
 
-// ==========================================
-// 🔌 升級點 4：一鍵靜默喚醒連線引擎
-// ==========================================
-async function wakeUpDevices() {
-  setMsg("正在嘗試喚醒已配對設備...");
-  try {
-    let devices = await navigator.usb.getDevices();
-    if(devices.length > 0) {
-      printerDevice = devices[0];
-      await printerDevice.open();
-      if(printerDevice.configuration === null) await printerDevice.selectConfiguration(1);
-      let found = false;
-      for(const iface of printerDevice.configuration.interfaces){
-        for(const alt of iface.alternates){
-          const outEp = alt.endpoints.find(e => e.direction === "out");
-          if(outEp){ await printerDevice.claimInterface(iface.interfaceNumber); endpointOut = outEp.endpointNumber; found = true; break; }
-        }
-        if(found) break;
-      }
-      if(found) {
-        document.getElementById("usbStatus").innerHTML = `🔌 USB：<span style="color:#27AE60;">已喚醒連線</span>`;
-        setMsg("✅ USB 設備已自動恢復連線！(藍牙需手動)");
-      } else {
-         setMsg("⚠️ 找到 USB 設備但無法開啟，請至設定面板重新配對");
-      }
+    const modeComboBtn = document.getElementById("modeComboBtn");
+    const modeSingleBtn = document.getElementById("modeSingleBtn");
+    if (modeComboBtn) modeComboBtn.style.display = (sysConfig.ENABLE_COMBO === 'Y') ? "block" : "none";
+    if (modeSingleBtn) modeSingleBtn.style.display = (sysConfig.ENABLE_SINGLE === 'Y') ? "block" : "none";
+
+    if (sysConfig.ENABLE_COMBO === 'Y' && sysConfig.ENABLE_SINGLE !== 'Y') setOrderMode('combo');
+    else if (sysConfig.ENABLE_SINGLE === 'Y') setOrderMode('single');
+    
+    const annTextStr = "📢 公告：" + sysConfig.ANNOUNCEMENT;
+    if (sysConfig.ANNOUNCEMENT && sysConfig.ANNOUNCEMENT.trim() !== "") {
+        document.getElementById("portalAnnouncementBar").style.display = "block"; document.getElementById("portalAnnouncementText").innerText = annTextStr;
+        document.getElementById("mainAnnouncementBar").style.display = "block"; document.getElementById("mainAnnouncementText").innerText = annTextStr;
     } else {
-      setMsg("⚠️ 尚未授權過 USB 設備，請至設定面板配對");
+        document.getElementById("portalAnnouncementBar").style.display = "none"; document.getElementById("mainAnnouncementBar").style.display = "none";
     }
-  } catch(e) {
-    setMsg("喚醒失敗：" + e.message);
-  }
-}
 
-async function connectUSB(){
-  try{
-    setMsg("請在彈出視窗選擇 USB 印表機..."); 
-    printerDevice = await navigator.usb.requestDevice({ filters:[] }); 
-    await printerDevice.open();
-    if(printerDevice.configuration === null){ await printerDevice.selectConfiguration(1); }
-    let found = false;
-    for(const iface of printerDevice.configuration.interfaces){
-      for(const alt of iface.alternates){
-        const outEp = alt.endpoints.find(e => e.direction === "out");
-        if(outEp){ await printerDevice.claimInterface(iface.interfaceNumber); endpointOut = outEp.endpointNumber; found = true; break; }
-      }
-      if(found) break;
-    }
-    if(!found) throw new Error("找不到可用的 USB 輸出端點");
+    let enableOnsite = conf.ENABLE_ONSITE !== 'N'; 
+    let enableDelivery = conf.ENABLE_DELIVERY !== 'N'; 
+    let isAutoClosed = false;
     
-    document.getElementById("usbStatus").innerHTML = `🔌 USB：<span style="color:#27AE60;">已連線 (${printerDevice.productName || "裝置"})</span>`; 
-    setMsg("✅ USB 配對成功！日後可一鍵喚醒。");
-  }catch(err){ alert("USB 連線失敗：" + err.message); setMsg("USB 連線失敗"); }
+    if (sysConfig.AUTO_CLOSE_ENABLE === 'Y' && sysConfig.AUTO_CLOSE_TIME) {
+        const [cH, cM] = sysConfig.AUTO_CLOSE_TIME.split(':').map(Number);
+        const now = getTaipeiNow(); const nowMins = now.getHours() * 60 + now.getMinutes(); const closeMins = cH * 60 + cM; const openMins = 8 * 60; 
+        if (closeMins >= openMins) { if (nowMins >= closeMins || nowMins < openMins) isAutoClosed = true; } 
+        else { if (nowMins >= closeMins && nowMins < openMins) isAutoClosed = true; }
+    }
+
+    if (isAutoClosed) { enableOnsite = false; enableDelivery = false; }
+    
+    const btnOnsite = document.getElementById("btnOnsite");
+    const btnDelivery = document.getElementById("btnDelivery");
+    const hintEl = document.getElementById("deliveryFeeHint");
+    const subtitle = document.getElementById("portalSubtitle");
+    
+    if (!enableOnsite && !enableDelivery) {
+       subtitle.innerText = isAutoClosed ? "🌙 本店已打烊，明日請早 🌙" : "⚠️ 目前暫停接單 ⚠️";
+       subtitle.style.color = "var(--danger)"; subtitle.style.fontSize = "24px";
+       hintEl.innerText = isAutoClosed ? `(每日 ${sysConfig.AUTO_CLOSE_TIME} 後系統會自動拉下鐵門)` : "店面休息中或已售完，請稍後再試！";
+       hintEl.style.fontSize = "16px";
+    } else {
+       subtitle.innerText = "請選擇您的點餐方式"; subtitle.style.color = "#666"; subtitle.style.fontSize = "18px";
+       if(btnOnsite) btnOnsite.style.display = enableOnsite ? "block" : "none";
+       if(btnDelivery) btnDelivery.style.display = enableDelivery ? "block" : "none";
+       
+       if (enableDelivery) {
+         if (sysConfig.FREE_SHIPPING_LIMIT >= 99999) hintEl.innerText = `(低溫宅配運費固定 $${sysConfig.DELIVERY_FEE})`;
+         else hintEl.innerText = `(宅配運費 $${sysConfig.DELIVERY_FEE}，滿 $${sysConfig.FREE_SHIPPING_LIMIT} 享免運優惠)`;
+       } else { hintEl.innerText = "(目前宅配服務暫停中)"; }
+    }
+  } catch(err) { 
+    console.error("設定載入失敗:", err); 
+    document.getElementById("btnOnsite").style.display = "block"; document.getElementById("btnDelivery").style.display = "block";
+    document.getElementById("portalSubtitle").innerText = "請選擇您的點餐方式"; document.getElementById("deliveryFeeHint").innerText = "(無法讀取最新設定，套用預設運費)";
+  }
 }
 
-async function connectBLE() {
-  try {
-    setMsg("正在尋找藍牙標籤機..."); document.getElementById("bleStatus").innerHTML = "📶 BLE：搜尋中...";
-    bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICE_UUID] });
-    const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-    blePrintCharacteristic = await service.getCharacteristic(BLE_CHAR_UUID);
-    document.getElementById("bleStatus").innerHTML = `📶 BLE：<span style="color:#27AE60;">已連線 (${bleDevice.name || "標籤機"})</span>`; 
-    setMsg("✅ 藍牙標籤機連線成功！");
-    bleDevice.addEventListener('gattserverdisconnected', () => { document.getElementById("bleStatus").innerHTML = "📶 BLE：已斷線"; blePrintCharacteristic = null; });
-  } catch (error) { alert("藍牙連線失敗：" + error.message); document.getElementById("bleStatus").innerHTML = "📶 BLE：連線失敗"; }
+function chooseServiceMode(mode) {
+  serviceMode = mode;
+  document.getElementById("entryPortal").style.display = "none";
+  if (mode === 'delivery') { setOrderMode('single'); document.querySelector(".mode-switch").style.display = "none"; renderSingleUI(); showToast("已進入宅配專區"); } 
+  else { document.querySelector(".mode-switch").style.display = "flex"; renderSingleUI(); }
 }
 
-async function connectLAN() {
-  document.getElementById("lanStatus").innerHTML = `🌐 LAN：<span style="color:#27AE60;">APP 喚醒模式已啟用</span>`;
-  setMsg("✅ 已確認網路 APP (RawBT) 待命！");
-  alert("✅ 設定完成！系統將依照您在設定中指派的任務，在背景自動切換並傳送資料給 RawBT。");
-}
-
-let sysConfig = { DELIVERY_FEE: 190, FREE_SHIPPING_LIMIT: 2500, ENABLE_ONSITE: 'Y', ENABLE_DELIVERY: 'Y', PWD_STARTUP: '0320', PWD_MANAGER: '1111,2222', PWD_DELIVERY: '0926', PWD_SETTINGS: '1988', RESERVE_LEAD_TIME: 60, ANNOUNCEMENT: '', RESERVE_INTERVAL: 30, STORE_NAME: '加山記', RECEIPT_FOOTER: '', LINEPAY_CHANNEL_ID: '', LINEPAY_SECRET: '', LINEBOT_TOKEN: '', LINEBOT_USER: '', FRONTEND_SUCCESS_URL: 'https://love3200813.github.io/ksk/index.html', LOGO_URL:'', MIN_ORDER_ONSITE:0, MIN_ORDER_DELIVERY:0, ENABLE_LINEPAY_PAYMENT:'Y', ENABLE_CASH_PAYMENT:'Y', PROMO_CODE:'', PROMO_DISCOUNT:0, INVOICE_PROVIDER:'', INVOICE_ENV:'test', INVOICE_TEST_MERCHANT_ID:'', INVOICE_TEST_HASH_KEY:'', INVOICE_TEST_HASH_IV:'', INVOICE_PROD_MERCHANT_ID:'', INVOICE_PROD_HASH_KEY:'', INVOICE_PROD_HASH_IV:'', LINEPAY_ENV:'sandbox', LINEPAY_PROD_ID:'', LINEPAY_PROD_SECRET:'' };
-
-function setMsg(text){ document.getElementById("msg").innerText = text || ""; }
-function pad2(v){ return String(v).padStart(2,"0"); }
-function playBeep(){
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = "sine"; oscillator.frequency.value = 880;
-    oscillator.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.05, ctx.currentTime);
-    oscillator.start(); oscillator.stop(ctx.currentTime + 0.15);
-  }catch(err){}
-}
-function formatDateObjTaipei(dateObj){
-  const parts = new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(dateObj);
-  const map = {}; parts.forEach(p => { map[p.type] = p.value; });
-  let hh24 = parseInt(map.hour, 10); const ap = hh24 >= 12 ? "下午" : "上午";
-  let hh12 = hh24 % 12; if(hh12 === 0) hh12 = 12;
-  return `${map.year}/${map.month}/${map.day} ${ap} ${pad2(hh12)}:${map.minute}`;
-}
-function parsePickupString(value){
-  const str = String(value || "").trim();
-  if(!str || str === "現場取餐" || str.includes("現場取餐") || str === "delivery_cold" || str === "低溫宅配") return null;
-  const isoDate = new Date(str); if(!isNaN(isoDate.getTime())) return isoDate;
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-  if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0), 0);
-  return null;
-}
-function isReserveOrder(order){
-  const raw = String(order.rawPickup || order.pickup || "").trim();
-  return !!raw && raw !== "現場取餐" && !raw.includes("現場取餐") && raw !== "delivery_cold" && raw !== "低溫宅配";
-}
-function formatPickupDisplay(value){
-  const str = String(value || "").trim();
-  if(!str || str === "現場取餐" || str.includes("現場取餐")) return "現場取餐";
-  if(str === "delivery_cold" || str === "低溫宅配") return "低溫宅配";
-  const d = parsePickupString(str); if(d) return formatDateObjTaipei(d);
-  return str;
-}
-function shouldPrintNow(order){
-  const raw = String(order.rawPickup || order.pickup || "").trim();
-  if(!raw || raw === "現場取餐" || raw.includes("現場取餐") || raw === "delivery_cold" || raw === "低溫宅配") return true;
-  const pickup = parsePickupString(raw); 
-  if(!pickup) return true; 
-  const printAt = new Date(pickup.getTime() - 15 * 60 * 1000);
-  return Date.now() >= printAt.getTime();
-}
-
-function buildItemLabelCanvas(o, itemName, currentIndex, totalCount, titleHeader) {
-  const width = printerConf.blePxW || 320; 
-  const height = printerConf.blePxH || 224; 
-  const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
-  canvas.width = width; canvas.height = height; 
-  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, height); 
-  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  
-  let y = 8; 
-  ctx.font = "bold 24px sans-serif";
-  const headerStr = titleHeader ? `【${titleHeader}】${o.seq||""}` : `${o.seq||""}  [${currentIndex}/${totalCount}]`;
-  ctx.fillText(headerStr, 10, y); y += 28; 
-  ctx.font = "18px monospace"; ctx.fillText("-------------------------", 10, y); y += 20;
-  
-  if (itemName.length > 15) {
-     ctx.font = "bold 24px sans-serif";
-     y = drawWrappedText(ctx, itemName, 10, y, width - 20, 30);
+function renderSingleUI() {
+  let categories = [];
+  if (serviceMode === 'delivery') {
+    const filteredDrinks = COMBO_DRINKS.filter(item => item.isDelivery === "Y" && Number(item.singlePrice) > 0);
+    categories = [{ name: "🚚 低溫宅配專區", list: filteredDrinks.map(d => ({ n: d.n, p: Number(d.singlePrice), img: d.img, status: d.status })) }];
   } else {
-     ctx.font = "bold 30px sans-serif";
-     y = drawWrappedText(ctx, itemName, 10, y, width - 20, 36);
+    categories = [
+      { name: "🍚 養生主食單點", list: COMBO_MAINS.map(m => ({ n: m.n, p: Number(m.singlePrice) || 0, img: m.img, status: m.status })) },
+      { name: "🍲 招牌燉品單點", list: COMBO_DRINKS.map(d => ({ n: d.n, p: Number(d.singlePrice) || 0, img: d.img, status: d.status })) },
+      { name: "🥗 精選小菜單點", list: COMBO_SIDES.map(s => ({ n: s.n, p: Number(s.singlePrice) || 0, img: s.img, status: s.status })) },
+      { name: "➕ 其他加料", list: COMBO_ADDONS.map(a => ({ n: a.n, p: Number(a.singlePrice) || 0, img: a.img, status: a.status })) }
+    ];
   }
   
-  const bottomY = y + (printerConf.bleBottom || 28); 
-  ctx.font = "bold 20px sans-serif"; 
-  ctx.fillText(`取餐：${formatPickupDisplay(o.rawPickup || o.pickup)}`, 10, bottomY);
-  
-  return canvas;
+  categories.forEach(cat => cat.list = cat.list.filter(i => i.p > 0)); categories = categories.filter(cat => cat.list.length > 0);
+
+  document.getElementById("singleMenuWrap").innerHTML = categories.map(cat => `
+    <div class="combo-step"><div class="brand-title" style="font-size:18px; margin-bottom:12px;">${cat.name}</div><div class="grid">
+        ${cat.list.map(i => `
+          <div class="menu-card" style="${i.status === 'N' ? 'opacity:0.5; pointer-events:none;' : ''}">
+            ${i.img ? `<img src="${i.img}" class="menu-img">` : ''}
+            <b>${i.n}</b> ${i.status === 'N' ? '<span class="sold-out-badge">已售完</span>' : ''}<br>
+            <span style="color:var(--danger); font-weight:900;">$${i.p}</span>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', -1, ${i.p})">-</button>
+              <b id="single-qty-${i.n}">${singleSelection[i.n]?.q || 0}</b>
+              <button class="btn" style="padding:5px 10px;" onclick="changeSingle('${i.n}', 1, ${i.p})">+</button>
+            </div>
+          </div>
+        `).join("")}
+      </div></div>`).join("");
 }
 
-async function buildInvoiceCanvas(o, customWidth) {
-  const width = customWidth || 384; 
-  const tempCanvas = document.createElement("canvas"); 
-  const ctx = tempCanvas.getContext("2d");
-  tempCanvas.width = width; tempCanvas.height = 1200; 
-  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); 
-  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  
-  let y = 10; 
-  
-  ctx.textAlign = "center";
-  ctx.font = "bold 36px sans-serif";
-  ctx.fillText(sysConfig.STORE_NAME || "加山記", width / 2, y); y += 45;
-  
-  ctx.font = "bold 42px sans-serif";
-  ctx.fillText("電子發票證明聯", width / 2, y); y += 55;
-  
-  ctx.font = "bold 36px sans-serif";
-  const date = new Date();
-  const twYear = date.getFullYear() - 1911;
-  const month = date.getMonth() + 1;
-  const periodM1 = month % 2 === 0 ? month - 1 : month;
-  const periodM2 = periodM1 + 1;
-  ctx.fillText(`${twYear}年${pad2(periodM1)}-${pad2(periodM2)}月`, width / 2, y); y += 50;
-  
-  ctx.font = "bold 48px sans-serif";
-  const randomEng = String.fromCharCode(65 + Math.floor(Math.random()*26)) + String.fromCharCode(65 + Math.floor(Math.random()*26));
-  const randomNum = String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
-  const mockInvNum = `${randomEng}-${randomNum}`;
-  ctx.fillText(mockInvNum, width / 2, y); y += 60;
-  
-  ctx.textAlign = "left";
-  ctx.font = "22px sans-serif";
-  const dateStr = `${date.getFullYear()}-${pad2(month)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
-  ctx.fillText(dateStr, 10, y); 
-  ctx.fillText("格式: 25", width - 100, y); y += 30;
-  
-  const randomCode = Math.floor(1000 + Math.random() * 9000);
-  ctx.fillText(`隨機碼: ${randomCode}`, 10, y); 
-  ctx.fillText(`總計: ${o.total}`, width - 130, y); y += 30;
-  
-  ctx.fillText(`賣方: 82300000`, 10, y); 
-  if (o.taxId && o.taxId !== "") {
-      ctx.fillText(`買方: ${o.taxId}`, width - 180, y); 
-  }
-  y += 40;
-  
-  try {
-      const getQRImg = async (txt) => {
-          const url = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(txt)}&margin=0`;
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("API請求失敗");
-          const blob = await response.blob();
-          
-          const b64 = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-          });
-          
-          const img = new Image();
-          img.src = b64;
-          await new Promise((resolve) => img.onload = resolve);
-          return img;
-      };
-
-      const safeContent = String(o.content || "").replace(/[\r\n]/g, " ").substring(0, 80);
-      
-      const imgL = await getQRImg(`**Mock_Invoice_L**${mockInvNum}`);
-      const imgR = await getQRImg(`**Mock_Invoice_R**${safeContent}`);
-
-      const qrY = y;
-      const qrSize = 130;
-      const paddingX = (width - (qrSize * 2)) / 3;
-      ctx.drawImage(imgL, paddingX, qrY, qrSize, qrSize);
-      ctx.drawImage(imgR, paddingX * 2 + qrSize, qrY, qrSize, qrSize);
-      y += qrSize + 20;
-
-  } catch (e) {
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#000000";
-      ctx.fillText("QR Error: API連線遭阻擋", width/2, y);
-      y += 40;
-  }
-  
-  ctx.textAlign = "center";
-  ctx.font = "bold 22px sans-serif";
-  ctx.fillText("** 退換貨請憑此證明聯 **", width / 2, y); y += 30;
-  
-  if (sysConfig.INVOICE_ENV === 'test') {
-      ctx.font = "bold 20px sans-serif";
-      ctx.fillStyle = "#e74c3c"; 
-      ctx.fillText("(此為系統測試發票，無兌獎效力)", width / 2, y); y += 30;
-      ctx.fillStyle = "#000000";
-  }
-  
-  const finalHeight = y + 60; 
-  const finalCanvas = document.createElement("canvas"); 
-  finalCanvas.width = width; finalCanvas.height = finalHeight;
-  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
-  return { canvas: finalCanvas, finalHeight: finalHeight };
-}
-
-function buildCustomerReceiptCanvas(o, customWidth){
-  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i);
-  const width = customWidth || 384; const lineHeight = 40; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
-  tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  let y = 10; ctx.font = "bold 42px sans-serif"; ctx.fillText("客人單", 10, y); y += 50; 
-  
-  const storeName = sysConfig.STORE_NAME || "加山記";
-  if(storeName.length > 5) {
-      ctx.font = "bold 36px sans-serif";
-      y = drawWrappedText(ctx, storeName, 10, y, width - 20, 46);
-      y += 16;
+function applyPromoCode() {
+  const code = document.getElementById("promoInput").value.trim();
+  const msg = document.getElementById("promoMsg");
+  if (!code) return;
+  if (sysConfig.PROMO_CODE && code === String(sysConfig.PROMO_CODE)) {
+      appliedPromoDiscount = Number(sysConfig.PROMO_DISCOUNT) || 0;
+      msg.innerText = `✅ 折扣碼套用成功！已為您折抵 $${appliedPromoDiscount}`;
+      msg.style.color = "var(--success)";
+      renderCheckoutSummary(); 
   } else {
-      ctx.font = "bold 50px sans-serif"; ctx.fillText(storeName, 10, y); y += 62;
+      appliedPromoDiscount = 0;
+      msg.innerText = `❌ 無效的折扣碼或已過期`;
+      msg.style.color = "var(--danger)";
+      renderCheckoutSummary();
   }
+}
 
-  ctx.font = "bold 46px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 58; 
-  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 42; 
-  ctx.fillText("付款：" + String(o.pay || ""), 10, y); y += 42;
+function renderCheckoutSummary() {
+  let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
+  let shippingFee = 0;
+  if (serviceMode === 'delivery') shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
   
-  if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 42; }
-  if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 42; }
-  if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
+  let finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
 
-  ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 30px sans-serif";
-  for(const item of items){ y = drawWrappedText(ctx, "・" + item, 10, y, 360, lineHeight); y += 5; }
-  ctx.font = "26px monospace"; ctx.fillText("--------------------------", 10, y); y += 38; ctx.font = "bold 46px sans-serif"; ctx.fillText("總計 $" + String(o.total || 0), 10, y); y += 60;
+  let listHtml = basket.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>• ${i.desc}</span> <span>$${i.price}</span></div>`).join("");
   
-  if (sysConfig.RECEIPT_FOOTER && sysConfig.RECEIPT_FOOTER.trim() !== "") {
-      ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
-      ctx.font = "bold 24px sans-serif";
-      const footers = sysConfig.RECEIPT_FOOTER.split('\n');
-      for(let fLine of footers) {
-          y = drawWrappedText(ctx, fLine, 10, y, width - 20, 34); y += 5;
-      }
-      y += 20;
+  if (shippingFee > 0) listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#d9534f; font-weight:bold;"><span>🚚 低溫宅配運費</span> <span>$${shippingFee}</span></div>`;
+  else if (serviceMode === 'delivery') listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:#1f8f55; font-weight:bold;"><span>🎉 達免運門檻</span> <span>$0</span></div>`;
+  
+  if (appliedPromoDiscount > 0) {
+    listHtml += `<hr style="border:0; border-top:1px dashed #ccc;"><div style="display:flex; justify-content:space-between; color:var(--success); font-weight:bold;"><span>🎟️ 折扣碼折抵</span> <span>-$${appliedPromoDiscount}</span></div>`;
   }
-
-  const bottomPadding = 96; const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
-  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
-}
-
-function buildKitchenReceiptCanvas(o, customWidth){
-  const items = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); 
-  const width = customWidth || 384; const lineHeight = 42; const tempCanvas = document.createElement("canvas"); const ctx = tempCanvas.getContext("2d");
-  tempCanvas.width = width; tempCanvas.height = 8000; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-  let y = 10; ctx.font = "bold 40px sans-serif"; ctx.fillText("廚房製作單", 10, y); y += 50; ctx.font = "bold 52px sans-serif"; ctx.fillText(String(o.seq || ""), 10, y); y += 65;
-  ctx.font = "28px sans-serif"; ctx.fillText("取餐：" + formatPickupDisplay(o.rawPickup || o.pickup), 10, y); y += 40; 
   
-  if(o.customerName && o.customerName !== '現場代客') { ctx.fillText("姓名：" + o.customerName, 10, y); y += 40; }
-  if(o.customerPhone) { ctx.fillText("電話：" + o.customerPhone, 10, y); y += 40; }
-  if(o.deliveryAddress) { y = drawWrappedText(ctx, "地址：" + o.deliveryAddress, 10, y, 360, 36); y += 10; }
-
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
-  ctx.font = "bold 34px sans-serif"; for(const item of items){ y = drawWrappedText(ctx, "● " + item, 10, y, 360, lineHeight); y += 10; }
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35; y = drawWrappedText(ctx, "備註：" + String(o.pay || ""), 10, y, 360, 38); y += 10; 
-  const bottomPadding = 96; const finalCanvas = document.createElement("canvas"); finalCanvas.width = width; finalCanvas.height = y + bottomPadding;
-  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, y + bottomPadding, 0, 0, width, y + bottomPadding); return { canvas: finalCanvas, finalHeight: y + bottomPadding };
+  listHtml += `<div style="text-align:right; font-size:22px; font-weight:900; margin-top:10px; border-top:2px solid #111; padding-top:10px;">總計：$${finalTotal}</div>`;
+  document.getElementById("checkoutItemsDisplay").innerHTML = listHtml;
 }
 
-function buildShiftReceiptCanvas(info, summary, customWidth) {
-  const width = customWidth || 384; 
-  const tempCanvas = document.createElement("canvas"); 
-  const ctx = tempCanvas.getContext("2d");
-  tempCanvas.width = width; tempCanvas.height = 3000; 
-  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, width, tempCanvas.height); 
-  ctx.fillStyle = "#000000"; ctx.textBaseline = "top";
-
-  let y = 10; 
-  ctx.font = "bold 40px sans-serif"; ctx.fillText("🧾 交班結算單", 10, y); y += 60;
+function showCheckout() {
+  let subtotal = basket.reduce((sum, item) => sum + item.price, 0);
   
-  ctx.font = "24px sans-serif";
-  ctx.fillText(`班次：${info.shiftName || '未知'}`, 10, y); y += 35;
-  ctx.fillText(`人員：${info.operator || '系統'}`, 10, y); y += 35;
-  ctx.fillText(`開班：${info.startAt || ''}`, 10, y); y += 35;
-  ctx.fillText(`結算：${formatDateObjTaipei(new Date())}`, 10, y); y += 45;
+  let minReq = (serviceMode === 'delivery') ? Number(sysConfig.MIN_ORDER_DELIVERY) : Number(sysConfig.MIN_ORDER_ONSITE);
+  if (subtotal < minReq) {
+      alert(`目前差 $${minReq - subtotal} 才能結帳！\n此服務模式最低消費門檻為 $${minReq}`);
+      return;
+  }
+  
+  appliedPromoDiscount = 0;
+  if(document.getElementById("promoInput")) document.getElementById("promoInput").value = "";
+  if(document.getElementById("promoMsg")) document.getElementById("promoMsg").innerText = "";
+  
+  renderCheckoutSummary();
 
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
-
-  ctx.font = "bold 28px sans-serif";
-  ctx.fillText(`總單數　：${summary.totalOrders || 0} 單`, 10, y); y += 45;
-  ctx.fillText(`現金收入：$${summary.cashTotal || 0}`, 10, y); y += 45;
-  ctx.fillText(`LINE Pay：$${summary.linepayTotal || 0}`, 10, y); y += 45;
-
-  ctx.font = "24px monospace"; ctx.fillText("--------------------------", 10, y); y += 35;
-
-  ctx.font = "bold 40px sans-serif";
-  ctx.fillText(`總營業額：$${summary.grandTotal || 0}`, 10, y); y += 60;
-
-  const finalHeight = y + 80; 
-  const finalCanvas = document.createElement("canvas"); 
-  finalCanvas.width = width; finalCanvas.height = finalHeight;
-  finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight); 
-  return { canvas: finalCanvas, finalHeight: finalHeight };
-}
-
-function createPrinterBuffer(canvas, protocol) {
-  const width = canvas.width;
-  const totalHeight = canvas.height;
-  const ctx = canvas.getContext("2d");
-  const widthBytes = Math.ceil(width / 8);
-  const bitmap = new Uint8Array(widthBytes * totalHeight);
-  const img = ctx.getImageData(0, 0, width, totalHeight).data;
-
-  let buf;
-  if (protocol === 'TSPL') {
-    bitmap.fill(255);
-    for(let py = 0; py < totalHeight; py++){
-      for(let px = 0; px < width; px++){
-        const idx = (py * width + px) * 4;
-        const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
-        if(img[idx+3] > 128 && gray < 180) {
-           bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8)));
-        }
-      }
-    }
-    const mmHeight = Math.max(10, Math.ceil(totalHeight / 8));
-    const header = new TextEncoder().encode(`SIZE ${widthBytes} mm, ${mmHeight} mm\r\nGAP 0 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${totalHeight},0,`);
-    const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\nFEED 20 mm\r\n`);
-    buf = new Uint8Array(header.length + bitmap.length + footer.length);
-    buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
+  const addrSec = document.getElementById("deliveryAddressSection");
+  if (serviceMode === 'delivery') {
+    if(addrSec) addrSec.style.display = "block";
+    document.getElementById("pickupMode").innerHTML = `<option value="delivery_cold">低溫宅配</option>`;
+    document.getElementById("pickupMode").disabled = true; 
   } else {
-    bitmap.fill(0);
-    for(let py = 0; py < totalHeight; py++){
-      for(let px = 0; px < width; px++){
-        const idx = (py * width + px) * 4;
-        const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
-        if(img[idx+3] > 128 && gray < 180) {
-           bitmap[py * widthBytes + Math.floor(px / 8)] |= (1 << (7 - (px % 8)));
-        }
-      }
-    }
-    const header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF]);
-    const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x41, 0x00]);
-    buf = new Uint8Array(header.length + bitmap.length + footer.length);
-    buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-  }
-  return buf;
-}
-
-function sendToRawBTAppIntent(bufferData) {
-    return new Promise((resolve) => {
-        let binary = '';
-        let bytes = new Uint8Array(bufferData);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        let base64Data = window.btoa(binary);
-        
-        let intentUrl = "intent:base64," + base64Data + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.ws=1;end;";
-        window.location.href = intentUrl;
-        setTimeout(resolve, 1500); 
-    });
-}
-
-async function printSingleLabelToBLE(canvas) {
-  const width = canvas.width; const height = canvas.height; const ctx = canvas.getContext("2d"); const img = ctx.getImageData(0, 0, width, height).data;
-  const widthBytes = Math.ceil(width / 8); const bitmap = new Uint8Array(widthBytes * height); bitmap.fill(255);
-  for(let py = 0; py < height; py++){
-      for(let px = 0; px < width; px++){
-          const idx = (py * width + px) * 4; const gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
-          if(img[idx+3] > 128 && gray < 180) { bitmap[py * widthBytes + Math.floor(px / 8)] &= ~(1 << (7 - (px % 8))); }
-      }
-  }
-  const bleMmW = printerConf.bleMmW || 40;
-  const bleMmH = printerConf.bleMmH || 30;
-  const header = new TextEncoder().encode(`SIZE ${bleMmW} mm, ${bleMmH} mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,${widthBytes},${height},0,`);
-  const footer = new TextEncoder().encode(`\r\nPRINT 1,1\r\n`); const buf = new Uint8Array(header.length + bitmap.length + footer.length);
-  buf.set(header, 0); buf.set(bitmap, header.length); buf.set(footer, header.length + bitmap.length);
-  const CHUNK_SIZE = 128; 
-  for (let i = 0; i < buf.length; i += CHUNK_SIZE) {
-      const chunk = buf.slice(i, i + CHUNK_SIZE); let success = false; let retryCount = 0; 
-      while (!success && retryCount < 10) { 
-          try { if (blePrintCharacteristic.properties && blePrintCharacteristic.properties.write) { await blePrintCharacteristic.writeValue(chunk); } else { await blePrintCharacteristic.writeValueWithoutResponse(chunk); }
-              success = true; await new Promise(r => setTimeout(r, 15)); 
-          } catch (error) { retryCount++; await new Promise(r => setTimeout(r, 100)); }
-      }
-  }
-}
-
-async function printOrderToBLE(o, titleHeader) {
-  let rawItems = String(o.content || "").split(/[,|]/).map(i => i.trim()).filter(i => i); let labelItems = [];
-  for (let item of rawItems) {
-      let match = item.match(/x\s*(\d+)$/i); 
-      if (match) { let qty = parseInt(match[1], 10); let cleanName = item.replace(/x\s*\d+$/i, "").trim(); for (let i = 0; i < qty; i++) labelItems.push(cleanName); } else { labelItems.push(item); }
-  }
-  for (let i = 0; i < labelItems.length; i++) { const canvas = buildItemLabelCanvas(o, labelItems[i], i + 1, labelItems.length, titleHeader); await printSingleLabelToBLE(canvas); await new Promise(r => setTimeout(r, 1500)); }
-}
-
-// ==========================================
-// 🚀 升級點 5：終極三路路由分配大腦
-// ==========================================
-async function safeExecuteDualPrint(o) {
-  while (isPrinterBusy) {
-    setMsg(`印表機忙碌中，單號 ${o.seq} 正在排隊等待...`);
-    await new Promise(r => setTimeout(r, 1000)); 
+    if(addrSec) addrSec.style.display = "none";
+    document.getElementById("pickupMode").innerHTML = `<option value="onsite">現場取餐（盡快）</option><option value="reserve">預約取餐</option>`;
+    document.getElementById("pickupMode").disabled = false;
   }
   
-  isPrinterBusy = true;
-  try {
-    let invRes = null, recRes = null, kitRes = null;
-    const noCarrier = !o.invoiceCarrier || o.invoiceCarrier.trim() === "";
-    const needInvoice = noCarrier && sysConfig.INVOICE_ENV === 'test';
+  const paySel = document.getElementById("payMethod");
+  paySel.innerHTML = "";
+  if (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N') paySel.innerHTML += `<option value="LINEPAY">LINE Pay</option>`;
+  if (sysConfig.ENABLE_CASH_PAYMENT !== 'N') paySel.innerHTML += `<option value="現金">現場付款</option>`;
+  if (paySel.options.length === 0) paySel.innerHTML = `<option value="現金">現場付款</option>`;
 
-    // 🔴 路由 1：發射至 USB (櫃檯機)
-    let usbParts = [];
-    if (printerDevice && endpointOut && printerConf.usbTasks && printerConf.usbTasks.length > 0) {
-        if (printerConf.usbTasks.includes('invoice') && needInvoice) {
-            invRes = invRes || await buildInvoiceCanvas(o, printerConf.usbPxW);
-            usbParts.push(createPrinterBuffer(invRes.canvas, printerConf.usbProtocol));
-        }
-        if (printerConf.usbTasks.includes('receipt')) {
-            recRes = recRes || buildCustomerReceiptCanvas(o, printerConf.usbPxW);
-            usbParts.push(createPrinterBuffer(recRes.canvas, printerConf.usbProtocol));
-        }
-        if (printerConf.usbTasks.includes('kitchen')) {
-            kitRes = kitRes || buildKitchenReceiptCanvas(o, printerConf.usbPxW);
-            usbParts.push(createPrinterBuffer(kitRes.canvas, printerConf.usbProtocol));
-        }
-        
-        if (usbParts.length > 0) {
-            let totalLen = usbParts.reduce((a, b) => a + b.length, 0);
-            let usbBuf = new Uint8Array(totalLen);
-            let offset = 0;
-            usbParts.forEach(p => { usbBuf.set(p, offset); offset += p.length; });
-            const CHUNK_SIZE = 8192; 
-            for (let i = 0; i < usbBuf.length; i += CHUNK_SIZE) { 
-                await printerDevice.transferOut(endpointOut, usbBuf.slice(i, i + CHUNK_SIZE)); 
-            }
-            await new Promise(r => setTimeout(r, 600));
-        }
-    }
-
-    // 🔴 路由 2：發射至 藍牙 (飲料貼紙機)
-    if (blePrintCharacteristic && printerConf.bleTasks && printerConf.bleTasks.includes('label')) {
-        await printOrderToBLE(o, "");
-    }
-
-    // 🔴 路由 3：發射至 LAN/RawBT (廚房機) -> 注意：此動作會跳轉網頁，必須放最後！
-    let lanParts = [];
-    if (printerConf.lanTasks && printerConf.lanTasks.length > 0) {
-        if (printerConf.lanTasks.includes('invoice') && needInvoice) {
-            invRes = invRes || await buildInvoiceCanvas(o, printerConf.lanPxW);
-            lanParts.push(createPrinterBuffer(invRes.canvas, printerConf.lanProtocol));
-        }
-        if (printerConf.lanTasks.includes('receipt')) {
-            recRes = recRes || buildCustomerReceiptCanvas(o, printerConf.lanPxW);
-            lanParts.push(createPrinterBuffer(recRes.canvas, printerConf.lanProtocol));
-        }
-        if (printerConf.lanTasks.includes('kitchen')) {
-            kitRes = kitRes || buildKitchenReceiptCanvas(o, printerConf.lanPxW);
-            lanParts.push(createPrinterBuffer(kitRes.canvas, printerConf.lanProtocol));
-        }
-        
-        if (lanParts.length > 0) {
-            let totalLen = lanParts.reduce((a, b) => a + b.length, 0);
-            let lanBuf = new Uint8Array(totalLen);
-            let offset = 0;
-            lanParts.forEach(p => { lanBuf.set(p, offset); offset += p.length; });
-            await sendToRawBTAppIntent(lanBuf.buffer);
-        }
-    }
-
-  } catch(e) {
-      console.error("列印路由發生錯誤", e);
-      throw e;
-  } finally {
-    isPrinterBusy = false;
-  }
+  ['.mode-switch', '#comboModeWrap', '#singleModeWrap', '.inline-summary', '#cartSection', '#stickyCheckoutBar'].forEach(s => { const el = document.querySelector(s); if(el) el.style.display = 'none'; });
+  document.getElementById("checkoutPanel").style.display = "block";
+  window.scrollTo({top: 0, behavior:'smooth'});
 }
 
-async function autoPrint(list){
-  for(const o of list){
-    if(o.status !== "待列印") continue; 
-    if(!o.id || printedOrders.has(o.id) || printingOrders.has(o.id)) continue; 
-    if(!shouldPrintNow(o)) continue;
-
-    const pickupStr = String(o.rawPickup || o.pickup || "");
-    if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) {
-       continue;
-    }
-
-    try{ 
-      printingOrders.add(o.id); 
-      setMsg(`提醒：${o.seq} 正在分流列印...`); 
-      playBeep(); 
-      await safeExecuteDualPrint(o); 
-      printedOrders.add(o.id); 
-      await fetch(`${GAS_API}?action=updateStatus&row=${o.row}&status=${encodeURIComponent('製作中')}`); 
-      setMsg(`${o.seq} 已送出列印`); 
-    }catch(err){ 
-      setMsg(`列印失敗：${err.message}`); 
-    }finally{ 
-      printingOrders.delete(o.id); 
-    }
-  }
+function hideCheckout() { 
+  document.getElementById("checkoutPanel").style.display = "none"; 
+  document.querySelector(".mode-switch").style.display = (serviceMode === 'delivery') ? "none" : "flex";
+  document.querySelector(".inline-summary").style.display = "block";
+  setOrderMode(orderMode); updateBasketUI(); window.scrollTo({top: 0, behavior:'smooth'});
 }
 
-async function manualPrint(encoded){
-  try{ 
-    const o = JSON.parse(decodeURIComponent(encoded)); 
-    const reserveWaiting = isReserveOrder(o) && o.status === "待列印" && !shouldPrintNow(o); 
-    if(reserveWaiting){ alert("此筆預約單尚未到出單時間，不能提前補印"); return; } 
-    setMsg(`準備手動列印：${o.seq}...`);
-    await safeExecuteDualPrint(o); 
-    setMsg(`${o.seq} 補印完成`); 
-  }catch(err){ 
-    alert("列印失敗：" + err.message); 
-  }
-}
+async function submitOrder() {
+  const name = document.getElementById("customerName").value.trim();
+  const phone = document.getElementById("customerPhone").value.trim();
+  const address = document.getElementById("deliveryAddress").value.trim();
+  const payMethod = document.getElementById("payMethod").value;
+  const carrier = document.getElementById("invoiceCarrier").value.trim().toUpperCase();
+  const taxId = document.getElementById("taxId").value.trim(); 
+  
+  if (payMethod === "LINEPAY" && (!name || !phone)) return alert("請填寫聯絡姓名與電話！");
+  if (serviceMode === 'delivery' && !address) return alert("請填寫宅配收件地址！");
 
-function togglePosBarcode() {
-  const method = document.getElementById("posPayMethod").value;
-  const barcodeInput = document.getElementById("posBarcode");
-  if (method === "LINEPAY掃碼槍") {
-    barcodeInput.style.display = "block";
-  } else {
-    barcodeInput.style.display = "none";
-    barcodeInput.value = "";
-  }
-}
-
-async function submitCashOrder() {
-  const btn = document.getElementById("cashSubmitBtn"); 
-  const total = document.getElementById("posTotal").innerText; 
-  const items = Object.keys(singleSel).map(k => `${k} x ${singleSel[k].q}`).join(", ");
-  
-  const payMethod = document.getElementById("posPayMethod").value;
-  const barcodeInput = document.getElementById("posBarcode"); 
-  const barcode = barcodeInput.value.trim();
-  
-  const carrierInput = document.getElementById("posInvoiceCarrier");
-  const carrier = carrierInput ? carrierInput.value.trim().toUpperCase() : "";
-  
-  const taxIdInput = document.getElementById("posTaxId");
-  const taxId = taxIdInput ? taxIdInput.value.trim() : "";
-
-  if (Number(total) <= 0) { alert("⚠️ 請先選擇餐點內容！"); return; }
-  
   if (carrier !== "") {
     const carrierRegex = /^\/[0-9A-Z+\-.]{7}$/;
     if (!carrierRegex.test(carrier)) {
-      alert("⚠️ 發票載具格式錯誤！正確格式如：/AB12345");
-      if(carrierInput) carrierInput.focus();
-      return;
+      return alert("手機載具格式錯誤！\n正確格式為斜線「/」開頭，加上7位大寫英數（例如：/AB12345）。");
     }
   }
 
   if (taxId !== "") {
     if (!/^\d{8}$/.test(taxId)) {
-      alert("⚠️ 統一編號格式錯誤！請輸入 8 位數字。");
-      if(taxIdInput) taxIdInput.focus();
+      return alert("🏢 統一編號格式錯誤！請輸入 8 位數字。");
+    }
+  }
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true; btn.innerText = "送出中...";
+  
+  let pickup = "現場取餐";
+  if(serviceMode === 'delivery') pickup = "delivery_cold";
+  else if(document.getElementById("pickupMode").value === 'reserve') pickup = document.getElementById("pickupDate").value + " " + document.getElementById("pickupTime").value;
+
+  let subtotal = basket.reduce((s,i) => s + i.price, 0);
+  let shippingFee = 0;
+  if (serviceMode === 'delivery') { shippingFee = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE; }
+
+  const finalTotal = Math.max(0, subtotal + shippingFee - appliedPromoDiscount);
+  const finalItemsStr = basket.map(i=>i.desc + " x" + i.qty).join(" | ") + (appliedPromoDiscount > 0 ? ` | 🎟️ 折扣碼折抵 -$${appliedPromoDiscount}` : "");
+
+  const orderData = {
+    items: finalItemsStr,
+    total: finalTotal,
+    pickupTime: pickup, payMethod: payMethod, customerName: name, customerPhone: phone, deliveryAddress: address, lineUserId: customerLineId,
+    invoiceCarrier: carrier,
+    taxId: taxId
+  };
+
+  try {
+    const res = await fetch(GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData)));
+    const json = await res.json();
+    if (json.error) { alert("後台錯誤：" + json.message); btn.disabled = false; return; }
+    
+    localStorage.setItem("ksk_last_order", JSON.stringify({ seq: json.seq || "", orderId: json.orderId || "", time: new Date().getTime() }));
+
+    if(json.payUrl) location.href = json.payUrl;
+    else if(json.status === "success") {
+      document.getElementById("orderPage").style.display='none'; document.getElementById("successPage").style.display='block';
+      document.getElementById("successDetail").innerHTML = `取餐號：<b style="font-size:32px; color:var(--danger);">${json.seq}</b>`;
+    }
+  } catch(e) { alert("系統連線錯誤：" + e.message); btn.disabled = false; }
+}
+
+async function initializeLiff() {
+  try {
+    await liff.init({ liffId: "2009537238-tAvQM97u" }); 
+    const profile = await liff.getProfile(); customerLineId = profile.userId;
+    if(document.getElementById("customerName")) document.getElementById("customerName").value = profile.displayName;
+  } catch (err) { console.error("LIFF 失敗:", err); }
+}
+
+async function fetchMenuData() {
+  try {
+    const res = await fetch(GAS_API + "?action=getMenu&t=" + Date.now());
+    const menuData = await res.json();
+    COMBO_MAINS = menuData.mains; COMBO_DRINKS = menuData.drinks; COMBO_SIDES = menuData.sides; COMBO_ADDONS = menuData.addons;
+    renderComboUI(); renderSingleUI();
+  } catch(err) { alert("菜單載入失敗：" + err.message); }
+}
+
+function setOrderMode(m) {
+  orderMode = m;
+  document.getElementById("modeComboBtn").classList.toggle("active", m==='combo'); document.getElementById("modeSingleBtn").classList.toggle("active", m==='single');
+  document.getElementById("comboModeWrap").style.display = m==='combo'?'block':'none'; document.getElementById("singleModeWrap").style.display = m==='single'?'block':'none';
+}
+
+function changeSingle(n, d, p) {
+  if(!singleSelection[n]) singleSelection[n] = { q:0, p:p };
+  singleSelection[n].q += d; if(singleSelection[n].q <= 0) delete singleSelection[n];
+  const el = document.getElementById(`single-qty-${n}`); if(el) el.innerText = singleSelection[n]?.q || 0;
+  let singleSum = 0; Object.keys(singleSelection).forEach(k => { singleSum += singleSelection[k].q * singleSelection[k].p; });
+  document.getElementById("currentComboPriceDisplay").innerText = singleSum;
+}
+
+function updateCartQty(index, delta) {
+  const item = basket[index]; if (!item) return;
+  if (!item.unitPrice) item.unitPrice = item.price / (item.qty || 1);
+  const newQty = (item.qty || 1) + delta;
+  if (newQty <= 0) { if (confirm("移除餐點？")) { basket.splice(index, 1); updateBasketUI(); } }
+  else { item.qty = newQty; item.price = item.unitPrice * newQty; updateBasketUI(); }
+}
+
+function updateBasketUI() {
+  const list = document.getElementById("basketItemsList");
+  if (basket.length === 0) {
+    document.getElementById("cartSection").style.display = "none"; document.getElementById("stickyCheckoutBar").style.display = "none"; document.getElementById("cartTotalTop").innerText = "0"; return;
+  }
+  let totalSum = 0, totalItems = 0;
+  list.innerHTML = basket.map((item, i) => {
+    totalSum += item.price; totalItems += item.qty;
+    return `<div class="cart-item-box" style="display:flex; justify-content:space-between; align-items:center;"><div style="flex:1;"><b>${item.desc}</b><br><span style="color:var(--danger); font-weight:bold;">$${item.price}</span></div><div style="display:flex; align-items:center; gap:8px; background:#f8f8f8; border-radius:10px; padding:4px 8px;"><button class="btn" style="padding:2px 8px; background:none; color:#333;" onclick="updateCartQty(${i}, -1)">-</button><b>${item.qty}</b><button class="btn" style="padding:2px 8px; background:none; color:#333;" onclick="updateCartQty(${i}, 1)">+</button></div><span class="del-btn" style="position:static; margin-left:15px;" onclick="removeItem(${i})">✕</span></div>`;
+  }).join("");
+  document.getElementById("cartQty").innerText = totalItems; document.getElementById("cartTotalBottom").innerText = totalSum; document.getElementById("cartTotalTop").innerText = totalSum;
+  document.getElementById("cartSection").style.display = "block"; document.getElementById("stickyCheckoutBar").style.display = "block";
+}
+
+function removeItem(i) { basket.splice(i,1); updateBasketUI(); }
+function handlePickupModeChange() {
+  const mode = document.getElementById("pickupMode").value; const resF = document.getElementById("reserveFields");
+  if(mode==='onsite') { resF.style.display='none'; } else { resF.style.display='block'; initDateOptions(); }
+}
+function initDateOptions() {
+  const s = document.getElementById("pickupDate"); const now = getTaipeiNow();
+  s.innerHTML = [0,1,2].map(i => { const d = new Date(now.getTime() + i*24*60*60*1000); const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return `<option value="${val}">${i===0?'今天':(i===1?'明天':'後天')} (${val})</option>`; }).join("");
+  updatePickupTimeOptions();
+}
+
+function updatePickupTimeOptions() {
+  const dateStr = document.getElementById("pickupDate").value; 
+  const s = document.getElementById("pickupTime"); 
+  const now = getTaipeiNow(); 
+  
+  const leadTimeMins = sysConfig.RESERVE_LEAD_TIME || 60; 
+  const minT = new Date(now.getTime() + leadTimeMins * 60000); 
+  
+  let options = []; 
+  
+  const startStr = sysConfig.RESERVE_START || "17:00";
+  const endStr = sysConfig.RESERVE_END || "23:00";
+  const intervalMins = sysConfig.RESERVE_INTERVAL || 30; 
+  
+  let cur = new Date(`${dateStr}T${startStr}:00`); 
+  const end = new Date(`${dateStr}T${endStr}:00`);
+  
+  while(cur <= end) { 
+    if(cur >= minT) options.push(pad(cur.getHours()) + ":" + pad(cur.getMinutes())); 
+    cur = new Date(cur.getTime() + intervalMins * 60000); 
+  }
+  
+  s.innerHTML = options.length ? options.map(t=>`<option value="${t}">${t}</option>`).join("") : `<option value="">無可用時段 (已超過預約時間)</option>`;
+}
+
+function getTaipeiNow() { return new Date(new Date().toLocaleString("en-US", {timeZone:"Asia/Taipei"})); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function showToast(m) { const t = document.getElementById("toast"); t.innerText = m; t.style.display = "block"; setTimeout(() => t.style.display = "none", 2500); }
+function openQueryModal() { document.getElementById("queryModal").classList.add("show"); }
+function closeQueryModal() { document.getElementById("queryModal").classList.remove("show"); }
+async function queryOrder() {
+  let id = document.getElementById("queryInput").value.trim();
+  if (!id) return alert("請輸入號碼");
+  
+  if (/^\d+$/.test(id)) id = "#" + id.padStart(3, "0"); 
+  
+  document.getElementById("queryResult").innerHTML = "查詢中...";
+  try {
+    const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + encodeURIComponent(id) + "&t=" + Date.now());
+    let json = await res.json();
+    
+    if (json && json.error) {
+      document.getElementById("queryResult").innerHTML = "查詢失敗：" + json.message;
       return;
     }
-  }
-
-  if (payMethod === "LINEPAY掃碼槍" && !barcode) {
-    barcodeInput.style.display = "block";
-    barcodeInput.focus();
-    return;
-  }
-
-  btn.disabled = true; 
-  btn.innerText = (payMethod === "LINEPAY掃碼槍") ? "📡 連線扣款中..." : "送單中...";
-  setMsg(payMethod === "LINEPAY掃碼槍" ? "正在處理 LINE Pay 線下扣款..." : "處理訂單中...");
-  
-  const orderData = { items: items, total: Number(total), pickupTime: "現場取餐", payMethod: payMethod, customerName: "現場代客", barcode: barcode, invoiceCarrier: carrier, taxId: taxId };
-  const url = GAS_API + "?action=submitOrder&orderData=" + encodeURIComponent(JSON.stringify(orderData));
-  
-  try {
-    const res = await fetch(url); 
-    const json = await res.json();
-    if (json.status === "success") { 
-      alert("✅ 送單成功！" + (payMethod === "LINEPAY掃碼槍" ? "\n💰 LINE Pay 扣款成功！" : "")); 
-      playBeep();
-      singleSel = {}; updatePosBasket(); renderPosUI(); 
-      document.getElementById("posPayMethod").value = "現金";
-      if(carrierInput) carrierInput.value = "";
-      if(taxIdInput) taxIdInput.value = "";
-      togglePosBarcode();
-      toggleCashPanel(); fetchOrders(); 
-    } else {
-      alert("❌ 錯誤：" + (json.message || "發生未知錯誤"));
-      if (payMethod === "LINEPAY掃碼槍") { barcodeInput.value = ""; barcodeInput.focus(); }
+    
+    if (Array.isArray(json)) json = json[0];
+    
+    if (!json || (!json.seqId && !json.seq)) {
+      document.getElementById("queryResult").innerHTML = "查無此訂單";
+      return;
     }
-  } catch(e) {
-    alert("連線錯誤：" + e.message);
-    if (payMethod === "LINEPAY掃碼槍") { barcodeInput.value = ""; barcodeInput.focus(); }
-  }
-  btn.disabled = false; btn.innerText = "確認送出現場單";
-}
 
-async function fetchOrders() {
-  try {
-    const res = await fetch(GAS_API + "?action=getOrders&t=" + Date.now()); const data = await res.json(); if(data.error) return;
-    document.getElementById("orders").innerHTML = data.filter(o => o.status !== "已完成" && o.status !== "已作廢" && !processingRows.has(o.row) && !String(o.pickup).includes("宅配") && !String(o.pickup).includes("delivery")).map(o => {
-      const enc = encodeURIComponent(JSON.stringify(o));
-      
-      let statusBg = '#fff3cd', statusColor = '#856404', statusBorder = '#ffeeba'; 
-      if (o.status === '可取餐') { statusBg = '#d4edda'; statusColor = '#155724'; statusBorder = '#c3e6cb'; } 
-      else if (o.status === '待列印') { statusBg = '#f8d7da'; statusColor = '#721c24'; statusBorder = '#f5c6cb'; } 
-
-      return `
-      <div class="card" style="border-left: 8px solid ${isReserveOrder(o)?'#8e44ad':'#F39C12'};">
-        <div style="display:flex; justify-content:space-between; align-items:start;">
-          <div>
-            <div class="seq">${o.seq}</div>
-            <div style="margin-top:6px;">
-              <span style="background:#f0f0f0; padding:4px 8px; border-radius:6px; font-size:13px; font-weight:bold; color:#555;">💰 ${o.pay || '未知'}</span>
-              <span style="background:#f0f0f0; padding:4px 8px; border-radius:6px; font-size:13px; font-weight:bold; color:#8e44ad; margin-left:5px;">📦 ${formatPickupDisplay(o.pickup)}</span>
-            </div>
-          </div>
-          <div style="text-align:right; font-size:12px; color:#666;">
-            🕒 ${o.time}<br>
-            <span style="display:inline-block; margin-top:8px; background:${statusBg}; color:${statusColor}; border:1px solid ${statusBorder}; padding:4px 10px; border-radius:6px; font-weight:900; font-size:14px; letter-spacing:1px;">
-              ${o.status}
-            </span>
-          </div>
-        </div>
-        
-        <div style="font-size:15px; color:#2980b9; margin:12px 0 8px; font-weight:bold; background:#f0f8ff; padding:8px 10px; border-radius:8px; border:1px solid #cce3ff;">
-          👤 ${o.customerName || '現場代客'} | 📞 ${o.customerPhone || '無電話'}
-          ${o.invoiceCarrier ? `<br><span style="color:#8e44ad;">🧾 載具：${o.invoiceCarrier}</span>` : ''}
-          ${o.taxId ? `<br><span style="color:#e67e22;">🏢 統編：${o.taxId}</span>` : ''}
-        </div>
-        
-        <b style="font-size:18px; display:block; margin:8px 0; line-height:1.4;">${o.content}</b>
-        <span style="color:#e74c3c; font-weight:900; font-size:26px; display:block; margin-bottom:10px;">$${o.total}</span>
-        
-        <div style="display:flex; gap:5px; margin-top:10px;">
-          <button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">補印</button>
-          <button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button>
-          <button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button>
-        </div>
-        <div style="display:flex; gap:5px; margin-top:5px;">
-          <button class="sbtn" style="background:${o.status==='可取餐'?'#ccc':'#17a2b8'}; color:${o.status==='可取餐'?'#888':'#fff'}; cursor:${o.status==='可取餐'?'not-allowed':'pointer'};" onclick="triggerNotify(${o.row})" ${o.status==='可取餐'?'disabled':''}>
-            ${o.status === '可取餐' ? '已通知 ✅' : '🔔 通知客人'}
-          </button>
-          <button class="sbtn" style="background:#e74c3c; color:#fff;" onclick="setStatus(${o.row},'已完成')">完成</button>
-        </div>
-      </div>`;
-    }).join("");
-    autoPrint(data);
-  } catch(e) { console.log("載入訂單出錯", e); }
-}
-
-function findItemPrice(name) {
-  const allItems = [...MAINS, ...DRINKS, ...SIDES]; const item = allItems.find(i => i.n === name || name.includes(i.n)); return item ? (Number(item.singlePrice) || Number(item.sp) || 0) : null;
-}
-function renderEditUI() {
-  let isDeliveryOrder = false;
-  if (currentEditingOrder) { const pickupStr = String(currentEditingOrder.rawPickup || currentEditingOrder.pickup || ""); if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDeliveryOrder = true; }
-  const draw = (list, id) => {
-    let displayList = list; if (isDeliveryOrder) displayList = list.filter(i => i.isDelivery === "Y");
-    document.getElementById(id).innerHTML = displayList.map(i => {
-      let p = Number(i.singlePrice) || Number(i.sp) || 0;
-      return `<div class="cash-item" style="padding:10px;"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${editSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="changeEditSingle('${i.n}', 1, ${p})">+</button></div></div>`;
-    }).join("");
-  };
-  draw(MAINS, "editMainGrid"); draw(DRINKS, "editDrinkGrid"); draw(SIDES, "editSideGrid");
-}
-function changeEditSingle(n, d, p) {
-  if(!editSel[n]) editSel[n] = {q:0, p:p}; editSel[n].q += d; if(editSel[n].q <= 0) delete editSel[n]; renderEditUI();
-  let subtotal = 0; let newContent = Object.keys(editSel).map(k => `${k} x ${editSel[k].q}`).join(", ");
-  Object.keys(editSel).forEach(k => { subtotal += editSel[k].p * editSel[k].q; });
-  let finalShipping = 0; let isDeliveryOrder = false;
-  if (currentEditingOrder) { const pickupStr = String(currentEditingOrder.rawPickup || currentEditingOrder.pickup || ""); if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDeliveryOrder = true; }
-  if (isDeliveryOrder) finalShipping = (subtotal >= sysConfig.FREE_SHIPPING_LIMIT) ? 0 : sysConfig.DELIVERY_FEE;
-  document.getElementById("editContent").value = newContent; document.getElementById("editTotal").value = subtotal + finalShipping;
-  if (isDeliveryOrder) document.getElementById("editTotalInfo").innerText = finalShipping === 0 ? " (已達免運門檻)" : ` (已含運費 $${finalShipping})`; else document.getElementById("editTotalInfo").innerText = "";
-}
-
-async function triggerManagerAction(row, op, encOrder) {
-  const pwd = prompt("請輸入您的授權密碼：");
-  if (!pwd) return;
-  
-  if (op === 'void') {
-    processingRows.add(row); fetchOrders(); if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
-    const res = await (await fetch(`${GAS_API}?action=managerAction&row=${row}&op=${op}&pwd=${pwd}`)).json();
-    if (res.success) { 
-      alert(res.msg); fetchOrders(); 
-      if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
-    } else { alert(res.msg); processingRows.delete(row); fetchOrders(); if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders(); }
-  } else if (op === 'edit') {
-    if (encOrder) currentEditingOrder = JSON.parse(decodeURIComponent(encOrder));
-    const res = await (await fetch(`${GAS_API}?action=getOrderForEdit&row=${row}&pwd=${pwd}`)).json();
-    if (res.success) {
-      document.getElementById("editRow").value = row; document.getElementById("editPwd").value = pwd; document.getElementById("editSeq").innerText = res.seq;
-      document.getElementById("editContent").value = res.content; document.getElementById("editTotal").value = res.total;
-      let isDel = false; const pickupStr = String(res.pickup || ""); if (pickupStr.includes("宅配") || pickupStr.includes("delivery")) isDel = true;
-      if (isDel) document.getElementById("editTotalInfo").innerText = " (請利用左側加減以自動重算運費)";
-      editSel = {}; const items = String(res.content).split(/[,|]/);
-      items.forEach(itemStr => {
-         const match = itemStr.match(/(.*?)\s*[xX]\s*(\d+)/i);
-         if (match) { let name = match[1].replace(/單點:/g, '').replace(/套餐:/g, '').trim(); let p = findItemPrice(name); editSel[name] = {q: parseInt(match[2], 10), p: (p !== null ? p : 0)}; } 
-         else { let name = itemStr.replace(/單點:/g, '').replace(/套餐:/g, '').trim(); if (name) { let p = findItemPrice(name); editSel[name] = {q: 1, p: (p !== null ? p : 0)}; } }
-      });
-      renderEditUI(); document.getElementById("editModal").classList.add("show");
-    } else { alert(res.msg); }
+    const seq = json.seqId || json.seq || id;
+    const items = json.items || json.content || "無內容";
+    const status = json.status || "處理中";
+    
+    document.getElementById("queryResult").innerHTML = `
+      <div style="padding:15px; background:#f9f9f9; border-radius:12px; border-left: 5px solid var(--info);">
+        <b>取餐號：${seq}</b><br>
+        狀態：${status}<br>
+        內容：${items}
+      </div>
+    `;
+  } catch(e) { 
+    document.getElementById("queryResult").innerHTML = "查詢失敗，請檢查網路連線"; 
   }
 }
-function closeEditModal() { document.getElementById("editModal").classList.remove("show"); }
 
-async function saveOrderEdit() {
-  const row = document.getElementById("editRow").value; const pwd = document.getElementById("editPwd").value;
-  const content = document.getElementById("editContent").value; const total = document.getElementById("editTotal").value;
-  const btn = document.getElementById("saveEditBtn"); btn.disabled = true; btn.innerText = "儲存中...";
-  const url = `${GAS_API}?action=saveEditedOrder&row=${row}&pwd=${pwd}&content=${encodeURIComponent(content)}&total=${total}`;
-  try {
-    const res = await (await fetch(url)).json();
-    if(res.success) {
-      alert("儲存成功！準備自動分流列印修改單。"); closeEditModal(); fetchOrders(); 
-      if (document.getElementById("deliveryModal").classList.contains("show")) refreshDeliveryOrders();
-      if (currentEditingOrder) {
-         let printObj = Object.assign({}, currentEditingOrder); printObj.content = content; printObj.total = total; printObj.seq = printObj.seq + " (修改單)"; 
-         setMsg(`正在分流列印：${printObj.seq}...`);
-         try { await safeExecuteDualPrint(printObj); setMsg(`${printObj.seq} 修改單列印完成`); } catch(err) { console.log("未連線印表機", err); } 
+async function checkLinePayReturn() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const status = urlParams.get('status'); const orderId = urlParams.get('orderId');
+  if (status === 'success' && orderId) {
+    
+    window.history.replaceState(null, null, window.location.pathname);
+    
+    document.getElementById("orderPage").style.display = 'none'; 
+    document.getElementById("successPage").style.display = 'block';
+    const detailDiv = document.getElementById("successDetail");
+    detailDiv.innerHTML = `付款已完成！<br><span style="color:#888; font-size:16px;">正在為您讀取取餐號碼，請稍候...</span>`;
+    
+    try {
+      const res = await fetch(GAS_API + "?action=checkMyOrder&id=" + orderId + "&t=" + Date.now());
+      const json = await res.json();
+      if (json && json.seqId) {
+         detailDiv.innerHTML = `LINE Pay 付款成功！<br>取餐號：<b style="font-size:36px; color:var(--danger);">${json.seqId}</b><br><span style="font-size:14px; color:#666;">訂單ID：${orderId}</span>`;
+         localStorage.setItem("ksk_last_order", JSON.stringify({ seq: json.seqId, orderId: orderId, time: new Date().getTime() }));
       }
-    } else { alert(res.msg); }
-  } catch(e) { alert("儲存失敗: " + e.message); } finally { btn.disabled = false; btn.innerText = "💾 確認儲存"; }
-}
-
-async function triggerNotify(row) { 
-  setMsg("發送通知中..."); 
-  try {
-    const res = await (await fetch(`${GAS_API}?action=notifyOrder&row=${row}`)).json(); 
-    setMsg(res.msg); 
-    fetchOrders(); 
-  } catch(e) {
-    setMsg("通知發送失敗：" + e.message);
+      else {
+         detailDiv.innerHTML = `付款成功！<br>您的訂單編號：<b>${orderId}</b><br><span style="font-size:16px;">請將此編號出示給店員即可取餐。</span>`;
+      }
+    } catch (e) { detailDiv.innerHTML = `網路較慢，請截圖此畫面<br>您的訂單編號：<b>${orderId}</b>`; }
   }
 }
-async function openSettingsPanel() {
-  closeSidebarOnMobile();
-  const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-  const pwd = prompt("請輸入系統設定密碼(老闆專屬):");
-  if (!pwd) return; 
-  if (String(pwd) !== currentSettingsPwd) { alert("❌ 密碼錯誤"); return; }
-  
-  document.getElementById("settingFrontendUrl").value = sysConfig.FRONTEND_SUCCESS_URL || "https://love3200813.github.io/ksk/index.html";
-  
-  document.getElementById("settingInvoiceEnv").value = sysConfig.INVOICE_ENV || "test";
-  document.getElementById("settingInvoiceProvider").value = sysConfig.INVOICE_PROVIDER || "";
-  
-  toggleInvoiceKeys(); 
-  document.getElementById("settingInvoiceTestMerchantId").value = sysConfig.INVOICE_TEST_MERCHANT_ID || "";
-  document.getElementById("settingInvoiceTestHashKey").value = sysConfig.INVOICE_TEST_HASH_KEY || "";
-  document.getElementById("settingInvoiceTestHashIv").value = sysConfig.INVOICE_TEST_HASH_IV || "";
-  document.getElementById("settingInvoiceProdMerchantId").value = sysConfig.INVOICE_PROD_MERCHANT_ID || "";
-  document.getElementById("settingInvoiceProdHashKey").value = sysConfig.INVOICE_PROD_HASH_KEY || "";
-  document.getElementById("settingInvoiceProdHashIv").value = sysConfig.INVOICE_PROD_HASH_IV || "";
 
-  document.getElementById("settingLinePayEnv").value = sysConfig.LINEPAY_ENV || "sandbox";
-  toggleLinePayKeys(); 
-  
-  document.getElementById("settingLinePayId").value = sysConfig.LINEPAY_CHANNEL_ID || "";
-  document.getElementById("settingLinePaySecret").value = sysConfig.LINEPAY_SECRET || "";
-  document.getElementById("settingLinePayProdId").value = sysConfig.LINEPAY_PROD_ID || "";
-  document.getElementById("settingLinePayProdSecret").value = sysConfig.LINEPAY_PROD_SECRET || "";
-  document.getElementById("settingLineBotToken").value = sysConfig.LINEBOT_TOKEN || "";
-  document.getElementById("settingLineBotUser").value = sysConfig.LINEBOT_USER || "";
+initializeLiff(); fetchSysConfig(); fetchMenuData(); checkLinePayReturn();
 
-  document.getElementById("settingLogoUrl").value = sysConfig.LOGO_URL || "";
-  document.getElementById("settingMinOnsite").value = sysConfig.MIN_ORDER_ONSITE || 0;
-  document.getElementById("settingMinDelivery").value = sysConfig.MIN_ORDER_DELIVERY || 0;
-  document.getElementById("settingEnableLinePay").checked = (sysConfig.ENABLE_LINEPAY_PAYMENT !== 'N');
-  document.getElementById("settingEnableCash").checked = (sysConfig.ENABLE_CASH_PAYMENT !== 'N');
-  document.getElementById("settingPromoCode").value = sysConfig.PROMO_CODE || "";
-  document.getElementById("settingPromoDiscount").value = sysConfig.PROMO_DISCOUNT || 0;
-
-  document.getElementById("settingStoreName").value = sysConfig.STORE_NAME || "加山記";
-  document.getElementById("settingReceiptFooter").value = sysConfig.RECEIPT_FOOTER || "";
-  document.getElementById("settingAnnouncement").value = sysConfig.ANNOUNCEMENT || "";
-  document.getElementById("settingFee").value = sysConfig.DELIVERY_FEE;
-  document.getElementById("settingLimit").value = sysConfig.FREE_SHIPPING_LIMIT;
-  document.getElementById("settingOnsite").checked = (sysConfig.ENABLE_ONSITE !== 'N');
-  document.getElementById("settingDelivery").checked = (sysConfig.ENABLE_DELIVERY !== 'N');
-  document.getElementById("settingAutoClose").checked = (sysConfig.AUTO_CLOSE_ENABLE === 'Y');
-  document.getElementById("settingCloseTime").value = sysConfig.AUTO_CLOSE_TIME || "22:00";
-  document.getElementById("settingReserveStart").value = sysConfig.RESERVE_START || "17:00";
-  document.getElementById("settingReserveEnd").value = sysConfig.RESERVE_END || "23:00";
-  document.getElementById("settingReserveLeadTime").value = sysConfig.RESERVE_LEAD_TIME || 60;
-  document.getElementById("settingReserveInterval").value = sysConfig.RESERVE_INTERVAL || 30;
-  document.getElementById("settingPwdStartup").value = sysConfig.PWD_STARTUP || "0320";
-  document.getElementById("settingPwdDelivery").value = sysConfig.PWD_DELIVERY || "0926";
-  document.getElementById("settingPwdManager").value = sysConfig.PWD_MANAGER || "1111,2222";
-  document.getElementById("settingPwdSettings").value = currentSettingsPwd;
-  
-  document.getElementById("settingsModal").classList.add("show");
-}
-function closeSettingsPanel() { document.getElementById("settingsModal").classList.remove("show"); }
-  
-async function saveSettings() {
-  const btn = document.querySelector("#settingsModal .btn-start"); 
-  if (btn.disabled) return; 
-  btn.disabled = true; btn.innerText = "儲存中...";
-  
-  try {
-    const storeName = document.getElementById("settingStoreName").value.trim();
-    const receiptFooter = document.getElementById("settingReceiptFooter").value;
-    const announcement = document.getElementById("settingAnnouncement").value.trim();
-    const fee = document.getElementById("settingFee").value;
-    const limit = document.getElementById("settingLimit").value;
-    const enableOnsite = document.getElementById("settingOnsite").checked ? 'Y' : 'N';
-    const enableDelivery = document.getElementById("settingDelivery").checked ? 'Y' : 'N';
-    const reserveStart = document.getElementById("settingReserveStart").value || "17:00";
-    const reserveEnd = document.getElementById("settingReserveEnd").value || "23:00";
-    const reserveLeadTime = document.getElementById("settingReserveLeadTime").value || 60;
-    const reserveInterval = document.getElementById("settingReserveInterval").value || 30;
-    const autoCloseEnable = document.getElementById("settingAutoClose").checked ? 'Y' : 'N';
-    const autoCloseTime = document.getElementById("settingCloseTime").value || "22:00";
-    const pwdStartup = document.getElementById("settingPwdStartup").value.trim();
-    const pwdDelivery = document.getElementById("settingPwdDelivery").value.trim();
-    const pwdManager = document.getElementById("settingPwdManager").value.trim();
-    const pwdSettings = document.getElementById("settingPwdSettings").value.trim();
-    
-    const invoiceEnv = document.getElementById("settingInvoiceEnv").value;
-    const invoiceProvider = document.getElementById("settingInvoiceProvider").value;
-    const invoiceTestMerchantId = document.getElementById("settingInvoiceTestMerchantId").value.trim();
-    const invoiceTestHashKey = document.getElementById("settingInvoiceTestHashKey").value.trim();
-    const invoiceTestHashIv = document.getElementById("settingInvoiceTestHashIv").value.trim();
-    const invoiceProdMerchantId = document.getElementById("settingInvoiceProdMerchantId").value.trim();
-    const invoiceProdHashKey = document.getElementById("settingInvoiceProdHashKey").value.trim();
-    const invoiceProdHashIv = document.getElementById("settingInvoiceProdHashIv").value.trim();
-
-    const linePayEnv = document.getElementById("settingLinePayEnv").value;
-    const linePayProdId = document.getElementById("settingLinePayProdId").value.trim();
-    const linePayProdSecret = document.getElementById("settingLinePayProdSecret").value.trim();
-    const linePayId = document.getElementById("settingLinePayId").value.trim();
-    const linePaySecret = document.getElementById("settingLinePaySecret").value.trim();
-
-    const lineBotToken = document.getElementById("settingLineBotToken").value.trim();
-    const lineBotUser = document.getElementById("settingLineBotUser").value.trim();
-    const frontendUrl = document.getElementById("settingFrontendUrl").value.trim();
-
-    const logoUrl = document.getElementById("settingLogoUrl").value.trim();
-    const minOnsite = document.getElementById("settingMinOnsite").value || 0;
-    const minDelivery = document.getElementById("settingMinDelivery").value || 0;
-    const enableLinePayPayment = document.getElementById("settingEnableLinePay").checked ? 'Y' : 'N';
-    const enableCashPayment = document.getElementById("settingEnableCash").checked ? 'Y' : 'N';
-    const promoCode = document.getElementById("settingPromoCode").value.trim();
-    const promoDiscount = document.getElementById("settingPromoDiscount").value || 0;
-    
-    if (!pwdStartup || !pwdDelivery || !pwdManager || !pwdSettings) {
-      alert("❌ 密碼欄位不可空白！"); btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; return;
+window.addEventListener('load', function() {
+  const lastOrderStr = localStorage.getItem("ksk_last_order");
+  if (lastOrderStr) {
+    const lastOrder = JSON.parse(lastOrderStr);
+    if (new Date().getTime() - lastOrder.time < 86400000) {
+      document.getElementById("trackerText").innerText = "您有一筆訂單 [" + lastOrder.seq + "]";
+      document.getElementById("orderTrackerBar").style.display = 'block';
     }
-    
-    const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-    
-    const formData = new URLSearchParams();
-    formData.append("action", "updateConfig");
-    formData.append("pwd", currentSettingsPwd);
-    formData.append("fee", fee);
-    formData.append("limit", limit);
-    formData.append("enableOnsite", enableOnsite);
-    formData.append("enableDelivery", enableDelivery);
-    formData.append("reserveStart", reserveStart);
-    formData.append("reserveEnd", reserveEnd);
-    formData.append("reserveLeadTime", reserveLeadTime);
-    formData.append("reserveInterval", reserveInterval);
-    formData.append("autoCloseEnable", autoCloseEnable);
-    formData.append("autoCloseTime", autoCloseTime);
-    formData.append("announcement", encodeURIComponent(announcement));
-    formData.append("storeName", encodeURIComponent(storeName));
-    formData.append("receiptFooter", encodeURIComponent(receiptFooter));
-    formData.append("pwdStartup", pwdStartup);
-    formData.append("pwdDelivery", pwdDelivery);
-    formData.append("pwdManager", encodeURIComponent(pwdManager));
-    formData.append("pwdSettings", pwdSettings);
-
-    formData.append("invoiceEnv", invoiceEnv);
-    formData.append("invoiceProvider", invoiceProvider);
-    formData.append("invoiceTestMerchantId", invoiceTestMerchantId);
-    formData.append("invoiceTestHashKey", invoiceTestHashKey);
-    formData.append("invoiceTestHashIv", invoiceTestHashIv);
-    formData.append("invoiceProdMerchantId", invoiceProdMerchantId);
-    formData.append("invoiceProdHashKey", invoiceProdHashKey);
-    formData.append("invoiceProdHashIv", invoiceProdHashIv);
-
-    formData.append("linePayId", linePayId);
-    formData.append("linePaySecret", linePaySecret);
-    formData.append("linePayEnv", linePayEnv);
-    formData.append("linePayProdId", linePayProdId);
-    formData.append("linePayProdSecret", linePayProdSecret);
-    formData.append("lineBotToken", lineBotToken);
-    formData.append("lineBotUser", lineBotUser);
-    formData.append("frontendUrl", encodeURIComponent(frontendUrl));
-    
-    formData.append("logoUrl", encodeURIComponent(logoUrl));
-    formData.append("minOnsite", minOnsite);
-    formData.append("minDelivery", minDelivery);
-    formData.append("enableLinePayPayment", enableLinePayPayment);
-    formData.append("enableCashPayment", enableCashPayment);
-    formData.append("promoCode", encodeURIComponent(promoCode));
-    formData.append("promoDiscount", promoDiscount);
-    
-    const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
-    
-    if (res.success) {
-      alert(res.msg); 
-      sysConfig.STORE_NAME = storeName; sysConfig.RECEIPT_FOOTER = receiptFooter; sysConfig.ANNOUNCEMENT = announcement;
-      sysConfig.DELIVERY_FEE = Number(fee); sysConfig.FREE_SHIPPING_LIMIT = Number(limit);
-      sysConfig.ENABLE_ONSITE = enableOnsite; sysConfig.ENABLE_DELIVERY = enableDelivery;
-      sysConfig.RESERVE_START = reserveStart; sysConfig.RESERVE_END = reserveEnd; sysConfig.RESERVE_LEAD_TIME = Number(reserveLeadTime);
-      sysConfig.RESERVE_INTERVAL = Number(reserveInterval); sysConfig.PWD_STARTUP = pwdStartup; sysConfig.PWD_DELIVERY = pwdDelivery;
-      sysConfig.PWD_MANAGER = pwdManager; sysConfig.PWD_SETTINGS = pwdSettings; sysConfig.AUTO_CLOSE_ENABLE = autoCloseEnable; sysConfig.AUTO_CLOSE_TIME = autoCloseTime;
-      
-      sysConfig.INVOICE_ENV = invoiceEnv; sysConfig.INVOICE_PROVIDER = invoiceProvider; 
-      sysConfig.INVOICE_TEST_MERCHANT_ID = invoiceTestMerchantId;
-      sysConfig.INVOICE_TEST_HASH_KEY = invoiceTestHashKey;
-      sysConfig.INVOICE_TEST_HASH_IV = invoiceTestHashIv;
-      sysConfig.INVOICE_PROD_MERCHANT_ID = invoiceProdMerchantId;
-      sysConfig.INVOICE_PROD_HASH_KEY = invoiceProdHashKey;
-      sysConfig.INVOICE_PROD_HASH_IV = invoiceProdHashIv;
-
-      sysConfig.LINEPAY_CHANNEL_ID = linePayId; sysConfig.LINEPAY_SECRET = linePaySecret; sysConfig.LINEBOT_TOKEN = lineBotToken;
-      sysConfig.LINEBOT_USER = lineBotUser; sysConfig.FRONTEND_SUCCESS_URL = frontendUrl;
-      sysConfig.LOGO_URL = logoUrl; sysConfig.MIN_ORDER_ONSITE = Number(minOnsite); sysConfig.MIN_ORDER_DELIVERY = Number(minDelivery);
-      sysConfig.ENABLE_LINEPAY_PAYMENT = enableLinePayPayment; sysConfig.ENABLE_CASH_PAYMENT = enableCashPayment;
-      sysConfig.PROMO_CODE = promoCode; sysConfig.PROMO_DISCOUNT = Number(promoDiscount);
-      sysConfig.LINEPAY_ENV = linePayEnv; sysConfig.LINEPAY_PROD_ID = linePayProdId; sysConfig.LINEPAY_PROD_SECRET = linePayProdSecret;
-
-      closeSettingsPanel(); 
-    } else { alert(res.msg); }
-  } catch (e) { alert("錯誤：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存所有設定與密碼"; }
-}
-
-async function executeSearch() {
-  closeSidebarOnMobile();
-  const key = document.getElementById("searchInput").value; const res = await fetch(`${GAS_API}?action=searchOrders&keyword=${encodeURIComponent(key)}`); const data = await res.json();
-  document.getElementById("searchResults").innerHTML = data.map(o => `<div style="background:#f9f9f9;padding:10px;margin-bottom:5px;border-radius:8px; border:1px solid #ccc;">🕒 ${o.createdAt}<br><b style="font-size:18px;">${o.seq}</b><br>${o.content} ($${o.total})</div>`).join("");
-}
-
-async function openDeliveryPanel() {
-  closeSidebarOnMobile();
-  const currentDeliveryPwd = String(sysConfig.PWD_DELIVERY || "0926");
-  const pwd = prompt("請輸入宅配管理專屬密碼:");
-  if (String(pwd) === currentDeliveryPwd) { document.getElementById("deliveryModal").classList.add("show"); refreshDeliveryOrders(); } else { if(pwd) alert("❌ 密碼錯誤"); }
-}
-function closeDeliveryPanel() { document.getElementById("deliveryModal").classList.remove("show"); }
-
-async function refreshDeliveryOrders() {
-  const div = document.getElementById("deliveryOrderList"); div.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>載入中...</div>";
-  const data = await (await fetch(GAS_API + "?action=getOrders")).json(); const list = data.filter(o => (String(o.pickup).includes("宅配") || String(o.pickup).includes("delivery")) && o.status !== "已出貨" && !processingRows.has(o.row));
-  if (list.length === 0) { div.innerHTML = "<div style='text-align:center; padding:40px; color:#999; font-size:18px;'>目前沒有待出貨的宅配訂單 🎉</div>"; return; }
-  div.innerHTML = list.map(o => {
-    const enc = encodeURIComponent(JSON.stringify(o));
-    return `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:start;"><div style="flex:1; padding-right:15px;"><b style="font-size:20px; color:#D35400;">${o.seq}</b> | 👤 ${o.customerName} <b style="color:#2980b9;">📞 ${o.customerPhone || '無電話'}</b><br><b style="font-size:16px; display:inline-block; margin-top:8px;">${o.content}</b><br><div style="background:#f0f7ff; padding:8px; border-radius:8px; border:1px solid #cce3ff; margin-top:8px;">📍 ${o.deliveryAddress || '未填寫地址'}</div></div><div style="display:flex; flex-direction:column; gap:8px; flex:none; width:100px;"><button class="sbtn" style="background:#3498db; color:#fff;" onclick="manualPrint('${enc}')">🖨️ 列印</button><button class="sbtn" style="background:#f39c12; color:#fff;" onclick="triggerManagerAction(${o.row}, 'edit', '${enc}')">修改</button><button class="sbtn" style="background:#555; color:#fff;" onclick="triggerManagerAction(${o.row}, 'void')">作廢</button><button class="sbtn done" style="background:#2ecc71; color:#fff;" onclick="shipOrder('${o.row}','${o.seq}')">填單出貨</button></div></div>`;
-  }).join("");
-}
-async function shipOrder(row, seq) { const track = prompt("單號:"); if(!track) return; processingRows.add(row); refreshDeliveryOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=已出貨&tracking=${encodeURIComponent(track)}`); refreshDeliveryOrders(); }
-
-async function fetchCurrentShift() {
-  const data = await (await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now())).json(); const summary = await (await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now())).json();
-  const divS = document.getElementById("shiftStatus"); const divM = document.getElementById("shiftSummaryMini");
-  if(data.active) { divS.innerText = "✅ 班次：" + data.shiftName; divS.style.color = "#27AE60"; divM.innerHTML = `人員：${data.operator}<br>現金：$${summary.cashTotal || 0}<br>LINE Pay：$${summary.linepayTotal || 0}<br><b>總營業額：$${summary.grandTotal || 0}</b>`; } else { divS.innerText = "❌ 未開班"; divS.style.color = "#e74c3c"; divM.innerHTML = ""; }
-}
-async function handleStartShift() { const op = prompt("姓名:"); await fetch(`${GAS_API}?action=startShift&operator=${encodeURIComponent(op)}`); fetchCurrentShift(); }
-
-// 🧾 交班單路由：發射至負責「客人明細」的印表機
-async function handleCloseShift() { 
-  if(!confirm("確定要進行交班結算嗎？\n(若有連線出單機，將會自動列印交班單據)")) return; 
-  try {
-    const infoRes = await fetch(GAS_API + "?action=getCurrentShift&t=" + Date.now()); const info = await infoRes.json();
-    const sumRes = await fetch(GAS_API + "?action=getShiftSummary&t=" + Date.now()); const summary = await sumRes.json();
-    
-    let printed = false;
-    
-    if (printerDevice && endpointOut && printerConf.usbTasks && printerConf.usbTasks.includes('receipt')) { 
-        setMsg("正在列印交班單據 (USB)..."); 
-        const receipt = buildShiftReceiptCanvas(info, summary, printerConf.usbPxW); 
-        let buf = createPrinterBuffer(receipt.canvas, printerConf.usbProtocol);
-        const CHUNK_SIZE = 8192; 
-        for (let i = 0; i < buf.length; i += CHUNK_SIZE) { await printerDevice.transferOut(endpointOut, buf.slice(i, i + CHUNK_SIZE)); }
-        printed = true;
-    } 
-    
-    if (printerConf.lanTasks && printerConf.lanTasks.includes('receipt')) {
-        setMsg("正在列印交班單據 (LAN)...");
-        const receipt = buildShiftReceiptCanvas(info, summary, printerConf.lanPxW); 
-        let buf = createPrinterBuffer(receipt.canvas, printerConf.lanProtocol);
-        await sendToRawBTAppIntent(buf.buffer);
-        printed = true;
-    }
-    
-    if(!printed) alert("⚠️ 系統無負責印明細的機器，本次交班僅記錄到雲端。");
-    
-    await fetch(`${GAS_API}?action=closeShift`); fetchCurrentShift(); setMsg("✅ 交班結算完成"); 
-    if(printed) alert("✅ 交班完成！單據已成功列印。");
-  } catch (e) { alert("交班處理失敗：" + e.message); }
-}
-
-function renderPosUI() {
-  const draw = (list, id) => {
-    document.getElementById(id).innerHTML = list.map(i => {
-      let p = Number(i.singlePrice) || Number(i.sp) || 0;
-      return `<div class="cash-item"><b>${i.n}</b><br><span style="color:red; font-weight:bold;">$${p}</span><br><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', -1, ${p})">-</button><span style="font-weight:bold; font-size:16px;">${singleSel[i.n]?.q || 0}</span><button class="sbtn" style="padding:8px;" onclick="editSingle('${i.n}', 1, ${p})">+</button></div></div>`;
-    }).join("");
-  };
-  draw(MAINS, "posSMainGrid"); draw(DRINKS, "posSDrinkGrid"); draw(SIDES, "posSSideGrid");
-}
-function editSingle(n, d, p) { if(!singleSel[n]) singleSel[n]={q:0,p:p}; singleSel[n].q+=d; if(singleSel[n].q<=0) delete singleSel[n]; updatePosBasket(); renderPosUI(); }
-function updatePosBasket() {
-  let total=0; let html=""; Object.keys(singleSel).forEach(k=>{ total+=singleSel[k].p*singleSel[k].q; html+=`<div>• ${k} x ${singleSel[k].q}</div>`; });
-  document.getElementById("posBasketList").innerHTML=html; document.getElementById("posTotal").innerText=total; document.getElementById("cashSubmitBtn").disabled=(total===0);
-}
-
-async function fetchMenuData() { const d = await (await fetch(GAS_API + "?action=getMenu")).json(); MAINS=d.mains; DRINKS=d.drinks; SIDES=d.sides; renderPosUI(); }
-function toggleCashPanel(isFromSidebar = false) { 
-  if (isFromSidebar) closeSidebarOnMobile();
-  const panel = document.getElementById("cashPanel");
-  panel.classList.toggle("show"); 
-  if (panel.classList.contains("show")) {
-      setTimeout(() => document.getElementById("posInvoiceCarrier").focus(), 100);
   }
-}
-function toggleSearchPanel(isFromSidebar = false) { 
-  if (isFromSidebar) closeSidebarOnMobile();
-  document.getElementById("searchPanel").classList.toggle("show"); 
-}
-async function setStatus(row, s) { processingRows.add(row); fetchOrders(); await fetch(`${GAS_API}?action=updateStatus&row=${row}&status=${encodeURIComponent(s)}`); fetchOrders(); }
-
-async function initSystem() {
-  const p = prompt("請輸入系統啟動密碼:"); if(!p) return; document.querySelector("#startOverlay button").innerText = "驗證連線中...";
-  try {
-     const res = await (await fetch(GAS_API + "?action=getConfig")).json(); Object.assign(sysConfig, res);
-     if (String(p) !== String(sysConfig.PWD_STARTUP || "0320")) { alert("❌ 啟動密碼錯誤！"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; return; }
-     document.getElementById("startOverlay").style.display="none"; await fetchMenuData(); fetchCurrentShift(); fetchOrders(); setInterval(fetchOrders, 4000); setInterval(fetchCurrentShift, 10000);
-  } catch(e) { alert("連線失敗，請檢查網路狀態"); document.querySelector("#startOverlay button").innerText = "🔊 點此啟用系統"; }
+});
+function autoQueryLastOrder() {
+  const lastOrder = JSON.parse(localStorage.getItem("ksk_last_order"));
+  if (lastOrder) { document.getElementById("queryInput").value = lastOrder.seq; openQueryModal(); queryOrder(); }
 }
 
-let rawMenuData = [];
-
-async function openMenuPanel() {
-  closeSidebarOnMobile();
-  const currentSettingsPwd = String(sysConfig.PWD_SETTINGS || "1988");
-  const rawManagerPwds = String(sysConfig.PWD_MANAGER || "1111,2222").replace(/，/g, ",");
-  const managerPwds = rawManagerPwds.split(",").map(s => s.trim());
-
-  const pwd = prompt("請輸入權限密碼 (老闆 或 店員):");
-  if (!pwd) return; 
-
-  let role = "";
-  if (String(pwd) === currentSettingsPwd) {
-     role = "boss";
-  } else if (managerPwds.includes(String(pwd))) {
-     role = "employee";
-  } else {
-     alert("❌ 密碼錯誤，權限不足"); return;
-  }
-
-  document.getElementById("menuModal").dataset.pwd = pwd;
-  document.getElementById("menuModal").dataset.role = role;
-
-  document.getElementById("menuComboSettingsArea").style.display = (role === 'boss') ? 'flex' : 'none';
-  document.getElementById("addMenuRowBtn").style.display = (role === 'boss') ? 'inline-block' : 'none';
-  document.getElementById("menuModalTitleRole").innerText = (role === 'boss') ? "(老闆模式：完整權限)" : "(店員模式：僅開放狀態切換)";
-
-  document.getElementById("menuEnableCombo").checked = (sysConfig.ENABLE_COMBO === 'Y');
-  document.getElementById("menuEnableSingle").checked = (sysConfig.ENABLE_SINGLE !== 'N');
-  
-  document.getElementById("menuModal").classList.add("show");
-  document.getElementById("menuTbody").innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; font-weight:bold;'>從系統載入菜單中...</td></tr>";
-  
-  try {
-    const res = await fetch(GAS_API + "?action=getMenuRaw&t=" + Date.now()); 
-    rawMenuData = await res.json(); 
-    renderMenuTable(); 
-  } catch (e) { alert("讀取菜單失敗！錯誤原因：" + e.message); }
-}
-
-function closeMenuPanel() { document.getElementById("menuModal").classList.remove("show"); }
-
-function renderMenuTable() {
-  const role = document.getElementById("menuModal").dataset.role || 'employee';
-  const isEmp = (role === 'employee');
-  const disStr = isEmp ? 'disabled' : '';
-  const readStr = isEmp ? 'readonly style="background:#f0f0f0; pointer-events:none;"' : '';
-
-  const tbody = document.getElementById("menuTbody");
-  if (rawMenuData.length === 0) { tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:30px; color:#e74c3c;'>目前沒有任何菜單資料，請點擊上方新增按鈕</td></tr>"; return; }
-  
-  tbody.innerHTML = rawMenuData.map((row, idx) => `
-    <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fcfcfc'};">
-      <td style="padding:10px;"><select class="m-cat" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; ${isEmp?'background:#f0f0f0;':''}" ${disStr}>
-        <option value="主餐" ${row[0]==='主餐'?'selected':''}>🍚主餐</option><option value="飲料" ${row[0]==='飲料'?'selected':''}>🍲飲料/燉湯</option>
-        <option value="副餐" ${row[0]==='副餐'?'selected':''}>🥗副餐</option><option value="加料" ${row[0]==='加料'?'selected':''}>➕加料</option>
-      </select></td>
-      <td style="padding:10px;"><input type="text" class="m-name" value="${row[2]||''}" style="width:140px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
-      <td style="padding:10px;"><input type="number" class="m-sprice" value="${row[4]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
-      <td style="padding:10px;"><input type="number" class="m-cprice" value="${row[3]||0}" style="width:70px; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:16px;" ${readStr}></td>
-      <td style="padding:10px;"><select class="m-del" style="padding:8px; border-radius:5px; border:1px solid #ccc; font-size:14px; ${isEmp?'background:#f0f0f0;':''}" ${disStr}>
-        <option value="Y" ${row[6]==='Y'?'selected':''}>Y</option><option value="N" ${row[6]==='N'?'selected':''}>N</option>
-      </select></td>
-      <td style="padding:10px;"><select class="m-status" style="padding:8px; border-radius:5px; border:2px solid ${row[7]==='N'?'#e74c3c':'#27ae60'}; font-size:14px; font-weight:bold; color:${row[7]==='N'?'#e74c3c':'#27ae60'}; background:#fff;" onchange="this.style.borderColor = this.value==='N'?'#e74c3c':'#27ae60'; this.style.color = this.value==='N'?'#e74c3c':'#27ae60';">
-        <option value="Y" ${row[7]!=='N'?'selected':''}>🟢 正常</option><option value="N" ${row[7]==='N'?'selected':''}>❌ 售完</option>
-      </select></td>
-      <td style="padding:10px;">
-        ${isEmp ? `<span style="color:#999; font-size:13px; font-weight:bold;">無權限</span>` : `<button onclick="deleteMenuRow(${idx})" style="background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">刪除</button>`}
-      </td>
-    </tr>
+function renderComboUI() {
+  document.getElementById("mainGrid").innerHTML = COMBO_DRINKS.map(m => `
+    <div class="menu-card" onclick="${m.status === 'N' ? '' : `selectMain('${m.code}')`}" style="${m.status === 'N' ? 'opacity:0.5; cursor:not-allowed;' : ''}">
+      ${m.img ? `<img src="${m.img}" class="menu-img">` : ''}
+      <b>${m.code}. ${m.n}</b> ${m.status === 'N' ? '<span class="sold-out-badge">售完</span>' : ''}<br>
+      <small>套餐起跳價 $${m.comboPrice}</small>
+    </div>
   `).join("");
+  
+  const makeCheckbox = (item, type, priceKey) => {
+    const p = Number(item[priceKey]) || 0;
+    const priceStr = p > 0 ? `(+ $${p})` : (type === 'addon' ? '' : '(內含)');
+    const isSoldOut = item.status === 'N';
+    return `<label style="background:#fcfcfc; padding:12px; border-radius:10px; border:1px solid #ccc; display:flex; align-items:center; ${isSoldOut ? 'opacity:0.4; cursor:not-allowed;' : 'cursor:pointer;'} gap:8px;">
+              <input type="checkbox" class="chk-${type}" data-name="${item.n}" data-price="${p}" onchange="syncComboSelection()" style="width:22px; height:22px; margin:0; flex-shrink:0;" ${isSoldOut ? 'disabled' : ''}>
+              <span style="font-size:15px; font-weight:bold; line-height:1.3;">
+                ${item.n} ${isSoldOut ? '<span class="sold-out-badge" style="font-size:10px;">售完</span>' : ''} <br>
+                <span style="color:#e74c3c; font-size:13px;">${priceStr}</span>
+              </span>
+            </label>`;
+  };
+
+  document.getElementById("comboAddonContainer").innerHTML = COMBO_ADDONS.map(a => makeCheckbox(a, 'addon', 'singlePrice')).join("");
+  document.getElementById("comboMainContainer").innerHTML = COMBO_MAINS.map(d => makeCheckbox(d, 'main', 'comboPrice')).join("");
+  document.getElementById("comboSideContainer").innerHTML = COMBO_SIDES.map(s => makeCheckbox(s, 'side', 'comboPrice')).join("");
 }
 
-function addMenuRow() { rawMenuData.push(["主餐", "", "", 0, 0, "", "Y", "Y"]); renderMenuTable(); const modalBody = document.querySelector("#menuModal .modal-body"); modalBody.scrollTop = modalBody.scrollHeight; }
-function deleteMenuRow(idx) { if(confirm("確定要刪除這道餐點嗎？")) { rawMenuData.splice(idx, 1); renderMenuTable(); } }
-
-async function saveMenuData() {
-  const pwd = document.getElementById("menuModal").dataset.pwd;
-  const role = document.getElementById("menuModal").dataset.role;
-
-  const btn = document.getElementById("saveMenuBtn"); btn.disabled = true; btn.innerText = "儲存中...";
-  const tbody = document.getElementById("menuTbody"); const rows = tbody.querySelectorAll("tr"); const newData = [];
+function selectMain(c) {
+  curCombo.main = COMBO_DRINKS.find(x => x.code === c);
+  document.getElementById("comboStep1").style.display = "none"; 
   
-  rows.forEach(tr => {
-     const cat = tr.querySelector(".m-cat")?.value; if(!cat) return; 
-     const name = tr.querySelector(".m-name").value.trim(); const sprice = Number(tr.querySelector(".m-sprice").value);
-     const cprice = Number(tr.querySelector(".m-cprice").value); const del = tr.querySelector(".m-del").value;
-     const status = tr.querySelector(".m-status").value; const code = "M" + Math.floor(Math.random() * 10000); 
-     if(name !== "") newData.push([cat, code, name, cprice, sprice, "", del, status]);
-  });
+  const optionsWrap = document.getElementById("comboOptionsWrap");
+  optionsWrap.style.display = "block";
+  optionsWrap.classList.remove("step-lock"); 
   
-  const enableCombo = (role === 'boss') ? (document.getElementById("menuEnableCombo").checked ? 'Y' : 'N') : sysConfig.ENABLE_COMBO; 
-  const enableSingle = (role === 'boss') ? (document.getElementById("menuEnableSingle").checked ? 'Y' : 'N') : sysConfig.ENABLE_SINGLE;
+  document.getElementById("selectedMainDisplay").innerText = curCombo.main.n;
+  window.scrollTo({top: 0, behavior: 'smooth'}); 
   
-  const formData = new URLSearchParams(); formData.append("action", "saveMenu"); formData.append("pwd", pwd); formData.append("menuData", JSON.stringify(newData)); formData.append("enableCombo", enableCombo); formData.append("enableSingle", enableSingle);
-  try {
-    const res = await (await fetch(GAS_API, { method: "POST", body: formData })).json();
-    if(res.success) { alert(res.msg); sysConfig.ENABLE_COMBO = enableCombo; sysConfig.ENABLE_SINGLE = enableSingle; closeMenuPanel(); fetchMenuData(); } else { alert(res.msg); }
-  } catch (e) { alert("儲存失敗：" + e.message); } finally { btn.disabled = false; btn.innerText = "💾 儲存最新菜單狀態"; }
+  document.querySelectorAll('#comboOptionsWrap input[type="checkbox"]').forEach(cb => cb.checked = false);
+  syncComboSelection();
 }
 
-document.getElementById('posInvoiceCarrier').addEventListener('input', function(e) {
-  let val = e.target.value.toUpperCase();
-  e.target.value = val;
-});
+function syncComboSelection() {
+  if (!curCombo.main) return;
+  
+  let addonTotal = 0, mainTotal = 0, sideTotal = 0;
+  let selAddons = [], selMains = [], selSides = [];
 
-document.getElementById('posBarcode').addEventListener('input', function(e) {
-  const zhuyinMap = { 'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5', 'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0' };
-  let val = e.target.value;
-  val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
-  val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-  val = val.replace(/[^0-9]/g, '');
-  e.target.value = val;
-});
+  document.querySelectorAll('.chk-addon:checked').forEach(cb => { addonTotal += Number(cb.dataset.price); selAddons.push(cb.dataset.name); });
+  document.querySelectorAll('.chk-main:checked').forEach(cb => { mainTotal += Number(cb.dataset.price); selMains.push(cb.dataset.name); });
+  document.querySelectorAll('.chk-side:checked').forEach(cb => { sideTotal += Number(cb.dataset.price); selSides.push(cb.dataset.name); });
 
-document.getElementById('posTaxId').addEventListener('input', function(e) {
-  const zhuyinMap = { 'ㄅ':'1', 'ㄉ':'2', 'ˇ':'3', 'ˋ':'4', 'ㄓ':'5', 'ˊ':'6', '˙':'7', 'ㄚ':'8', 'ㄞ':'9', 'ㄢ':'0' };
-  let val = e.target.value;
-  val = val.replace(/[ㄅㄉˇˋㄓˊ˙ㄚㄞㄢ]/g, match => zhuyinMap[match]);
-  val = val.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-  val = val.replace(/[^0-9]/g, '');
-  e.target.value = val;
-});
+  curCombo.addonsList = selAddons;
+  curCombo.mainsList = selMains;
+  curCombo.sidesList = selSides;
+  curCombo.extraPrice = addonTotal + mainTotal + sideTotal;
 
-document.getElementById('posInvoiceCarrier').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    document.getElementById("posTaxId").focus();
+  const total = Number(curCombo.main.comboPrice) + curCombo.extraPrice;
+  document.getElementById("currentComboPrice").innerText = total; 
+  document.getElementById("currentComboPriceDisplay").innerText = total;
+}
+
+function resetCombo() {
+  curCombo = { main: null, mainsList: [], sidesList: [], addonsList: [], extraPrice: 0 };
+  document.getElementById("comboStep1").style.display = "block"; 
+  document.getElementById("comboOptionsWrap").style.display = "none";
+  document.getElementById("currentComboPriceDisplay").innerText = "0"; 
+  renderComboUI();
+}
+
+function addToBasket() {
+  if (orderMode === "combo") {
+    if(!curCombo.main) return alert("請先選擇招牌燉湯！");
+    const total = Number(curCombo.main.comboPrice) + (curCombo.extraPrice || 0);
+    
+    let details = [];
+    if(curCombo.mainsList && curCombo.mainsList.length > 0) details.push("主食:" + curCombo.mainsList.join("、"));
+    if(curCombo.sidesList && curCombo.sidesList.length > 0) details.push("小菜:" + curCombo.sidesList.join("、"));
+    if(curCombo.addonsList && curCombo.addonsList.length > 0) details.push("加料:" + curCombo.addonsList.join("、"));
+    
+    const detailStr = details.join(" | ");
+    const cartDesc = `套餐:${curCombo.main.n}` + (detailStr ? ` (${detailStr})` : '');
+    
+    basket.push({ desc: cartDesc, price: total, unitPrice: total, qty: 1 });
+    resetCombo();
+  } else {
+    const keys = Object.keys(singleSelection);
+    if(keys.length===0) return alert("請先選擇品項！");
+    keys.forEach(k => { basket.push({ desc: `單點:${k}`, price: singleSelection[k].p * singleSelection[k].q, unitPrice: singleSelection[k].p, qty: singleSelection[k].q }); });
+    singleSelection = {}; renderSingleUI(); document.getElementById("currentComboPriceDisplay").innerText = "0";
   }
-});
+ showToast("已加入購物車"); updateBasketUI();
+}
+</script> <div id="tutorialModal" class="modal">
+  <div class="modal-card" style="border: 2px solid #111;">
+    <div class="step-head" style="border-bottom: 2px dashed #eee; padding-bottom: 10px; margin-bottom: 15px;">
+      <div class="brand-title" style="font-size:22px;">📖 快速點餐教學</div>
+      <button class="btn" style="padding:5px 10px; width:auto; background:#f1f1f1;" onclick="closeTutorial()">✕</button>
+    </div>
+    
+    <div style="line-height:1.6; color:#444; font-size: 15px;">
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第一步：選擇服務</h4>
+      <p style="margin:0;">進入頁面後，請先選擇「門市現場/預約自取」或「低溫宅配到府」。</p>
 
-document.getElementById('posTaxId').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const method = document.getElementById("posPayMethod").value;
-    if (method === "LINEPAY掃碼槍") {
-      document.getElementById("posBarcode").style.display = "block";
-      document.getElementById("posBarcode").focus(); 
-    } else {
-      submitCashOrder(); 
-    }
-  }
-});
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第二步：挑選餐點</h4>
+      <p style="margin:0;">您可以使用上方的按鈕切換點餐模式：<br>
+      • <b>超值套餐</b>：先選招牌燉湯，系統會引導您自由加購配菜與主食。<br>
+      • <b>輕鬆單點</b>：直接利用「+」「-」按鈕，快速增減您想要的品項。</p>
 
-document.getElementById('posBarcode').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    submitCashOrder();
-  }
-});
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第三步：加入購物車</h4>
+      <p style="margin:0;">選好餐點後，請務必點擊畫面下方的<b>「＋加入購物車」</b>。您可以反覆此動作，加點多道不同的餐點。</p>
+
+      <h4 style="color:#d35400; margin:15px 0 5px; font-size:18px;">第四步：確認結帳</h4>
+      <p style="margin:0;">當您都點完後，點擊畫面最下方的<b>「確認結帳 ➔」</b>，填寫您的姓名、電話、取餐時間與付款方式，最後送出訂單即可！</p>
+
+      <div style="background:#f0f8ff; padding:12px; border-radius:10px; border:1px solid #cce3ff; margin-top:20px;">
+        <h4 style="color:#2563eb; margin:0 0 5px;">🔍 如何查詢進度？</h4>
+        <p style="margin:0;">點餐完成後，您可以隨時點擊畫面上方的「查詢訂單」，輸入您的<b>取餐號</b>查看店家目前的製作進度喔！</p>
+      </div>
+    </div>
+    
+    <button class="btn btn-primary btn-block" style="margin-top: 20px; font-size:18px; padding: 15px;" onclick="closeTutorial()">我瞭解了，開始點餐！</button>
+  </div>
+</div>
+
+<script>
+  function openTutorial() { document.getElementById('tutorialModal').classList.add('show'); }
+  function closeTutorial() { document.getElementById('tutorialModal').classList.remove('show'); }
 </script>
+
 </body>
 </html>
